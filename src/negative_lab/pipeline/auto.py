@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..calibration.base import base_roi_sanity_check, estimate_dmax_offset, robust_dmin
+from ..calibration.border import detect_regions
 from ..calibration.neutral import (estimate_exponent_ratios, estimate_wb_high,
                                    estimate_wb_low)
 from .density import channel_exponents, invert, transmittance_to_z
@@ -73,10 +74,21 @@ def auto_analyze(t_rgb: np.ndarray,
     rep = AutoReport(params=prior or InvertParams())
     rep.stages.append("1 解码/线性化（调用方完成）")
 
-    # 2 片基取样（边框自动检测属 Phase 2 GUI；此处用 ROI 或外框启发式）
+    # 2 片基取样：用户 ROI 优先；否则自动帧/片基检测（真实翻拍外圈是黑边，
+    # 直接取画面外框会命中黑边——见 docs/algorithm-notes.md），再兜底外框启发式
+    det = None
     if base_roi is None:
-        base_roi = default_base_strip(t)
-        rep.stages.append("2 片基 ROI：外框启发式（可手动覆盖）")
+        det = detect_regions(t)
+        rep.warnings.extend(det["warnings"])
+        if det["base"] is not None:
+            y0, x0, y1, x1 = det["base"]
+            base_roi = t[y0:y1, x0:x1, :]
+            rep.stages.append(
+                f"2 片基 ROI：自动检测（{det['edge']} 边，对比 {det['confidence']}）")
+        else:
+            base_roi = default_base_strip(t)
+            rep.stages.append("2 片基 ROI：自动检测失败，退回外框启发式（低置信度）")
+            rep.warnings.append("片基自动检测失败，结果置信度低，请手动指定片基框")
     else:
         rep.stages.append("2 片基 ROI：用户提供")
 
@@ -87,7 +99,11 @@ def auto_analyze(t_rgb: np.ndarray,
     rep.confidence["dmin"] = base["confidence"]
     rep.params.dmin = tuple(float(v) for v in base["dmin"])
 
-    # 4 Dmax / offset / 输入剪裁风险
+    # 4 Dmax / offset / 输入剪裁风险（帧检测成功时只用帧内区域，
+    # 排除画框黑边——黑边透射率≈0 会虚假抬高 Dmax）
+    if film_roi is None and det is not None and det.get("frame") is not None:
+        fy0, fx0, fy1, fx1 = det["frame"]
+        film_roi = t[fy0:fy1, fx0:fx1, :]
     film = film_roi if film_roi is not None else t
     dm = estimate_dmax_offset(film, np.asarray(rep.params.dmin, dtype=np.float32),
                               black=rep.params.black)

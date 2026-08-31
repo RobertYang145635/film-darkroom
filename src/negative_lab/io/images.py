@@ -109,19 +109,23 @@ def _load_raw(p: Path) -> LoadResult:
     import rawpy
 
     with rawpy.imread(str(p)) as r:
-        # 线性输出：gamma=1、禁用自动亮度；去马赛克/白平衡策略在 Phase 2 细化
-        rgbf = r.postprocess(gamma=(1.0, 1.0, 1.0, 1.0), no_benchmark=True,
-                             use_camera_wb=True, no_auto_bright=True,
-                             output_type=rawpy.output_type.float)
-        rgbf = np.clip(rgbf.astype(np.float32), 0.0, None)
+        # 线性输出：gamma=1、禁用自动亮度/相机白平衡（白平衡是显示端增益，
+        # 会污染通道密度测量，§4.1.2）；16 位输出后归一化
+        params = rawpy.Params(use_camera_wb=False, no_auto_bright=True,
+                              half_size=False, output_bps=16)
+        params.gamm = [1.0, 1.0, 1.0, 1.0]
+        rgbf = r.postprocess(params).astype(np.float32) / 65535.0
+        rgbf = np.clip(rgbf, 0.0, None)
         mx = float(np.nanmax(rgbf)) if rgbf.size else 1.0
         if mx > 1.0:
             rgbf = rgbf / mx
+        lens = r.lens
         bits = 16
     return LoadResult(rgbf.astype(np.float32),
                       {"path": str(p), "bits": bits, "shape": rgbf.shape,
-                       "camera": "rawpy/LibRaw runtime"},
-                      ["RAW 已解码为线性 RGB；白平衡/色彩矩阵按相机内嵌值处理"])
+                       "camera": f"{lens.make} {lens.model}".strip() or "rawpy/LibRaw runtime"},
+                      ["RAW 已解码为线性 RGB（未应用相机白平衡）；"
+                       "如需设备配置请在输入侧声明（§4.1.3）"])
 
 
 # ---------------------------------------------------------------- 导出

@@ -57,11 +57,14 @@ def make_synthetic_negative(h: int = 256, w: int = 512,
                             f_gamma: float = 0.7,
                             noise: float = 0.0015,
                             dust: int = 60,
-                            seed: int = 7) -> dict:
+                            seed: int = 7,
+                            black_border: int = 0) -> dict:
     """生成一张带片基边缘、尘点与噪声的合成负片扫描。
 
     画面右侧附加宽度 base_width 的未曝光片基条带（L=0 -> t=dmin 精确值），
     用于测试 robust Dmin 与污染剔除。
+    black_border>0 时在四周加画框黑边（模拟真实翻拍：外圈黑边 -> 片基 -> 内容），
+    用于测试边框/片基自动检测。
     """
     rng = np.random.default_rng(seed)
     base_width = max(16, w // 8)
@@ -94,13 +97,24 @@ def make_synthetic_negative(h: int = 256, w: int = 512,
 
     neg = np.clip(neg, 0.0, 1.0).astype(np.float32)
 
+    if black_border > 0:
+        bb = int(black_border)
+        h2, w2 = neg.shape[0] + 2 * bb, neg.shape[1] + 2 * bb
+        padded = np.full((h2, w2, 3), 0.0004, np.float32)
+        padded[bb:bb + neg.shape[0], bb:bb + neg.shape[1]] = neg
+        neg = padded
+        # 平移 truth 坐标到加黑边后的坐标系
+        for key in ("neutral_bright", "neutral_dark"):
+            r, c = truth[key]
+            truth[key] = (r + bb, c + bb)
+
     truth.update({
         "dmin": tuple(float(v) for v in dmin_true),
         "dmax": float(dmax_true),
         "exponents": tuple(float(v) for v in exponents),
-        "base_roi": neg[:, img_w:, :],          # 未曝光片基条带
-        "film_roi": neg[:, :img_w, :],          # 画面区域
-        "base_cols": (img_w, w),
+        "base_roi": neg[:, img_w + bb:, :] if black_border > 0 else neg[:, img_w:, :],
+        "film_roi": neg[:, bb:img_w + bb, :] if black_border > 0 else neg[:, :img_w, :],
+        "base_cols": (img_w + bb, neg.shape[1] - bb) if black_border > 0 else (img_w, w),
         "shape": neg.shape,
     })
     return {"negative": neg, "truth": truth}
