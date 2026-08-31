@@ -105,6 +105,7 @@ def detect_base_strip(lum: np.ndarray, frame: tuple[int, int, int, int],
 
 def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
                       base_edge: str | None,
+                      base_band: tuple[int, int, int, int] | None = None,
                       max_dim: int = 800) -> tuple[int, int, int, int] | None:
     """帧内定位"画面区域"（排除齿孔/字样片边与片基条带）。
 
@@ -187,14 +188,30 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
             img_end = i
         return int(np.clip(img_end, 2, n - 2))
 
+    if base_band is not None:
+        # base_band 为绝对降采样坐标 -> 转帧内相对
+        base_band = (base_band[0] - fy0, base_band[1] - fx0,
+                     base_band[2] - fy0, base_band[3] - fx0)
+
+    # 结构约束：画面端点不得进入片基带；也不得越过带端 +6% 帧长
+    # （暗云合法地比 0.1*peak 更暗时，暗带扫描会切过头 -> 上限保护）。
+    slack = max(16, int(0.06 * max(H, W)))
     if base_edge == "bottom":
         y1 = _strip_end(rowmed, from_end=True)
+        if base_band:
+            y1 = int(np.clip(y1, base_band[0] - slack, base_band[0]))
     elif base_edge == "top":
         y0 = _strip_end(rowmed, from_end=False)
+        if base_band:
+            y0 = int(np.clip(y0, base_band[2], base_band[2] + slack))
     elif base_edge == "right":
         x1 = _strip_end(colmed, from_end=True)
+        if base_band:
+            x1 = int(np.clip(x1, base_band[1] - slack, base_band[1]))
     elif base_edge == "left":
         x0 = _strip_end(colmed, from_end=False)
+        if base_band:
+            x0 = int(np.clip(x0, base_band[3], base_band[3] + slack))
 
     # 垂直条带轴：从两端向内修剪"片基亮度"的列——齿孔边带是亮片基+暗印字，
     # 整体亮度接近片基本身（实测 colmed≈0.13 vs 片基 0.15 vs 画面 0.05），
@@ -283,7 +300,8 @@ def detect_regions(t_rgb: np.ndarray, max_dim: int = 800) -> dict:
     out["base"] = up(det["base"])
     out["edge"] = det.get("edge")
     out["image_area"] = detect_image_area(
-        t_rgb, det["frame"], det.get("edge"), max_dim=max_dim)
+        t_rgb, det["frame"], det.get("edge"), base_band=det.get("base"),
+        max_dim=max_dim)
     if out["image_area"] is None and det["base"] is not None:
         out["warnings"].append("画面区域检测失败：默认输出将保留片边（可手动裁切）")
     return out
