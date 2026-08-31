@@ -84,8 +84,8 @@ def estimate_dmax_offset(film_roi: np.ndarray, dmin: np.ndarray,
                          black: float = 0.0) -> dict:
     """从画面区域估计 Dmax 与扫描曝光偏置（§4.5.4）。
 
-    - Dmax：剔除已剪裁到零的像素（t<=1e-5，密度信息丢失，不得进入统计），
-      取每通道 z 的 2 分位（最密/最亮场景侧）的相反数的通道均值；
+    - Dmax：在亮度域 z_lum=mean_c(z_c) 上统计；剔除已剪裁到零的像素
+      （t<=1e-5，密度信息丢失，不得进入统计），取 z_lum 的 2 分位的相反数；
       限制在 [0.3, 4.0]，防止零/负值进入模型。
     - offset：令画面最暗 0.5% 像素（z 接近 0 的一侧）恰好落到纸黑：
       offset = log10(1+black) - z_p99.5 / Dmax，截断到 [-0.5, 1.0]。
@@ -95,19 +95,23 @@ def estimate_dmax_offset(film_roi: np.ndarray, dmin: np.ndarray,
     t = np.asarray(film_roi, dtype=np.float32)
     t, n_bad = _finite(t)
     z = transmittance_to_z(t, dmin)
+    # 亮度域统计：逐通道分位会被黑边带/片边缘标记等单通道超暗污染
+    # （真实样片实测逐通道 2.96 vs 亮度域 1.89）
+    z_lum = z.mean(axis=2)
     warnings: list[str] = []
 
     valid = (t > 1e-5).all(axis=-1)  # 剔除零剪裁像素，防止 Dmax 饱和
     if valid.mean() < 0.5:
         warnings.append("画面超过 50% 像素被剪裁到零，Dmax 估计不可靠")
-    z_valid = z[valid] if valid.any() else z.reshape(-1, 3)
-    z_dark = np.quantile(z_valid, 0.02, axis=0)   # 最密（最亮场景）
-    dmax = float(np.clip(-np.mean(z_dark), 0.3, 4.0))
+    zl = z_lum[valid] if valid.any() else z_lum.ravel()
+    dmax = float(np.clip(-float(np.quantile(zl, 0.02)), 0.3, 4.0))
     if n_bad:
         warnings.append(f"画面 ROI 含 {n_bad} 个 NaN/Inf，已替换为 0")
 
-    z_base = np.quantile(z.reshape(-1, 3), 0.995, axis=0)   # 接近片基（最暗场景）
-    offset = float(np.clip(np.log10(1.0 + max(black, 0.0)) - np.mean(z_base) / dmax,
+    # 接近片基（最暗场景）。钳制 <=0：齿孔/光源直射区比片基更亮（z>0），
+    # 若不钳制会把 offset 拉负、抬升黑位，导致正片发灰（真实样片实测教训）。
+    z_base = min(float(np.quantile(zl, 0.995)), 0.0)
+    offset = float(np.clip(np.log10(1.0 + max(black, 0.0)) - z_base / dmax,
                            -0.5, 1.0))
 
     clip_low = float((t <= 1e-4).mean())

@@ -188,3 +188,42 @@ def channel_clip_ratios(img: np.ndarray, tol: float = 1e-6) -> dict:
         "low": [float(v) for v in lo],
         "high": [float(v) for v in hi],
     }
+
+
+def invert_chunked(t_rgb: np.ndarray, p: InvertParams,
+                   max_chunk_pixels: int = 4_000_000) -> InvertResult:
+    """按行分块反相（规格 §9：大图避免一次复制多份完整数组）。
+
+    模型逐像素，分块与整帧结果逐比特一致（无空间操作）。
+    返回与 invert() 相同结构；preview_srgb 为整帧 [0,1]。
+    """
+    h = t_rgb.shape[0]
+    row_px = max(1, t_rgb.shape[1] * t_rgb.shape[2])
+    rows = max(1, max_chunk_pixels // row_px)
+    if h <= rows:
+        return invert(t_rgb, p)
+
+    positive = np.empty(t_rgb.shape, np.float32)
+    preview = np.empty(t_rgb.shape, np.float32)
+    warnings: list[str] = []
+    diag: dict | None = None
+    for y0 in range(0, h, rows):
+        res = invert(t_rgb[y0:y0 + rows], p)
+        positive[y0:y0 + rows] = res.positive_linear
+        preview[y0:y0 + rows] = res.preview_srgb
+        for w in res.warnings:
+            if w not in warnings:
+                warnings.append(w)
+        if diag is None:
+            diag = {k: v for k, v in res.diagnostics.items()}
+        else:
+            n = diag.get("input_nonfinite", 0) + res.diagnostics["input_nonfinite"]
+            diag["input_nonfinite"] = n
+            diag["output_nonfinite"] = (diag.get("output_nonfinite", 0)
+                                        + res.diagnostics["output_nonfinite"])
+    # 全图剪裁比例用抽样估计（分块后整帧统计会再复制数组）
+    sample = positive[:: max(1, h // 64)]
+    diag["input_clip"] = channel_clip_ratios(t_rgb[:: max(1, h // 64)])
+    diag["output_clip"] = channel_clip_ratios(sample)
+    return InvertResult(positive_linear=positive, preview_srgb=preview,
+                        diagnostics=diag or {}, warnings=warnings)

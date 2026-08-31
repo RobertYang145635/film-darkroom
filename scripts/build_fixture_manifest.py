@@ -15,9 +15,12 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE_DIR = ROOT / "20260709_SAMPLE-ID(1)"
+# 所有样片根目录（百度网盘下载，只读、不入库）
+SAMPLE_DIRS = [p for p in (ROOT / "20260709_SAMPLE-ID(1)", ROOT / "20260506_SAMPLE-ID")
+               if p.is_dir()]
 
 # 按卷的已知/推断元数据。inferred=true 的字段来自目录命名，需用户确认。
+# 5219/5207 是柯达电影卷号（Vision3 500T / 250D），常按 ECN-2 冲洗；仍需确认。
 ROLL_META = {
     "1298_G200": {
         "film_stock": "Kodak Gold 200", "film_stock_inferred": True,
@@ -34,6 +37,16 @@ ROLL_META = {
         "film_type": "unknown", "film_type_inferred": False,
         "process": "unknown",
     },
+    "1171_5219": {
+        "film_stock": "Kodak Vision3 500T (5219)", "film_stock_inferred": True,
+        "film_type": "ecn2_color", "film_type_inferred": True,
+        "process": "ECN-2",
+    },
+    "1172_5207": {
+        "film_stock": "Kodak Vision3 250D (5207)", "film_stock_inferred": True,
+        "film_type": "ecn2_color", "film_type_inferred": True,
+        "process": "ECN-2",
+    },
 }
 
 
@@ -48,37 +61,75 @@ def sha256_of(p: Path, chunk: int = 1 << 22) -> str:
     return h.hexdigest()
 
 
+def decode_status(path: Path) -> str:
+    """按 RAW 条带首字节判定解码状态（不触发完整解码）。
+
+    'CONTRACT' 标记 = Nikon Z8 高效 NEF（AV1 压缩），LibRaw 0.22.1 不支持。
+    """
+    try:
+        import tifffile
+
+        t = tifffile.TiffFile(path)
+        sp = t.pages[0].pages[1]
+        off = sp.tags[273].value[0]
+        with open(path, "rb") as f:
+            f.seek(off)
+            head = f.read(24)
+        return "av1_unsupported" if b"CONTRACT" in head else "ok"
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
+def camera_of(path: Path) -> str:
+    try:
+        import tifffile
+
+        pg = tifffile.TiffFile(path).pages[0]
+        make = pg.tags.get(271)
+        model = pg.tags.get(272)
+        f = lambda e: str(e.value).strip() if e else ""  # noqa: E731
+        return (f(make) + " " + f(model)).strip() or "unknown"
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
 def main() -> int:
     entries = []
-    for roll_dir in sorted(SAMPLE_DIR.iterdir()):
-        if not roll_dir.is_dir():
-            continue
-        meta = ROLL_META.get(roll_dir.name, {})
-        for f in sorted(roll_dir.rglob("*")):
-            if not f.is_file():
-                continue
-            if f.name.lower().endswith(".downloading"):
-                continue  # 残缺下载不入库清单
-            rel = f.relative_to(ROOT).as_posix()
-            print(f"hashing {rel} ...", flush=True)
-            entries.append({
-                "file": rel,
-                "roll": roll_dir.name,
-                "size_bytes": f.stat().st_size,
-                "sha256": sha256_of(f),
-                "film_type": meta.get("film_type", "unknown"),
-                "film_stock": meta.get("film_stock", "unknown"),
-                "process": meta.get("process", "unknown"),
-                "capture_type": "camera",
-                "device": "unknown",
-                "lens": "unknown",
-                "light_source": "unknown",
-                "input_profile": "unknown",
-                "contains_unexposed_border": "unknown",
-                "reference_file": None,
-                "reference_notes": None,
-                "exposure_notes": None,
-            })
+    for sample_dir in SAMPLE_DIRS:
+        for roll_dir in sorted(p for p in sample_dir.iterdir() if p.is_dir()):
+            meta = ROLL_META.get(roll_dir.name, {})
+            for f in sorted(roll_dir.rglob("*")):
+                if not f.is_file():
+                    continue
+                if f.name.lower().endswith(".downloading"):
+                    continue  # 残缺下载不入库清单
+                if "NLP" in f.parts:
+                    continue  # NLP 对照输出登记为 reference_file，不作为输入样片
+                rel = f.relative_to(ROOT).as_posix()
+                # 同目录 NLP/<stem>.jpg 作为对照参考（仅对照，非真值，§8.3）
+                ref = f.parent / "NLP" / (f.stem + ".jpg")
+                print(f"hashing {rel} ...", flush=True)
+                entries.append({
+                    "file": rel,
+                    "roll": roll_dir.name,
+                    "size_bytes": f.stat().st_size,
+                    "sha256": sha256_of(f),
+                    "film_type": meta.get("film_type", "unknown"),
+                    "film_stock": meta.get("film_stock", "unknown"),
+                    "process": meta.get("process", "unknown"),
+                    "capture_type": "camera",
+                    "device": camera_of(f),
+                    "lens": "unknown",
+                    "light_source": "unknown",
+                    "input_profile": "unknown",
+                    "decode_status": decode_status(f),
+                    "contains_unexposed_border": "unknown",
+                    "reference_file": (ref.relative_to(ROOT).as_posix()
+                                       if ref.is_file() else None),
+                    "reference_notes": ("Negative Lab Pro 导出，仅作对照基线，"
+                                        "不视为绝对真值（§8.4）" if ref.is_file() else None),
+                    "exposure_notes": None,
+                })
     doc = {
         "schema_version": 1,
         "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

@@ -76,10 +76,11 @@ def auto_analyze(t_rgb: np.ndarray,
 
     # 2 片基取样：用户 ROI 优先；否则自动帧/片基检测（真实翻拍外圈是黑边，
     # 直接取画面外框会命中黑边——见 docs/algorithm-notes.md），再兜底外框启发式
-    det = None
+    # 帧检测总是执行：即使用户给了片基 ROI，Dmax 统计也要限定在帧内，
+    # 否则画框黑边（占真实翻拍 ~4%）会污染暗部分位。
+    det = detect_regions(t)
+    rep.warnings.extend(det["warnings"])
     if base_roi is None:
-        det = detect_regions(t)
-        rep.warnings.extend(det["warnings"])
         if det["base"] is not None:
             y0, x0, y1, x1 = det["base"]
             base_roi = t[y0:y1, x0:x1, :]
@@ -101,7 +102,7 @@ def auto_analyze(t_rgb: np.ndarray,
 
     # 4 Dmax / offset / 输入剪裁风险（帧检测成功时只用帧内区域，
     # 排除画框黑边——黑边透射率≈0 会虚假抬高 Dmax）
-    if film_roi is None and det is not None and det.get("frame") is not None:
+    if film_roi is None and det.get("frame") is not None:
         fy0, fx0, fy1, fx1 = det["frame"]
         film_roi = t[fy0:fy1, fx0:fx1, :]
     film = film_roi if film_roi is not None else t
