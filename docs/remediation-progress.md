@@ -183,3 +183,21 @@
   样片，strip-1D 只能部分校正，符合诚实声明）
 - 下一门禁：v3-P0-D backend bake-off（power-reciprocal / density-affine /
   density-curves 三后端 + 留出集对照）
+
+## v3-P0-D（核心）：可插拔 backend 与密度仿射解混
+
+- 状态：PARTIAL（backend 架构+可识别性完成；真实留出集 bake-off 报告与
+  density-curves 后端下一轮）
+- 修改文件：新增 `pipeline/backends.py`（power_reciprocal / density_affine
+  统一接口 + get_backend 注册表 + fit_decrosstalk / fit_decrosstalk_supervised）；
+  `params.py` 增 density_matrix（单位阵默认）+ FORMULA_VERSION 提升（§1.6）
+- 关键发现（写进 ADR 级别的事实）：**纯中性样本在 z 空间只张成一维射线**
+  z(e) = -f(e)·(γC)——解混矩阵从中性点原理上不可辨识（v3 F-ALG-5 的
+  数学实锤）。fit_decrosstalk 秩检查 -> 诚实回退单位阵；监督拟合
+  （已知目标密度=色卡等价物）可精确恢复串扰逆（测试误差 <5%）。
+- 实际执行命令：pytest tests/synthetic/test_backends.py -q
+- 测试结果：7 passed（恒等等价/未知backend报错/样本不足回退/单密度回退/
+  中性单射线诚实回退/监督恢复矩阵+彩度回升15%+/监督秩不足回退）
+- 未验证项：真实留出集三后端对照表（需 1299 verified 标注，待用户核对
+  裁切框）；density-curves 后端
+- 下一门禁：P0-E 校准层级（RollCalibration 对象 + 采纳流程）

@@ -31,10 +31,17 @@ class InvertParams:
     # 高光软压缩（§4.3 末：单调高光映射）。strength=0 时恒等。
     highlight_knee: float = 0.9
     highlight_strength: float = 0.0
+    # 密度域解混矩阵（v3 P0-D density-affine backend，行主 3x3）。
+    # 单位阵 = 与逐通道对角模型等价（power-reciprocal）。
+    # 该字段加入即公式语义扩展：formula_version 提升（v3 §1.6）。
+    density_matrix: tuple = (1, 0, 0, 0, 1, 0, 0, 0, 1)
+
+    FORMULA_VERSION = "2026-09-density-affine"
 
     def to_parameters_dict(self) -> dict:
         """输出规格 §6 parameters 字段（含本实现新增的高光控制项，附加字段向后兼容）。"""
         return {
+            "formula_version": self.FORMULA_VERSION,
             "dmin": [float(v) for v in self.dmin],
             "dmax": float(self.dmax),
             "offset": float(self.offset),
@@ -48,6 +55,7 @@ class InvertParams:
             "exposure": float(self.exposure),
             "highlight_knee": float(self.highlight_knee),
             "highlight_strength": float(self.highlight_strength),
+            "density_matrix": [float(v) for v in self.density_matrix],
         }
 
     @classmethod
