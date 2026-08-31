@@ -43,6 +43,16 @@ def main() -> int:
     print(f"auto params: dmin={np.round(p.dmin, 4).tolist()} dmax={p.dmax:.2f} "
           f"offset={p.offset:.2f} conf={win.confidence}")
     assert np.isfinite(p.dmin).all() and p.dmax > 0
+    # 除尘路径：自动检测 + 画笔 + 开关回退
+    win.dust_auto_detect()
+    assert win.view.mask() is not None
+    win.view.ensure_mask(*win.t_prev.shape[:2])
+    win.view._paint_at(__import__("PySide6.QtCore", fromlist=["QPointF"]).QPointF(300, 300))
+    win.chk_dust.setChecked(True)
+    win._refresh()
+    win.chk_dust.setChecked(False)   # 关闭必须完全回退
+    win._refresh()
+    win.chk_dust.setChecked(True)    # 导出走带除尘路径
     out_dir = ROOT / "outputs" / "gui_smoke"
     out_dir.mkdir(parents=True, exist_ok=True)
     win.export_dir = out_dir  # 冒烟测试不污染样片目录

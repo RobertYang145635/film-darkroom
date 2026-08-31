@@ -59,13 +59,15 @@ class BatchJob:
                  prior: FilmProfile | None = None,
                  jpeg_quality: int = 95,
                  export_jpeg: bool = True,
-                 export_tiff: bool = True):
+                 export_tiff: bool = True,
+                 dust_auto: bool = False):
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
         self.prior = prior
         self.jpeg_quality = jpeg_quality
         self.export_jpeg = export_jpeg
         self.export_tiff = export_tiff
+        self.dust_auto = dust_auto   # §7：自动检测是保守候选，默认关闭
         self._cancel = threading.Event()
         self.started_utc = ""
 
@@ -111,6 +113,28 @@ class BatchJob:
         src = it.path
         loaded = load_linear_rgb(src)
         t = loaded.rgb
+        if self.dust_auto:
+            # §7：自动检测保守限定在片基/边缘均匀条带；画面内容区候选密度
+            # 过高（真实样片实测 21%），内容尘点走手动蒙版，不自动冒险。
+            from ..calibration.border import detect_regions
+            from ..restoration.dust import detect_dust, safe_inpaint
+            det_r = detect_regions(t)
+            region = None
+            if det_r.get("base") is not None:
+                by0, bx0, by1, bx1 = det_r["base"]
+                region = np.zeros(t.shape[:2], bool)
+                region[by0:by1, bx0:bx1] = True
+            det = detect_dust(t, region=region)
+            t, err = safe_inpaint(t, det["mask"])
+            if err:
+                loaded.warnings.append(err)   # 修复失败不阻断，只警告
+            elif det["mask"].any():
+                loaded.warnings.append(
+                    f"片基条带自动除尘：{det['n_spots']} 斑点像素/{det['n_scratches']} "
+                    f"划痕像素已修复（画面内容区请用手动画笔蒙版）")
+                loaded.warnings.extend(det["warnings"])
+            else:
+                loaded.warnings.extend(det["warnings"])
         prior_params = self.prior.to_initial_params() if self.prior else None
         rep = auto_analyze(t, prior=prior_params)
         if self.cancelled:

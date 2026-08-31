@@ -23,6 +23,7 @@ class PreviewView(QGraphicsView):
 
     roi_changed = Signal(object, object)  # RoiKind, QRectF
     point_picked = Signal(str, float, float)  # "bright"|"dark", x, y（图像坐标）
+    mask_painted = Signal()               # 画笔蒙版更新
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -37,6 +38,12 @@ class PreviewView(QGraphicsView):
         self._drag_off = QPointF()
         self._pick_mode: str | None = None  # "bright"/"dark" 点击取点
         self._points: dict[str, QPointF] = {}
+        # 除尘画笔蒙版（图像分辨率 bool 数组）
+        self._mask = None
+        self._mask_item = None
+        self._paint_mode = False
+        self._painting = False
+        self._brush_r = 6.0
 
     # ---- 图像
 
@@ -72,6 +79,51 @@ class PreviewView(QGraphicsView):
         self._pick_mode = mode
         self.viewport().setCursor(Qt.CrossCursor if mode else Qt.ArrowCursor)
 
+    # ---- 除尘画笔蒙版
+
+    def set_paint_mode(self, on: bool):
+        self._paint_mode = bool(on)
+        if on:
+            self._pick_mode = None
+        self.viewport().setCursor(Qt.CrossCursor if on else Qt.ArrowCursor)
+
+    def paint_mode(self) -> bool:
+        return self._paint_mode
+
+    def ensure_mask(self, h: int, w: int):
+        import numpy as np
+
+        if self._mask is None or self._mask.shape != (h, w):
+            self._mask = np.zeros((h, w), bool)
+
+    def mask(self):
+        return self._mask
+
+    def set_mask(self, mask):
+        self._mask = mask
+        self._redraw_overlays()
+
+    def clear_mask(self):
+        import numpy as np
+
+        if self._mask is not None:
+            self._mask = np.zeros_like(self._mask)
+        self._redraw_overlays()
+        self.mask_painted.emit()
+
+    def _paint_at(self, pos: QPointF):
+        import numpy as np
+
+        if self._mask is None:
+            return
+        h, w = self._mask.shape
+        cx, cy = int(round(pos.x())), int(round(pos.y()))
+        r = int(self._brush_r)
+        y0, y1 = max(0, cy - r), min(h, cy + r + 1)
+        x0, x1 = max(0, cx - r), min(w, cx + r + 1)
+        yy, xx = np.mgrid[y0:y1, x0:x1]
+        self._mask[y0:y1, x0:x1] |= (yy - cy) ** 2 + (xx - cx) ** 2 <= r * r
+
     def points(self) -> dict[str, tuple[float, float]]:
         return {k: (v.x(), v.y()) for k, v in self._points.items()}
 
@@ -86,6 +138,15 @@ class PreviewView(QGraphicsView):
         for item in list(self._scene.items()):
             if item is not self._pix_item:
                 self._scene.removeItem(item)
+        self._mask_item = None
+        if self._mask is not None and self._mask.any():
+            import numpy as np
+
+            h, w = self._mask.shape
+            rgba = np.zeros((h, w, 4), np.uint8)
+            rgba[self._mask] = (255, 60, 60, 110)
+            img = QImage(rgba.data, w, h, 4 * w, QImage.Format_RGBA8888).copy()
+            self._mask_item = self._scene.addPixmap(QPixmap.fromImage(img))
         pens = {RoiKind.FRAME: QPen(QColor(80, 160, 255), 0),
                 RoiKind.BASE: QPen(QColor(255, 200, 60), 0)}
         for kind, r in self._rois.items():
@@ -99,6 +160,12 @@ class PreviewView(QGraphicsView):
     def mousePressEvent(self, ev):
         if ev.button() == Qt.LeftButton:
             pos = self.mapToScene(ev.position().toPoint())
+            if self._paint_mode:
+                self._painting = True
+                self.setDragMode(QGraphicsView.NoDrag)
+                self._paint_at(pos)
+                self._redraw_overlays()
+                return
             if self._pick_mode:
                 self._points[self._pick_mode] = pos
                 self.point_picked.emit(self._pick_mode, pos.x(), pos.y())
@@ -114,6 +181,10 @@ class PreviewView(QGraphicsView):
         super().mousePressEvent(ev)
 
     def mouseMoveEvent(self, ev):
+        if self._painting:
+            self._paint_at(self.mapToScene(ev.position().toPoint()))
+            self._redraw_overlays()
+            return
         if self._dragging is not None:
             pos = self.mapToScene(ev.position().toPoint())
             r = self._rois[self._dragging]
@@ -126,6 +197,11 @@ class PreviewView(QGraphicsView):
         super().mouseMoveEvent(ev)
 
     def mouseReleaseEvent(self, ev):
+        if self._painting:
+            self._painting = False
+            self.setDragMode(QGraphicsView.ScrollHandDrag)
+            self.mask_painted.emit()
+            return
         if self._dragging is not None:
             kind = self._dragging
             self._dragging = None

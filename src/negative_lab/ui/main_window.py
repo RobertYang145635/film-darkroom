@@ -13,9 +13,9 @@ from pathlib import Path
 import numpy as np
 from PySide6.QtCore import QRectF, Qt
 from PySide6.QtWidgets import (
-    QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout,
-    QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton, QScrollArea,
-    QSlider, QVBoxLayout, QWidget)
+    QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox,
+    QHBoxLayout, QLabel, QListWidget, QMainWindow, QMessageBox, QPushButton,
+    QScrollArea, QSlider, QVBoxLayout, QWidget)
 
 from .. import __version__
 from ..io.images import ReadError, load_linear_rgb, save_jpeg8, save_tiff16
@@ -204,12 +204,24 @@ class MainWindow(QMainWindow):
             f5.addWidget(r)
         panel.addWidget(g5)
 
-        g6 = QGroupBox("6 旋转")
+        g6 = QGroupBox("6 旋转 / 裁切 / 除尘划痕（§7 可回退）")
         f6 = QHBoxLayout(g6)
         self.combo_rot = QComboBox()
         self.combo_rot.addItems(["0°", "90°", "180°", "270°"])
-        f6.addWidget(QLabel("旋转（裁切 Phase 2 后续）"))
+        f6.addWidget(QLabel("旋转"))
         f6.addWidget(self.combo_rot)
+        lay6 = QVBoxLayout()
+        self.chk_dust = QCheckBox("启用除尘修复（关闭即完全回退原图）")
+        self.btn_paint = QPushButton("画笔涂蒙版")
+        self.btn_paint.setCheckable(True)
+        self.btn_dust_auto = QPushButton("自动检测(保守)")
+        self.btn_dust_clear = QPushButton("清蒙版")
+        row6b = QHBoxLayout()
+        for b in (self.btn_paint, self.btn_dust_auto, self.btn_dust_clear):
+            row6b.addWidget(b)
+        lay6.addWidget(self.chk_dust)
+        lay6.addLayout(row6b)
+        f6.addLayout(lay6)
         panel.addWidget(g6)
 
         scroll.setWidget(controls)
@@ -241,6 +253,11 @@ class MainWindow(QMainWindow):
         self.view.roi_changed.connect(self._roi_moved)
         self.view.point_picked.connect(lambda *_: self.run_auto())
         self.combo_rot.currentIndexChanged.connect(self._rotated)
+        self.btn_paint.toggled.connect(self.view.set_paint_mode)
+        self.btn_dust_auto.clicked.connect(self.dust_auto_detect)
+        self.btn_dust_clear.clicked.connect(self.view.clear_mask)
+        self.view.mask_painted.connect(self._refresh)
+        self.chk_dust.toggled.connect(self._refresh)
 
         self.statusBar().showMessage("就绪：打开 RAW / 16 位 TIFF / DNG")
 
@@ -275,6 +292,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "读取失败", str(e))
             return
         self.src_path = path
+        self.view.set_mask(None)   # 新图清除尘蒙版
         self._t_unrot = res.rgb  # 未旋转原始数组（只读语义）
         self.t_full = self._rot(res.rgb)
         scale = max(1, int(np.ceil(max(self.t_full.shape[:2]) / MAX_PREVIEW_DIM)))
@@ -408,6 +426,53 @@ class MainWindow(QMainWindow):
         self.s_hl.setValue(p.highlight_strength)
         self.s_exp.setValue(p.exposure)
 
+    # ---------------- 除尘（§7）
+
+    def dust_auto_detect(self):
+        if self.t_prev is None:
+            return
+        from ..restoration.dust import detect_dust
+        region = None
+        rect = self.view.roi(RoiKind.BASE)
+        if rect is not None:
+            region = np.zeros(self.t_prev.shape[:2], bool)
+            y0, x0 = int(rect.y()), int(rect.x())
+            y1, x1 = int(rect.bottom()), int(rect.right())
+            region[y0:y1, x0:x1] = True
+        det = detect_dust(self.t_prev, region=region)
+        self.view.set_mask(det["mask"])
+        self.chk_dust.setChecked(True)
+        scope = "片基条带" if region is not None else "全画面（保守）"
+        msg = (f"自动检测[{scope}]：{det['n_spots']} 斑点像素 / "
+               f"{det['n_scratches']} 划痕像素（可再手动画笔增删；内容区建议手动）")
+        self._set_warnings([msg] + det["warnings"])
+        self.statusBar().showMessage(msg)
+
+    def _dust_mask_full(self):
+        """预览分辨率蒙版 -> 全分辨率（最近邻）。"""
+        m = self.view.mask()
+        if m is None or not m.any() or self.t_full is None:
+            return None
+        H, W = self.t_full.shape[:2]
+        iy = (np.arange(H) * m.shape[0] // H).astype(np.int64)
+        ix = (np.arange(W) * m.shape[1] // W).astype(np.int64)
+        return m[np.ix_(iy, ix)]
+
+    def _apply_dust(self, t: np.ndarray) -> tuple[np.ndarray, list[str]]:
+        """启用时修复；失败回退原图并给警告——绝不阻断导出（§7）。"""
+        if not self.chk_dust.isChecked():
+            return t, []
+        from ..restoration.dust import safe_inpaint
+        m = self.view.mask()
+        if m is None or not m.any():
+            return t, []
+        if t.shape[:2] != m.shape[:2]:
+            H, W = t.shape[:2]
+            iy = (np.arange(H) * m.shape[0] // H).astype(np.int64)
+            ix = (np.arange(W) * m.shape[1] // W).astype(np.int64)
+            m = m[np.ix_(iy, ix)]
+        return safe_inpaint(t, m)
+
     # ---------------- 预览与导出
 
     def _refresh(self):
@@ -417,7 +482,8 @@ class MainWindow(QMainWindow):
             self.view.set_image(self.t_prev)
             self.hist.set_image(self.t_prev)
         else:
-            res = invert(self.t_prev, self.params)
+            td, warns = self._apply_dust(self.t_prev)
+            res = invert(td, self.params)
             self.view.set_image(res.preview_srgb)
             self.hist.set_image(res.preview_srgb)
 
@@ -442,7 +508,20 @@ class MainWindow(QMainWindow):
             x1 = min(self.t_full.shape[1], int(rect.right() * sx))
             if y1 - y0 > 16 and x1 - x0 > 16:
                 img = self.t_full[y0:y1, x0:x1, :]
+        # 除尘：全分辨率蒙版（预览坐标 -> 全帧 -> 裁切窗口）
+        dust_warns: list[str] = []
+        if self.chk_dust.isChecked() and self.view.mask() is not None \
+                and self.view.mask().any():
+            from ..restoration.dust import safe_inpaint
+            mfull = self._dust_mask_full()
+            if rect is not None and mfull is not None:
+                mfull = mfull[y0:y1, x0:x1]
+            img, err = safe_inpaint(img, mfull)
+            if err:
+                dust_warns.append(err)
         res = invert_chunked(img, self.params)
+        if dust_warns:
+            self._set_warnings(dust_warns)   # 修复失败只警告，导出不中断
         outdir = self.export_dir or self.src_path.parent
         stem = self.src_path.stem
         tif = self._unique(outdir / f"{stem}-positive.tif")

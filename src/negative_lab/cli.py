@@ -123,7 +123,7 @@ def cmd_batch(args: argparse.Namespace) -> int:
         return 2
     prior = load_profile(args.profile) if args.profile else None
     job = BatchJob(files, Path(args.output), prior=prior,
-                   jpeg_quality=args.jpeg_quality)
+                   jpeg_quality=args.jpeg_quality, dust_auto=args.dust_auto)
 
     def show(it):
         icon = {"ok": "✓", "warn": "⚠", "failed": "✗", "cancelled": "⊘"}.get(it.status, "…")
@@ -186,6 +186,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("input", help="输入目录或文件")
     b.add_argument("-o", "--output", required=True, help="输出目录")
     b.add_argument("--profile", default=None, help="配置文件 .profile.json（仅作先验）")
+    b.add_argument("--dust-auto", action="store_true",
+                   help="启用保守自动除尘/划痕候选（§7，默认关闭）")
     b.add_argument("--jpeg-quality", type=int, default=95)
     b.set_defaults(fn=cmd_batch)
 
