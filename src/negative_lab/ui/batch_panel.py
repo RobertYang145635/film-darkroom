@@ -121,11 +121,13 @@ class BatchPanel(QWidget):
     def _run_job(self, job: BatchJob):
         self._job = job
         self.table.setRowCount(0)
+        self._row_ids = {}
         for it in job.items:
             r = self.table.rowCount()
             self.table.insertRow(r)
             self.table.setItem(r, 0, QTableWidgetItem(it.path.name))
-            self.table.setItem(r, 1, QTableWidgetItem("○ pending"))
+            self._row_ids[it.path.resolve().as_posix()] = r  # 稳定键：完整路径
+            self.table.setItem(r, 1, QTableWidgetItem("PENDING"))
             self.table.setItem(r, 2, QTableWidgetItem(""))
             self.table.setItem(r, 3, QTableWidgetItem(""))
         self.btn_run.setEnabled(False)
@@ -137,16 +139,16 @@ class BatchPanel(QWidget):
         self._worker.start()
 
     def _row_of(self, path: Path) -> int:
-        for r in range(self.table.rowCount()):
-            if self.table.item(r, 0).text() == path.name:
-                return r
-        return -1
+        try:
+            return getattr(self, "_row_ids", {}).get(path.resolve().as_posix(), -1)
+        except OSError:
+            return -1
 
     def _on_item(self, it):
         r = self._row_of(it.path)
         if r < 0:
             return
-        self.table.item(r, 1).setText(f"{STATUS_ICON.get(it.status, '?')} {it.status}")
+        self.table.item(r, 1).setText(it.status.upper())
         conf = it.confidence or {}
         self.table.item(r, 2).setText(
             " ".join(f"{k}:{v}" for k, v in conf.items()) if conf else "")

@@ -24,8 +24,9 @@ from ..pipeline.auto import auto_analyze
 from ..pipeline.density import invert_chunked
 from ..profiles.profile import FilmProfile
 
-STATUS_ICON = {"pending": "○", "running": "◐", "ok": "✓",
-               "warn": "⚠", "failed": "✗", "cancelled": "⊘"}
+# ASCII 状态词（整改 I-7/P0-D：默认 GBK 控制台不得崩溃）
+STATUS_ICON = {"pending": "PENDING", "running": "RUNNING", "ok": "OK",
+               "warn": "WARN", "failed": "FAILED", "cancelled": "CANCELLED"}
 
 
 @dataclass
@@ -117,72 +118,48 @@ class BatchJob:
             it.seconds = time.perf_counter() - t0
             if on_update:
                 on_update(it)
-        return self.report()
+        rep = self.report()
+        # 成功收尾必须写报告（整改 I-5/I-8：GUI 完成标签只能显示真实存在的报告）
+        try:
+            self.write_report()
+        except OSError:
+            pass
+        return rep
 
     def _process_one(self, it: BatchItem) -> None:
         src = it.path
         loaded = load_linear_rgb(src, tiff_encoding=self.tiff_encoding)
-        t = loaded.rgb
-        # ---- 共享工作流（整改 P0-C/I-1：与回归/GUI 同一实现；
-        # 片基检测在裁切前的图上做，避免 Dmin 参考丢失）
+        # ---- 统一服务（整改 v2 P0-D：与 GUI/CLI 同一管线，禁止入口自行实现）
         from ..calibration.annotations import load_annotation
-        from .workflow import prepare_and_analyze
+        from .service import process_image
         ann = None
         try:
             ann = load_annotation(src.resolve().relative_to(
                 Path(__file__).resolve().parents[3]).as_posix())
         except ValueError:
             pass
-        prepared = prepare_and_analyze(
-            t, rotation_degrees=ann.rotation_degrees if ann else 0,
+        pr = process_image(
+            loaded.rgb,
+            rotation_degrees=ann.rotation_degrees if ann else 0,
             ann=ann, keep_rebate=self.keep_rebate,
-            prior=self.prior.to_initial_params() if self.prior else None)
-        t = prepared.t
-        it.geometry = prepared.geometry.to_dict()
-        if self.dust_auto:
-            # §7：自动检测保守限定在片基/边缘均匀条带；画面内容区候选密度
-            # 过高（真实样片实测 21%），内容尘点走手动蒙版，不自动冒险。
-            from ..calibration.border import detect_regions
-            from ..restoration.dust import detect_dust, safe_inpaint
-            det_r = detect_regions(t)
-            region = None
-            if det_r.get("base") is not None:
-                by0, bx0, by1, bx1 = det_r["base"]
-                region = np.zeros(t.shape[:2], bool)
-                region[by0:by1, bx0:bx1] = True
-            det = detect_dust(t, region=region)
-            t, err = safe_inpaint(t, det["mask"])
-            if err:
-                loaded.warnings.append(err)   # 修复失败不阻断，只警告
-            elif det["mask"].any():
-                loaded.warnings.append(
-                    f"片基条带自动除尘：{det['n_spots']} 斑点像素/{det['n_scratches']} "
-                    f"划痕像素已修复（画面内容区请用手动画笔蒙版）")
-                loaded.warnings.extend(det["warnings"])
-            else:
-                loaded.warnings.extend(det["warnings"])
-        # 除尘改变了像素：用裁切前提取的片基数组重跑分析（保持 Dmin 参考一致）
-        rep = auto_analyze(t, base_roi=prepared.base_arr,
-                           prior=self.prior.to_initial_params() if self.prior else None) \
-            if self.dust_auto else prepared.report
+            prior=self.prior.to_initial_params() if self.prior else None,
+            dust_auto=self.dust_auto)
         if self.cancelled:
             it.status = "cancelled"
             return
-        res = invert_chunked(t, rep.params)
-        warnings = sorted(set(loaded.warnings + rep.warnings + res.warnings))
-        # ---- 质量门禁（整改 F-4：结构化状态，不靠中文字符串猜）
-        from ..diagnostics.quality_gate import QualityGate
-        gate = QualityGate.evaluate(
-            t_in=t, positive_linear=res.positive_linear,
-            input_nonfinite=res.diagnostics.get("input_nonfinite", 0),
-            extra_warnings=warnings)
-        it.parameters = rep.params.to_parameters_dict()
-        it.confidence = rep.confidence
-        it.diagnostics = res.diagnostics
-        it.warnings = gate.warnings + gate.failures
-        it.quality = gate.to_dict()
-        low_conf = any(v < 0.5 for k, v in rep.confidence.items()
-                       if k in ("dmin", "dmax"))
+        # ---- fail 在写文件之前阻断（整改 I-3：不产出任何输出）
+        if pr.gate.status == "fail":
+            it.status = "failed"
+            it.error = "; ".join(pr.gate.failures)
+            it.quality = pr.gate.to_dict()
+            it.geometry = pr.geometry.to_dict()
+            return
+        it.parameters = pr.report.params.to_parameters_dict()
+        it.confidence = pr.report.confidence
+        it.diagnostics = pr.result.diagnostics
+        it.geometry = pr.geometry.to_dict()
+        it.quality = pr.gate.to_dict()
+        it.warnings = pr.gate.warnings
 
         stem = src.stem
         written: list[Path] = []
@@ -190,45 +167,33 @@ class BatchJob:
         if self.export_tiff:
             dst = self._unique(self.outdir / f"{stem}-positive.tif")
             ensure_not_source(dst, [src])
-            save_tiff16(dst, res.positive_linear, OutputEncoding.SRGB, sources=[src])
+            save_tiff16(dst, pr.result.positive_linear, OutputEncoding.SRGB,
+                        sources=[src])
             written.append(dst)
         if self.export_jpeg:
             dst = self._unique(self.outdir / f"{stem}-positive.jpg")
             ensure_not_source(dst, [src])
-            save_jpeg8(dst, res.positive_linear, quality=self.jpeg_quality,
+            save_jpeg8(dst, pr.result.positive_linear, quality=self.jpeg_quality,
                        sources=[src])
             written.append(dst)
         if written:
-            side = Path(str(written[0]) + ".negative.json")
             from ..color.management import icc_sha256, srgb_icc_bytes
-            side.write_text(json.dumps({
-                "schema_version": 1,
-                "source": src.as_posix(),
-                "source_sha256": loaded.meta.get("sha256", ""),
-                "film_type": self.prior.film_type if self.prior else "unknown",
-                "device_profile_id": self.prior.profile_id if self.prior else "none",
-                "input_profile": loaded.meta.get("input_encoding", "unknown"),
-                "input_icc_sha256": loaded.meta.get("input_icc_sha256", "none"),
-                "working_space": loaded.meta.get("working_space", "unknown"),
-                "output_encoding": "srgb",
-                "output_icc_sha256": icc_sha256(srgb_icc_bytes()),
-                "geometry": it.geometry,
-                "quality": it.quality,
-                "parameters": it.parameters,
-                "warnings": it.warnings,
-                "diagnostics": {**res.diagnostics, "confidence": rep.confidence},
-                "software_version": __version__,
-            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
+            payload = pr.sidecar(
+                source_sha256=loaded.meta.get("sha256", ""),
+                source_path=src.as_posix(),
+                film_type=(self.prior.film_type if self.prior else "unknown"),
+                profile_id=(self.prior.profile_id if self.prior else "none"),
+                input_meta=loaded.meta)
+            side = Path(str(written[0]) + ".negative.json")
+            from ..io.atomic import atomic_write_bytes
+            atomic_write_bytes(side, json.dumps(payload, ensure_ascii=False,
+                                                indent=2).encode("utf-8"))
             written.append(side)
         it.outputs = [p.as_posix() for p in written]
-        # 状态来自结构化枚举：gate.failures -> failed(导出无效) / gate 警告或
-        # 低置信度 -> warn / 否则 ok（整改 I-5：禁止中文字符串匹配）
-        if gate.failures:
-            it.status = "warn"     # 输出仍生成，但质量门禁失败必须可见
-        elif gate.warnings or low_conf:
-            it.status = "warn"
-        else:
-            it.status = "ok"
+        low_conf = any(v < 0.5 for k, v in pr.report.confidence.items()
+                       if k in ("dmin", "dmax"))
+        it.status = "warn" if (pr.gate.warnings or low_conf) else "ok"
 
     @staticmethod
     def _unique(p: Path) -> Path:

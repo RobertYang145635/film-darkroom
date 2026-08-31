@@ -136,9 +136,11 @@ class MainWindow(QMainWindow):
         self.combo_film = QComboBox()
         self.combo_film.addItems(["unknown", "c41_color", "bw", "ecn2_color"])
         f1.addRow("胶片类型", self.combo_film)
-        self.btn_profile = QPushButton("加载配置文件…（Phase 3）")
-        self.btn_profile.setEnabled(False)
+        self.btn_profile = QPushButton("加载配置文件…")
+        self.btn_profile.clicked.connect(self.load_profile)
+        self.lbl_profile = QLabel("当前配置：无")
         f1.addRow(self.btn_profile)
+        f1.addRow(self.lbl_profile)
         panel.addWidget(g1)
 
         g2 = QGroupBox("2 胶片区域与片基 Dmin")
@@ -262,6 +264,31 @@ class MainWindow(QMainWindow):
 
         self.statusBar().showMessage("就绪：打开 RAW / 16 位 TIFF / DNG")
 
+    def load_profile(self):
+        """单张配置加载（整改 I-8）：损坏必须可见错误，成功后显示并驱动先验。"""
+        from ..profiles.profile import FilmProfile, load_profile as _lp
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择配置文件", "", "配置文件 (*.profile.json *.json)")
+        if not path:
+            return
+        try:
+            prof = _lp(path)
+        except Exception as e:  # noqa: BLE001
+            self._profile = None
+            self.lbl_profile.setText("当前配置：无")
+            QMessageBox.critical(self, "配置文件损坏/不兼容",
+                                 f"{Path(path).name}\n{type(e).__name__}: {e}")
+            return
+        self._profile = prof
+        self.lbl_profile.setText(
+            f"当前配置：{prof.name} v{prof.version} [{prof.film_type}]")
+        self.combo_film.setCurrentText(
+            prof.film_type if prof.film_type in
+            [self.combo_film.itemText(i) for i in range(self.combo_film.count())]
+            else "unknown")
+        if self._t_unrot is not None:
+            self.run_auto()
+
     def open_batch(self):
         from PySide6.QtWidgets import QDialog, QDialogButtonBox
         from .batch_panel import BatchPanel
@@ -315,89 +342,150 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "读取失败", msg)
                 return
         self.src_path = path
-        self.view.set_mask(None)   # 新图清除尘蒙版
-        self._t_unrot = res.rgb  # 未旋转原始数组（只读语义）
+        # ---- 换图必须重置全部图像相关状态（整改 I-1/F-1）
+        self.rotation = 0
+        self.combo_rot.blockSignals(True)
+        self.combo_rot.setCurrentIndex(0)
+        self.combo_rot.blockSignals(False)
+        self.view.set_mask(None)
+        self.view.set_roi(RoiKind.FRAME, None)
+        self.view.set_roi(RoiKind.BASE, None)
+        self.view.clear_points()
+        self.params = InvertParams()
+        self.confidence = {}
+        self._pr = None
+        self._t_unrot = res.rgb      # SOURCE 空间（只读语义）
         self._load_meta = res.meta
-        self.t_full = self._rot(res.rgb)
-        scale = max(1, int(np.ceil(max(self.t_full.shape[:2]) / MAX_PREVIEW_DIM)))
-        self.t_prev = self.t_full[::scale, ::scale, :].copy()
+        # verified 标注驱动初始方向/ROI（整改 F-1：GUI 与批处理同一信息源）
+        from ..calibration.annotations import load_annotation
+        self._ann = None
+        try:
+            root = Path(__file__).resolve().parents[3]
+            self._ann = load_annotation(path.resolve().relative_to(root).as_posix())
+        except (ValueError, OSError):
+            pass
+        if self._ann is not None:
+            self.rotation = int(self._ann.rotation_degrees)
+            self.combo_rot.blockSignals(True)
+            self.combo_rot.setCurrentIndex(self.rotation // 90)
+            self.combo_rot.blockSignals(False)
+        self._rebuild_oriented()
         self.show_original = True
         self.btn_orig.setChecked(True)
         self.btn_prev.setChecked(False)
         self.btn_auto.setEnabled(True)
         self.btn_export.setEnabled(True)
         self._refresh()
-        # 自动检测框（§5.1.2：打开即显示候选框）
-        from ..calibration.border import detect_regions
-        det = detect_regions(self.t_prev)
-        self._det = det
-        if det.get("frame"):
-            y0, x0, y1, x1 = det["frame"]
-            self.view.set_roi(RoiKind.FRAME, QRectF(x0, y0, x1 - x0, y1 - y0))
-        if det.get("base"):
-            y0, x0, y1, x1 = det["base"]
-            self.view.set_roi(RoiKind.BASE, QRectF(x0, y0, x1 - x0, y1 - y0))
         bits = res.meta.get("bits", "?")
         self.statusBar().showMessage(
             f"{path.name} | {self.t_full.shape[1]}x{self.t_full.shape[0]} | {bits} 位 | "
             f"{res.meta.get('camera', '')}")
         self._set_warnings([f"元数据: {k}={v}" for k, v in res.meta.items()
-                            if k in ("bits", "camera")] + res.warnings
-                           + list(det.get("warnings", [])))
+                            if k in ("bits", "camera")] + list(res.warnings))
+
+    def _rebuild_oriented(self):
+        """旋转 + 预览 + 检测候选框（oriented 全分辨率坐标 -> 预览坐标）。"""
+        from ..pipeline.geometry import rotate_cw
+        self.t_full = rotate_cw(self._t_unrot, self.rotation)
+        self._pscale = max(1, int(np.ceil(max(self.t_full.shape[:2]) / MAX_PREVIEW_DIM)))
+        self.t_prev = self.t_full[::self._pscale, ::self._pscale, :].copy()
+        from ..calibration.border import detect_regions
+        det = detect_regions(self.t_prev)
+        self._det = det
+        ia = det.get("image_area")
+        if ia:
+            y0, x0, y1, x1 = ia
+            self.view.set_roi(RoiKind.FRAME, QRectF(x0, y0, x1 - x0, y1 - y0))
+        else:
+            self.view.set_roi(RoiKind.FRAME, None)
+        if det.get("base"):
+            y0, x0, y1, x1 = det["base"]
+            self.view.set_roi(RoiKind.BASE, QRectF(x0, y0, x1 - x0, y1 - y0))
+        # verified 标注覆盖自动框（用户仍可拖动改变）
+        ann = getattr(self, "_ann", None)
+        if ann is not None and ann.verified:
+            from ..pipeline.geometry import roi_source_to_oriented
+            s = self._pscale
+            sh, sw = self._t_unrot.shape[:2]
+            for kind, roi in ((RoiKind.FRAME, ann.frame_roi), (RoiKind.BASE, ann.base_roi)):
+                if roi:
+                    oy0, ox0, oy1, ox1 = roi_source_to_oriented(
+                        tuple(roi), sh, sw, self.rotation)
+                    self.view.set_roi(kind, QRectF(ox0 // s, oy0 // s,
+                                                   (ox1 - ox0) // s, (oy1 - oy0) // s))
+        return det
 
     def _rotated(self, idx):
         if getattr(self, "_t_unrot", None) is None:
             return
-        self.rotation = idx * 90
-        self.t_full = self._rot(self._t_unrot)
-        scale = max(1, int(np.ceil(max(self.t_full.shape[:2]) / MAX_PREVIEW_DIM)))
-        self.t_prev = self.t_full[::scale, ::scale, :].copy()
+        self.rotation = idx * 90   # 顺时针（geometry.rotate_cw 唯一实现）
+        # 旋转后旧 ROI/点/蒙版不可靠：清空并重新检测（整改 I-1 允许的两案之一）
+        self.view.clear_points()
+        self.view.set_mask(None)
+        self._pr = None
+        det = self._rebuild_oriented()
         self._refresh()
+        self._set_warnings(list(det.get("warnings", [])) +
+                           ["旋转已应用：ROI/参考点/蒙版已重置，请重新检查"])
 
-    def _rot(self, a: np.ndarray) -> np.ndarray:
-        return np.rot90(a, k={0: 0, 90: 1, 180: 2, 270: 3}[self.rotation]).copy() \
-            if self.rotation else a
+    # ---------------- 自动与手动（统一服务）
 
-    # ---------------- 自动与手动
+    def _view_rect_oriented(self, kind):
+        rect = self.view.roi(kind)
+        if rect is None:
+            return None
+        s = self._pscale
+        x0, y0 = int(rect.x()) * s, int(rect.y()) * s
+        x1, y1 = int(rect.right()) * s, int(rect.bottom()) * s
+        if x1 - x0 < 16 or y1 - y0 < 16:
+            return None
+        return (y0, x0, y1, x1)
+
+    def _run_service(self, force_params=None):
+        """process_image 唯一入口（F-1：预览与导出同一管线）。"""
+        from ..pipeline.service import process_image
+        s = self._pscale
+        pts = self.view.points()
+        nb = [(int(pts["bright"][1]) * s, int(pts["bright"][0]) * s)] \
+            if "bright" in pts else None
+        nd = [(int(pts["dark"][1]) * s, int(pts["dark"][0]) * s)] \
+            if "dark" in pts else None
+        dust = None
+        m = self.view.mask()
+        if m is not None and m.any() and self.chk_dust.isChecked():
+            dust = np.kron(m, np.ones((s, s), bool))[:self.t_full.shape[0], :self.t_full.shape[1]]
+        prior = self._profile.to_initial_params() if getattr(self, "_profile", None) else None
+        self._pr = process_image(
+            self._t_unrot, rotation_degrees=self.rotation,
+            ann=getattr(self, "_ann", None),
+            frame_roi_oriented=self._view_rect_oriented(RoiKind.FRAME),
+            base_roi_oriented=self._view_rect_oriented(RoiKind.BASE),
+            prior=prior, neutral_bright_points=nb, neutral_dark_points=nd,
+            dust_mask=dust, force_params=force_params)
+        self.params = self._pr.report.params
+        self.confidence = self._pr.report.confidence
+        return self._pr
 
     def run_auto(self):
-        if self.t_prev is None:
+        if self._t_unrot is None:
             return
-        base_roi = self._base_roi_from_view(self.t_prev)
-        pts = self.view.points()
-        nb = [pts["bright"]] if "bright" in pts else None
-        nd = [pts["dark"]] if "dark" in pts else None
-        nb = [(int(y), int(x)) for (x, y) in nb] if nb else None
-        nd = [(int(y), int(x)) for (x, y) in nd] if nd else None
-        rep = auto_analyze(self.t_prev, base_roi=base_roi,
-                           neutral_bright_points=nb, neutral_dark_points=nd)
-        self.params = rep.params
-        self.confidence = rep.confidence
+        pr = self._run_service()
         self._sync_controls()
         self.show_original = False
         self.btn_orig.setChecked(False)
         self.btn_prev.setChecked(True)
         self._refresh()
-        warns = [f"置信度 {k}={v}" for k, v in rep.confidence.items()] + rep.warnings
+        warns = [f"置信度 {k}={v}" for k, v in pr.report.confidence.items()]
+        warns += [f"[{pr.gate.status.upper()}] {w}" for w in pr.gate.warnings]
+        warns += list(pr.gate.failures)
         self._set_warnings(warns)
-        self.statusBar().showMessage("自动转换完成（预览分辨率计算；导出用全分辨率）")
+        self.statusBar().showMessage(
+            f"自动转换完成 quality={pr.gate.status} crop={pr.geometry.crop_oriented}")
 
     def rebase(self):
-        if self.t_prev is None:
+        if self._t_unrot is None:
             return
-        rect = self.view.roi(RoiKind.BASE)
-        if rect is None:
-            QMessageBox.information(self, "片基框", "请先在画面上确定黄色片基框")
-            return
-        x0, y0 = int(rect.x()), int(rect.y())
-        x1, y1 = int(rect.right()), int(rect.bottom())
-        from ..calibration.base import robust_dmin
-        res = robust_dmin(self.t_prev[y0:y1, x0:x1, :])
-        self.params.dmin = tuple(float(v) for v in res["dmin"])
-        self.confidence["dmin"] = res["confidence"]
-        self._sync_controls()
-        self._refresh()
-        self._set_warnings(res["warnings"] + [f"Dmin 置信度 {res['confidence']}"])
+        self.run_auto()   # 统一服务：拖框后重跑（不再本地重算 Dmin 造成双实现）
 
     def _base_roi_from_view(self, arr):
         rect = self.view.roi(RoiKind.BASE)
@@ -497,16 +585,19 @@ class MainWindow(QMainWindow):
             m = m[np.ix_(iy, ix)]
         return safe_inpaint(t, m)
 
-    # ---------------- 预览与导出
+    # ---------------- 预览与导出（统一服务）
 
     def _refresh(self):
         if self.t_prev is None:
             return
-        if self.show_original:
+        if self.show_original or self._pr is None:
             self.view.set_image(self.t_prev)
             self.hist.set_image(self.t_prev)
         else:
-            td, warns = self._apply_dust(self.t_prev)
+            # 预览用服务已算好的工作图（预览分辨率）+ 当前参数；
+            # 导出始终重新走全分辨率服务（同一参数、同一管线）
+            td = self._pr.t[::self._pscale, ::self._pscale, :][:self.t_prev.shape[0],
+                                                               :self.t_prev.shape[1]]
             res = invert(td, self.params)
             self.view.set_image(res.preview_srgb)
             self.hist.set_image(res.preview_srgb)
@@ -518,82 +609,45 @@ class MainWindow(QMainWindow):
         self._refresh()
 
     def export_all(self):
-        if self.t_full is None or self.src_path is None:
+        if self._t_unrot is None or self.src_path is None:
             return
-        # 裁切到帧框（P0 §2.1.5）：帧 ROI 以预览坐标存储，按比例映射到全分辨率
-        img = self.t_full
-        rect = self.view.roi(RoiKind.FRAME)
-        if rect is not None and self.t_prev is not None:
-            sy = self.t_full.shape[0] / self.t_prev.shape[0]
-            sx = self.t_full.shape[1] / self.t_prev.shape[1]
-            y0 = max(0, int(rect.y() * sy))
-            x0 = max(0, int(rect.x() * sx))
-            y1 = min(self.t_full.shape[0], int(rect.bottom() * sy))
-            x1 = min(self.t_full.shape[1], int(rect.right() * sx))
-            if y1 - y0 > 16 and x1 - x0 > 16:
-                img = self.t_full[y0:y1, x0:x1, :]
-        # 除尘：全分辨率蒙版（预览坐标 -> 全帧 -> 裁切窗口）
-        dust_warns: list[str] = []
-        if self.chk_dust.isChecked() and self.view.mask() is not None \
-                and self.view.mask().any():
-            from ..restoration.dust import safe_inpaint
-            mfull = self._dust_mask_full()
-            if rect is not None and mfull is not None:
-                mfull = mfull[y0:y1, x0:x1]
-            img, err = safe_inpaint(img, mfull)
-            if err:
-                dust_warns.append(err)
-        res = invert_chunked(img, self.params)
-        if dust_warns:
-            self._set_warnings(dust_warns)   # 修复失败只警告，导出不中断
+        # F-1：导出走同一 process_image（全分辨率），禁止入口自算 crop
+        pr = self._run_service(force_params=self.params)
+        if pr.gate.status == "fail":
+            QMessageBox.critical(
+                self, "质量门禁阻断导出",
+                "\n".join(pr.gate.failures) + "\n源文件未改动，未生成任何输出")
+            return
         outdir = self.export_dir or self.src_path.parent
         stem = self.src_path.stem
         tif = self._unique(outdir / f"{stem}-positive.tif")
         jpg = tif.with_suffix(".jpg")
         side = Path(str(tif) + ".negative.json")
         try:
-            save_tiff16(tif, res.positive_linear, OutputEncoding.SRGB,
+            save_tiff16(tif, pr.result.positive_linear, OutputEncoding.SRGB,
                         sources=[self.src_path])
-            save_jpeg8(jpg, res.positive_linear, sources=[self.src_path])
+            save_jpeg8(jpg, pr.result.positive_linear, sources=[self.src_path])
+            from ..color.management import icc_sha256, srgb_icc_bytes
+            meta = dict(getattr(self, "_load_meta", {}) or {})
+            meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
+            payload = pr.sidecar(
+                source_sha256=meta.get("sha256", ""),
+                source_path=self.src_path.as_posix(),
+                film_type=self.combo_film.currentText(),
+                profile_id=(self._profile.profile_id
+                            if getattr(self, "_profile", None) else "none"),
+                input_meta=meta)
+            side.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
         except Exception as e:  # noqa: BLE001
             QMessageBox.critical(self, "导出失败", f"{type(e).__name__}: {e}\n源文件未改动")
             return
-        base_rect = self.view.roi(RoiKind.BASE)
-        frame_rect = self.view.roi(RoiKind.FRAME)
-        roi = {
-            "frame": ([int(frame_rect.x()), int(frame_rect.y()),
-                       int(frame_rect.width()), int(frame_rect.height())]
-                      if frame_rect is not None else None),
-            "film_base": ([int(base_rect.x()), int(base_rect.y()),
-                           int(base_rect.width()), int(base_rect.height())]
-                          if base_rect is not None else None),
-            "coordinate_space": "preview",   # P1 统一为 source 坐标（整改 I-3）
-            "output_crop": None if rect is None else [x0, y0, x1 - x0, y1 - y0],
-        }
-        import hashlib
-        h = hashlib.sha256()
-        with open(self.src_path, "rb") as f:
-            for blk in iter(lambda: f.read(1 << 22), b""):
-                h.update(blk)
-        meta = getattr(self, "_load_meta", {}) or {}
-        from ..color.management import icc_sha256, srgb_icc_bytes
-        side.write_text(json.dumps({
-            "schema_version": 1, "source_sha256": h.hexdigest(),
-            "film_type": self.combo_film.currentText(),
-            "device_profile_id": "none",
-            "input_profile": meta.get("input_encoding", "unknown"),
-            "input_profile_detail": meta.get("input_encoding_detail",
-                                             meta.get("white_balance_policy", "unknown")),
-            "input_icc_sha256": meta.get("input_icc_sha256", "none"),
-            "working_space": meta.get("working_space", "unknown"),
-            "output_encoding": "srgb",
-            "output_icc_sha256": icc_sha256(srgb_icc_bytes()),
-            "rotation_degrees": self.rotation,
-            "roi": roi, "parameters": self.params.to_parameters_dict(),
-            "diagnostics": res.diagnostics | {"confidence": self.confidence},
-            "software_version": __version__,
-        }, ensure_ascii=False, indent=2), encoding="utf-8")
-        self.statusBar().showMessage(f"导出完成：{tif.name} / {jpg.name}（JPEG 为 8 位）+ 旁车")
+        warns = [f"[{pr.gate.status.upper()}] {w}" for w in pr.gate.warnings]
+        if warns:
+            self._set_warnings(warns)
+        self.statusBar().showMessage(
+            f"导出完成：{tif.name} / {jpg.name}（JPEG 固定 8 位）+ 旁车 v2 "
+            f"quality={pr.gate.status}")
 
     @staticmethod
     def _unique(p: Path) -> Path:

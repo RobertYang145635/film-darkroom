@@ -60,6 +60,11 @@ def build_sidecar(src: Path, params: InvertParams, roi: dict, diagnostics: dict,
 
 
 def cmd_invert(args: argparse.Namespace) -> int:
+    """单张反相（整改 v2 P0-D：与 GUI/批处理同一 process_image 管线）。"""
+    from .pipeline.density import invert_chunked
+    from .pipeline.service import process_image
+    from .profiles.profile import load_profile
+
     src = Path(args.input)
     outdir = Path(args.output)
     try:
@@ -68,58 +73,74 @@ def cmd_invert(args: argparse.Namespace) -> int:
         print(f"[读取失败]\n{e}", file=sys.stderr)
         return 2
 
-    t = loaded.rgb
-    warnings = list(loaded.warnings)
-    roi = {"frame": [0, 0, t.shape[1], t.shape[0]], "film_base": None}
+    frame = tuple(args.frame_roi) if args.frame_roi else None
+    base = tuple(args.base_roi) if args.base_roi else None
+    # base-roi 兼容旧参数序 x y w h -> y0 x0 y1 x1
+    base_yx = (base[1], base[0], base[1] + base[3], base[0] + base[2]) \
+        if base else None
+    prior = load_profile(args.profile).to_initial_params() if args.profile else None
+    pr = process_image(loaded.rgb, rotation_degrees=args.rotation,
+                       frame_roi_source=frame, base_roi_source=base_yx,
+                       keep_rebate=args.keep_rebate, prior=prior,
+                       dust_auto=args.dust_auto)
 
     if args.params is not None:
         pd = json.loads(Path(args.params).read_text(encoding="utf-8"))
-        params = InvertParams.from_parameters_dict(pd.get("parameters", pd))
-        report_diagnostics = invert(t, params).diagnostics
-        confidence = {}
-    else:
-        base_roi = None
-        if args.base_roi is not None:
-            x, y, w, h = args.base_roi
-            base_roi = t[y:y + h, x:x + w, :]
-            roi["film_base"] = [x, y, w, h]
-        rep = auto_analyze(t, base_roi=base_roi)
-        params = rep.params
-        warnings.extend(rep.warnings)
-        confidence = rep.confidence
-        report_diagnostics = rep.diagnostics
-        if args.base_roi is None:
-            roi["film_base"] = ["auto-border-strip"]
+        pr.report.params = InvertParams.from_parameters_dict(
+            pd.get("parameters", pd))
+        pr.result = invert_chunked(pr.t, pr.report.params)
+        from .diagnostics.quality_gate import QualityGate
+        pr.gate = QualityGate.evaluate(
+            t_in=pr.t, positive_linear=pr.result.positive_linear,
+            input_nonfinite=pr.result.diagnostics.get("input_nonfinite", 0),
+            extra_warnings=pr.report.warnings + pr.result.warnings)
 
-    res = invert(t, params)
-    warnings.extend(res.warnings)
+    if pr.gate.status == "fail":
+        print("FAILED: 质量门禁阻断导出：", file=sys.stderr)
+        for f in pr.gate.failures:
+            print(f"  - {f}", file=sys.stderr)
+        return 3
 
     outdir.mkdir(parents=True, exist_ok=True)
     stem = args.prefix or src.stem
-    tif_path = outdir / f"{stem}.tif"
-    jpg_path = outdir / f"{stem}.jpg"
-    side_path = outdir / f"{stem}.negative.json"
+    tif_path = _unique(outdir / f"{stem}.tif")
+    jpg_path = tif_path.with_suffix(".jpg")
+    side_path = Path(str(tif_path) + ".negative.json")
 
-    save_tiff16(tif_path, res.positive_linear, OutputEncoding.SRGB, sources=[src])
-    save_jpeg8(jpg_path, res.positive_linear, quality=args.jpeg_quality, sources=[src])
+    save_tiff16(tif_path, pr.result.positive_linear, OutputEncoding.SRGB,
+                sources=[src])
+    save_jpeg8(jpg_path, pr.result.positive_linear, quality=args.jpeg_quality,
+               sources=[src])
     from .color.management import icc_sha256, srgb_icc_bytes
     loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
-    side = build_sidecar(src, params, roi, report_diagnostics, loaded.meta,
-                        film_type=args.film_type)
-    side_path.write_text(json.dumps(side, ensure_ascii=False, indent=2), encoding="utf-8")
+    payload = pr.sidecar(source_sha256=loaded.meta.get("sha256", ""),
+                         source_path=src.as_posix(),
+                         film_type=args.film_type,
+                         profile_id=(args.profile or "none"),
+                         input_meta=loaded.meta)
+    side_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
+                         encoding="utf-8")
 
-    print(f"参数: dmin={[round(v,4) for v in params.dmin]} dmax={params.dmax:.3f} "
-          f"offset={params.offset:.3f} k(R/G/B)="
-          f"{params.reference_exponent*params.red_ratio:.3f}/"
-          f"{params.reference_exponent:.3f}/"
-          f"{params.reference_exponent*params.blue_ratio:.3f}")
-    print(f"置信度: {confidence if confidence else '（手动参数）'}")
-    for w in dict.fromkeys(warnings):  # 去重保序
-        print(f"警告: {w}")
-    print(f"导出: {tif_path} (16-bit TIFF)")
-    print(f"导出: {jpg_path} (JPEG —— 注意：JPEG 固定为 8 位)")
-    print(f"旁车: {side_path}")
+    p = pr.report.params
+    print(f"OK params: dmin={[round(v,4) for v in p.dmin]} dmax={p.dmax:.3f} "
+          f"offset={p.offset:.3f} rot={args.rotation} "
+          f"crop={pr.geometry.crop_oriented}")
+    print(f"confidence: {pr.report.confidence}  quality: {pr.gate.status}")
+    for w in dict.fromkeys(pr.gate.warnings):
+        print(f"WARN: {w}")
+    print(f"export: {tif_path} (16-bit TIFF, sRGB ICC)")
+    print(f"export: {jpg_path} (JPEG, fixed 8-bit)")
+    print(f"sidecar: {side_path} (schema v2)")
     return 0
+
+
+def _unique(p: Path) -> Path:
+    i = 1
+    out = p
+    while out.exists():
+        out = p.with_name(f"{p.stem}-{i}{p.suffix}")
+        i += 1
+    return out
 
 
 def cmd_batch(args: argparse.Namespace) -> int:
@@ -136,9 +157,8 @@ def cmd_batch(args: argparse.Namespace) -> int:
                    tiff_encoding=args.tiff_encoding)
 
     def show(it):
-        icon = {"ok": "✓", "warn": "⚠", "failed": "✗", "cancelled": "⊘"}.get(it.status, "…")
-        extra = f"  {it.error}" if it.error else ""
-        print(f"{icon} {it.path.name} [{it.status}]{extra}", flush=True)
+        print(f"{it.status:9s} {it.path.name}"
+              + (f"  {it.error}" if it.error else ""), flush=True)
 
     job.run(on_update=show)
     report_path = job.write_report()
@@ -186,7 +206,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--prefix", default=None)
     p.add_argument("--params", default=None, help="旁车/参数字段 JSON（跳过自动分析）")
     p.add_argument("--base-roi", type=int, nargs=4, default=None, metavar=("X", "Y", "W", "H"),
-                   help="未曝光片基取样框")
+                   help="未曝光片基取样框（SOURCE 坐标）")
+    p.add_argument("--frame-roi", type=int, nargs=4, default=None,
+                   metavar=("Y0", "X0", "Y1", "X1"),
+                   help="画面裁切框（SOURCE 坐标 y0 x0 y1 x1）")
+    p.add_argument("--rotation", type=int, default=0, choices=[0, 90, 180, 270],
+                   help="顺时针旋转角度")
+    p.add_argument("--keep-rebate", action="store_true",
+                   help="保留片边不裁切（默认裁到画面区域）")
+    p.add_argument("--profile", default=None, help="配置文件（先验）")
+    p.add_argument("--dust-auto", action="store_true", help="片基条带保守自动除尘")
     p.add_argument("--jpeg-quality", type=int, default=95)
     p.add_argument("--tiff-encoding", default=None,
                    choices=["linear", "srgb", "adobe"],

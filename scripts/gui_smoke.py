@@ -58,11 +58,21 @@ def main() -> int:
     win.export_dir = out_dir  # 冒烟测试不污染样片目录
     win.export_all()
     win.grab().save(str(out_dir / "gui_window.png"))
-    exports = sorted(out_dir.glob("G200-1*"))
+    exports = sorted(out_dir.glob("G200-1-positive*"))
     print("exports:", [f.name for f in exports])
     assert len(exports) == 3, "应导出 TIFF/JPEG/旁车 三件"
-    side = json.loads(Path([f for f in exports if f.suffix == ".json"][0]).read_text(encoding="utf-8"))
-    assert side["schema_version"] == 1 and len(side["source_sha256"]) == 64
+    side = json.loads(Path([f for f in exports if f.suffix == ".json"][0])
+                     .read_text(encoding="utf-8"))
+    # 整改 P0-I：断言 rotation/geometry/quality/ICC，而非只数文件
+    assert side["schema_version"] == 2 and len(side["source_sha256"]) == 64
+    assert side["rotation_degrees"] == win.rotation
+    assert side["geometry"]["crop_oriented"] is not None, "GUI 导出必须裁到画面"
+    assert side["geometry"]["roi_source_space"]["coordinate_space"] == "source"
+    assert side["quality"]["status"] in ("ok", "warn")
+    assert side["output"]["icc_sha256"], "旁车必须记录输出 ICC"
+    import tifffile
+    with tifffile.TiffFile(str(out_dir / "G200-1-positive.tif")) as tf:
+        assert tf.pages[0].tags.get(34675) is not None, "TIFF 必须嵌 ICC"
     print("GUI SMOKE OK")
     return 0
 

@@ -101,3 +101,36 @@
   （检测器对亮沙场景仍保守返回 None，走手动路径）
 - 下一门禁：**用户确认联系表达到可继续试用水平**后才进入 P1；
   否则停在 P0-C 继续修自动颜色。
+
+## P0-D（v2 规格）：统一 GUI/CLI/批处理主路径
+
+- 状态：PASS
+- 修改文件：
+  - 新增 `pipeline/service.py`：process_image 单一管线（v2 §2.1 固定顺序：
+    rotate_cw -> 全图检测 -> 裁切前片基 -> crop -> 除尘 -> auto -> invert ->
+    QualityGate），ProcessResult.sidecar() 为唯一 schema **v2** builder
+    （SOURCE 坐标 ROI、crop_oriented 单列、quality/ICC/raw_decode 全记录，
+    coordinate_space:"preview" 消除）；force_params 支持用户显式覆盖
+  - `ui/main_window.py`：load 重置全部图像状态（rotation/ROI/点/蒙版/参数/
+    confidence/_pr）；verified 标注驱动初始旋转与框（F-1 证据 rotation=0
+    vs 标注 180 修复）；旋转清空并重检测（I-1 两案之一）；run_auto/export
+    全部走服务；gate.fail 阻断导出；配置加载按钮启用（损坏可见错误）
+  - `cli.py`：invert 走服务，新增 --rotation/--frame-roi/--keep-rebate/
+    --profile/--dust-auto；输出 ASCII 状态词；旁车 v2
+  - `pipeline/batch.py`：走服务；**fail 在写文件前阻断、零输出**（I-3）；
+    run() 收尾强制写报告（I-5/I-8）；状态 ASCII 枚举；旁车 v2 原子写
+  - `ui/batch_panel.py`：行按规范化完整路径关联（同名文件错行修复）
+  - `pipeline/geometry.py`：oriented_to_source 逆变换（往返测试锁定，
+    期间修正 90/270 两处反解代数错误——被测试抓住）
+  - 测试：`tests/unit/test_service.py`(14：旋转语义/ROI 往返/sidecar v2
+    字段/无 preview/force_params/keep_rebate/fail 零输出阻断)
+- 实际执行命令：pytest -q（125 passed + 1 deselected 发布门禁红）；
+  compileall src scripts tests 通过；e2e_cli_smoke.py 通过（v2 断言）；
+  gui_smoke.py 通过（v2 断言：rotation/geometry/quality/ICC/TIFF 嵌 ICC）
+- 真实样片结果：GUI 加载 G200-1 自动应用标注 180°+verified 框，
+  dmin=[0.1728,0.1181,0.0448] 与基线一致；导出裁切生效、旁车 v2
+- 视觉证据路径：outputs/gui_smoke/（冒烟三件套）
+- 峰值内存/耗时：全量 317s；GUI 导出全分辨率服务单次 ~90s（P2 优化项）
+- 未验证项：事务导出（P0-H）；幂等临时目录（P0-I）；ColorSpace 枚举语义
+  （P0-E，下一项）
+- 下一门禁：P0-E RAW 色彩空间枚举修正

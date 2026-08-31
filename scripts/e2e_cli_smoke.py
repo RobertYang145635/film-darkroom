@@ -32,20 +32,25 @@ def main() -> int:
     print(r.stderr, file=sys.stderr)
     assert r.returncode == 0, f"CLI 退出码 {r.returncode}"
 
-    out_tif = tmp / "synthetic-src.tif"
-    out_jpg = tmp / "synthetic-src.jpg"
-    side = tmp / "synthetic-src.negative.json"
-    assert out_tif.exists() and out_jpg.exists() and side.exists()
+    outs = sorted(tmp.glob("synthetic-src*.tif"))
+    sides = sorted(tmp.glob("synthetic-src*.negative.json"))
+    assert outs and sides, "缺少导出"
+    out_tif = outs[-1]
+    side = sides[-1]
+    assert out_tif.with_suffix(".jpg").exists()
     assert src.read_bytes() != out_tif.read_bytes()
 
     d = json.loads(side.read_text(encoding="utf-8"))
-    assert d["schema_version"] == 1 and len(d["source_sha256"]) == 64
+    assert d["schema_version"] == 2 and len(d["source_sha256"]) == 64
+    assert d["geometry"]["roi_source_space"]["coordinate_space"] == "source"
+    assert d["quality"]["status"] in ("ok", "warn")
+    assert d["output"]["icc_sha256"]
     assert set(["dmin", "dmax", "offset", "wb_low", "wb_high", "reference_exponent",
                 "red_ratio", "blue_ratio", "black", "gamma", "exposure"]) <= set(d["parameters"])
     truth = s["truth"]
     err = np.max(np.abs(np.array(d["parameters"]["dmin"]) - np.array(truth["dmin"])))
     assert err < 0.02, f"旁车 Dmin 偏差 {err}"
-    print("E2E OK: 源文件未被修改，导出与旁车完整")
+    print("E2E OK: 源文件未改，导出三件套完整，sidecar v2 (geometry/quality/ICC)")
     return 0
 
 

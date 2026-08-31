@@ -28,6 +28,20 @@ def rotate_cw(arr: np.ndarray, deg: int) -> np.ndarray:
     return np.rot90(arr, k, axes=(0, 1)).copy() if k else arr
 
 
+def oriented_to_source(roi: tuple[int, int, int, int], src_h: int, src_w: int,
+                       deg: int) -> tuple[int, int, int, int]:
+    """roi_source_to_oriented 的逆变换（ORIENTED -> SOURCE）。"""
+    y0, x0, y1, x1 = roi
+    if deg == 0:
+        return (y0, x0, y1, x1)
+    if deg == 90:      # 正向: (y0,x0,y1,x1)->(x0, sh-y1, x1, sh-y0)
+        # 反解: source = (sh-x1o, y0o, sh-x0o, y1o)
+        return (src_h - x1, y0, src_h - x0, y1)
+    if deg == 180:
+        return (src_h - y1, src_w - x1, src_h - y0, src_w - x0)
+    return (x0, src_w - y1, x1, src_w - y0)   # deg==270 反解
+
+
 def roi_source_to_oriented(roi: tuple[int, int, int, int], src_h: int, src_w: int,
                            deg: int) -> tuple[int, int, int, int]:
     """SOURCE (y0,x0,y1,x1) 半开区间 -> ORIENTED 空间（顺时针 deg 后）。
