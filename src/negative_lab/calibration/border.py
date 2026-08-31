@@ -103,8 +103,171 @@ def detect_base_strip(lum: np.ndarray, frame: tuple[int, int, int, int],
             "warnings": []}
 
 
+def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
+                      base_edge: str | None,
+                      max_dim: int = 800) -> tuple[int, int, int, int] | None:
+    """帧内定位"画面区域"（排除齿孔/字样片边与片基条带）。
+
+    结构模型（真实样片目检）：35mm 条带 = [片边 | 画面 | 片边] 沿宽度方向，
+    条带两端为片基/引带。base_edge 指明片基条带在哪条边，即条带轴方向。
+
+    1) 沿条带轴：从片基侧向内找亮度谷底（画面与片基之间的不透明印边带），
+       谷底即画面端点；另一端用帧边。
+    2) 垂直条带轴：行限定后按列中位亮度 > 0.4x 全局中位取最长连续段
+       （片边为不透光暗印，明显暗于画面）。
+    返回 SOURCE 坐标 (y0,x0,y1,x1)；检测失败返回 None（调用方必须显式处理，
+    不得静默回退整帧）。
+    """
+    if base_edge not in ("top", "bottom", "left", "right"):
+        return None
+    lum, step = _downsample_lum(t_rgb, max_dim)
+    # frame 为同一 max_dim 降采样坐标（detect_regions 内传入 det["frame"]）
+    fy0, fx0, fy1, fx1 = frame
+    sub = lum[fy0:fy1, fx0:fx1]
+    H, W = sub.shape
+    if H < 16 or W < 16:
+        return None
+    y0, y1, x0, x1 = 0, H, 0, W
+
+    rowmed = np.median(sub, axis=1)
+    colmed = np.median(sub, axis=0)
+
+    def _smooth(a: np.ndarray, k: int = 9) -> np.ndarray:
+        if a.size < k:
+            return a
+        pad = k // 2
+        ap = np.pad(a, pad, mode="edge")
+        c = np.cumsum(np.insert(ap, 0, 0.0))
+        return (c[k:] - c[:-k]) / k   # 长度恰为 len(a)，窗口中心对齐
+
+    def _strip_end(profile: np.ndarray, from_end: bool) -> int:
+        """结构先验：[帧边暗隙] [片基亮带] [暗印边带] [画面...]（自片基端向内）。
+
+        1) 从帧端向内进入亮带（>0.6*外侧半区峰值）；
+        2) 亮带内缘 = 亮度跌回 <0.4*峰值处；
+        3) 继续向内穿过暗印边带（<0.1*峰值，不透光印字近黑），
+           画面端点 = 首个不再低于阈值的行。
+        无暗印带（片基直接邻接画面）时端点=亮带内缘。
+        """
+        n = len(profile)
+        ps = _smooth(profile)
+        outer = ps[n // 2:] if from_end else ps[:n // 2]
+        peak = max(float(outer.max()), 1e-6)
+        rng_in = range(n - 1, n // 2, -1) if from_end else range(0, n // 2)
+        base_inner = None
+        in_base = False
+        base_start = None
+        for i in rng_in:
+            if not in_base:
+                if ps[i] > 0.6 * peak:
+                    in_base = True
+                    base_start = i
+            elif ps[i] < 0.4 * peak:
+                base_inner = i
+                break
+        if base_inner is None:
+            return n // 2
+        # 平坦度守卫：真片基是均匀透光带（变异系数低）；亮沙地/天空等
+        # 场景高光带方差大，不得当作片基来裁（CN400 目检教训）。
+        band = profile[min(base_start, base_inner):max(base_start, base_inner) + 1] \
+            if base_start is not None else profile[base_inner:base_inner + 1]
+        if band.size >= 4:
+            m = float(np.mean(band))
+            cv = float(np.std(band)) / max(m, 1e-6)
+            if cv > 0.35:
+                return n - 1 if from_end else 0   # 无可信片基带：不裁这条
+        rng_dark = (range(base_inner - 1, n // 2, -1) if from_end
+                    else range(base_inner + 1, n // 2))
+        img_end = base_inner
+        dark_thr = 0.1 * peak
+        for i in rng_dark:
+            if ps[i] >= dark_thr:
+                img_end = i + (1 if from_end else -1)
+                break
+            img_end = i
+        return int(np.clip(img_end, 2, n - 2))
+
+    if base_edge == "bottom":
+        y1 = _strip_end(rowmed, from_end=True)
+    elif base_edge == "top":
+        y0 = _strip_end(rowmed, from_end=False)
+    elif base_edge == "right":
+        x1 = _strip_end(colmed, from_end=True)
+    elif base_edge == "left":
+        x0 = _strip_end(colmed, from_end=False)
+
+    # 垂直条带轴：从两端向内修剪"片基亮度"的列——齿孔边带是亮片基+暗印字，
+    # 整体亮度接近片基本身（实测 colmed≈0.13 vs 片基 0.15 vs 画面 0.05），
+    # 只能靠"比 0.7*片基亮"从边缘向内判定；内部列永不修剪（亮雪景安全）。
+    region = sub[y0:y1, :]
+    if base_edge == "bottom":
+        base_level = float(np.max(rowmed[y1:])) if y1 < H else 0.0
+    elif base_edge == "top":
+        base_level = float(np.max(rowmed[:y0])) if y0 > 0 else 0.0
+    elif base_edge == "right":
+        base_level = float(np.max(colmed[x1:])) if x1 < W else 0.0
+    else:
+        base_level = float(np.max(colmed[:x0])) if x0 > 0 else 0.0
+    cm = np.median(region, axis=0)
+    max_edge = max(2, int(0.15 * len(cm)))   # 片边带从不宽于15%；更内的亮列视为场景
+    if base_level > 1e-6 and base_edge in ("top", "bottom"):
+        bright = cm > 0.7 * base_level
+        # 帧最外列可能是暗隙（不透光边框）：先跳过暗列再进入齿孔亮带
+        xa = 0
+        while xa < max_edge and not bright[xa]:
+            xa += 1
+        while xa < max_edge and bright[xa]:
+            xa += 1
+        xb = len(bright)
+        lim = len(bright) - max_edge
+        while xb > lim and not bright[xb - 1]:
+            xb -= 1
+        while xb > lim and bright[xb - 1]:
+            xb -= 1
+        if xb - xa >= 0.3 * len(bright):
+            x0, x1 = xa, xb
+    elif base_level > 1e-6:      # left/right：修剪行（片边在上下）
+        rm = np.median(region[:, x0:x1], axis=1)
+        bright = rm > 0.7 * base_level
+        max_edge = max(2, int(0.15 * len(rm)))
+        ya = 0
+        while ya < max_edge and not bright[ya]:
+            ya += 1
+        while ya < max_edge and bright[ya]:
+            ya += 1
+        yb = len(bright)
+        lim = len(bright) - max_edge
+        while yb > lim and not bright[yb - 1]:
+            yb -= 1
+        while yb > lim and bright[yb - 1]:
+            yb -= 1
+        if yb - ya >= 0.3 * len(bright):
+            y0, y1 = ya, yb
+    if x1 - x0 < 0.3 * W or y1 - y0 < 0.3 * H:
+        return None
+
+    out = (fy0 + y0) * step, (fx0 + x0) * step, (fy0 + y1) * step, (fx0 + x1) * step
+    if out[2] - out[0] < 32 or out[3] - out[1] < 32:
+        return None
+    return out
+
+
+def iou(a: tuple, b: tuple) -> float:
+    ay0, ax0, ay1, ax1 = a
+    by0, bx0, by1, bx1 = b
+    iy0, ix0 = max(ay0, by0), max(ax0, bx0)
+    iy1, ix1 = min(ay1, by1), min(ax1, bx1)
+    inter = max(0, iy1 - iy0) * max(0, ix1 - ix0)
+    union = ((ay1 - ay0) * (ax1 - ax0) + (by1 - by0) * (bx1 - bx0) - inter)
+    return inter / union if union > 0 else 0.0
+
+
 def detect_regions(t_rgb: np.ndarray, max_dim: int = 800) -> dict:
-    """全图 -> 帧与片基 ROI（原图坐标）。失败时 base=None 并给出警告。"""
+    """全图 -> 帧、片基与画面区域 ROI（原图坐标）。
+
+    失败时对应键为 None 并给出警告；image_area=None 时调用方不得静默
+    用整帧冒充画面（整改 P0-C）。
+    """
     lum, step = _downsample_lum(t_rgb, max_dim)
     frame = detect_frame(lum)
     det = detect_base_strip(lum, frame)
@@ -119,4 +282,8 @@ def detect_regions(t_rgb: np.ndarray, max_dim: int = 800) -> dict:
     out["frame"] = up(det["frame"])
     out["base"] = up(det["base"])
     out["edge"] = det.get("edge")
+    out["image_area"] = detect_image_area(
+        t_rgb, det["frame"], det.get("edge"), max_dim=max_dim)
+    if out["image_area"] is None and det["base"] is not None:
+        out["warnings"].append("画面区域检测失败：默认输出将保留片边（可手动裁切）")
     return out

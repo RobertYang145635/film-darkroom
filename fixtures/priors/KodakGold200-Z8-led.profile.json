@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "profile_id": "270996da8eb9",
+  "name": "KodakGold200-Z8-led",
+  "version": 1,
+  "created_utc": "2026-08-31T11:48:26Z",
+  "modified_utc": "2026-08-31T11:48:26Z",
+  "film_type": "c41_color",
+  "device": "NIKON Z 8",
+  "light_source": "unknown",
+  "base_prior": null,
+  "exponent_prior": {
+    "reference_exponent": 1.0,
+    "red_ratio": 1.1702,
+    "blue_ratio": 1.0556
+  },
+  "tone_prior": {
+    "dmax": 1.363
+  },
+  "notes": "P0-C 先验：dmax p90 over 8 calibration frames; neutral frames=5. holdout 未参与。method=dmax=p90 of per-frame -z(0.1%) in image area; ratios=median of statistical-neutral estimates"
+}

@@ -56,3 +56,48 @@
   （需人工在两个 ICC-aware 查看器中比对——列入 P0-C 联系表环节）
 - 下一门禁：P0-C 自动颜色先验/统计中性 + apply_geometry 统一裁切方向 +
   quality_gate + 真实质量回归 + 联系表（然后暂停请用户视觉确认）
+
+## P0-C
+
+- 状态：PASS（机器门禁）/ AWAITING-USER（视觉门禁，按规格必须暂停）
+- 修改文件：
+  - 新增 `pipeline/geometry.py`（SOURCE/ORIENTED 坐标语义唯一定义、rotate_cw、
+    roi_source_to_oriented 含边缘钳制、apply_geometry+GeometryRecord）
+  - 新增 `pipeline/workflow.py`（prepare_and_analyze：旋转->全图检测->裁画面->
+    以裁切前片基做分析；GUI/批处理/回归共用，杜绝 I-1/I-2 类漂移）
+  - 新增 `diagnostics/quality_gate.py`（结构化 ok/warn/fail + 逐通道方向比例
+    的剪裁警告，F-4；批处理状态不再靠中文字符串猜）
+  - 新增 `calibration/neutral_stats.py`（受限 gray-world 统计中性候选，升级链
+    第 2 级，置信度 0.4 + 强制可见警告）
+  - `calibration/border.py`：画面区域检测 v2（三段结构扫描 + 片基平坦度守卫 +
+    齿孔双峰列修剪）；G200-1 对 verified 标注 IoU=0.9926（门禁 0.95）
+  - `pipeline/auto.py`：Dmin 有效片基校正（画面内 p99.5 补暗角/导光，实测教训：
+    帧外灯箱与帧内齿孔都会污染分位数）；Dmax 先验取上界补单帧低估
+  - `calibration/base.py`：offset 改为固定黑位余量 log10(1+black)-0.03
+    （旧"压最暗0.5%到黑位"策略压碎贴近片基的场景暗部 -> 低端剪裁 8-9%）
+  - `pipeline/batch.py`：接入 workflow/quality_gate/geometry，keep_rebate 选项，
+    旁车记录 geometry+quality
+  - 新增 `scripts/learn_priors.py`（标定卷先验，留出隔离，版本化 JSON）、
+    `scripts/build_visual_contact_sheet.py`
+  - 新增 `fixtures/priors/*.profile.json` + learn-report.json；
+    `docs/visual-acceptance.md`
+  - 测试：`tests/unit/test_geometry.py`(8)、`tests/unit/test_quality_gate.py`(5)、
+    `tests/regression/test_reference_quality.py`(7：旋转一致/IoU>=0.95/无大片边/
+    剪裁<1%/Dmin参考有效/不冲淡/幂等)
+- 实际执行命令：
+  - `.venv\Scripts\python.exe scripts/learn_priors.py`
+  - `.venv\Scripts\python.exe -m pytest tests/regression/test_reference_quality.py -q`
+  - `.venv\Scripts\python.exe -m pytest -q --deselect ...test_release_gate_blocked_until_fixtures`
+  - `.venv\Scripts\python.exe scripts/build_visual_contact_sheet.py`
+- 测试结果：117 passed + 1 deselected（发布门禁红色为规格要求）。
+  质量回归 7/7：G200-1 低端剪裁 R 0.018%/G 0.009%/B 0.6%（审查基线为
+  9.5/10.0/16.2%），高端 ~0%；IoU 0.9926；幂等逐比特一致。
+- 真实样片结果：G200-1 方向 180° 正确、画面裁切无片边/片基、黑位真实、
+  无青蓝罩（统计中性 wb 生效）；与 NLP 相比对比度仍偏软（见联系表）。
+- 视觉证据路径：`outputs/visual/G200-1_1298_G200_sheet.jpg`
+  （四格：原负片|整改前基线|整改后|NLP 对照）
+- 峰值内存/耗时：质量回归单张 ~205s/7 测试（全分辨率 LINEAR 解码为主）
+- 未验证项：用户视觉确认（本阶段暂停点）；CN400/1299 的画面框 verified 标注
+  （检测器对亮沙场景仍保守返回 None，走手动路径）
+- 下一门禁：**用户确认联系表达到可继续试用水平**后才进入 P1；
+  否则停在 P0-C 继续修自动颜色。

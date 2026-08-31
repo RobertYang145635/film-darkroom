@@ -87,9 +87,9 @@ def estimate_dmax_offset(film_roi: np.ndarray, dmin: np.ndarray,
     - Dmax：在亮度域 z_lum=mean_c(z_c) 上统计；剔除已剪裁到零的像素
       （t<=1e-5，密度信息丢失，不得进入统计），取 z_lum 的 2 分位的相反数；
       限制在 [0.3, 4.0]，防止零/负值进入模型。
-    - offset：令画面最暗 0.5% 像素（z 接近 0 的一侧）恰好落到纸黑：
-      offset = log10(1+black) - z_p99.5 / Dmax，截断到 [-0.5, 1.0]。
-      这是启发式初值，用户可手动覆盖。
+    - offset：片基基准固定落在纸黑上方 ~3.4%（见下方注释；整改 F-4 修复，
+      旧"压最暗0.5%到黑位"策略会压碎贴近片基的场景暗部）。
+      截断到 [-0.5, 1.0]，用户可手动覆盖。
     - 输入剪裁风险：t 低于传感器黑底或达到满阱的像素比例。
     """
     t = np.asarray(film_roi, dtype=np.float32)
@@ -108,11 +108,17 @@ def estimate_dmax_offset(film_roi: np.ndarray, dmin: np.ndarray,
     if n_bad:
         warnings.append(f"画面 ROI 含 {n_bad} 个 NaN/Inf，已替换为 0")
 
-    # 接近片基（最暗场景）。钳制 <=0：齿孔/光源直射区比片基更亮（z>0），
-    # 若不钳制会把 offset 拉负、抬升黑位，导致正片发灰（真实样片实测教训）。
-    z_base = min(float(np.quantile(zl, 0.995)), 0.0)
-    offset = float(np.clip(np.log10(1.0 + max(black, 0.0)) - z_base / dmax,
-                           -0.5, 1.0))
+    # 黑位放置（整改 F-4 根因修复）：旧启发式"把最暗 0.5% 压到纸黑"会把
+    # 紧贴片基的场景暗部整片压碎（G200-1 实测低端剪裁 8-9%）。
+    # 新策略：片基基准 (z=0) 固定落在纸黑上方 ~6.6% 处：
+    #   offset = log10(1+black) - 0.03   （paper(z=0) = (1+black)·(1-10^-0.03) ≈ 0.066）
+    # 余量必须覆盖 B 通道黑位附近的读出噪声（实测 0.015 余量时 B 低端剪裁 2.4%）。
+    offset = float(np.clip(np.log10(1.0 + max(black, 0.0)) - 0.03, -0.5, 1.0))
+    z_base_raw = float(np.quantile(zl, 0.995))
+    if z_base_raw > -0.01:
+        warnings.append(
+            f"画面最暗 0.5% 像素已贴近/超过片基（z_p99.5={z_base_raw:.3f}），"
+            "黑位可能雾化或 Dmin 偏低，请检查片基框")
 
     clip_low = float((t <= 1e-4).mean())
     clip_high = float((t >= 1.0 - 1e-4).mean())

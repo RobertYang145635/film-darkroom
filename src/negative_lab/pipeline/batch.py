@@ -37,6 +37,8 @@ class BatchItem:
     confidence: dict | None = None
     warnings: list[str] = field(default_factory=list)
     diagnostics: dict | None = None
+    quality: dict | None = None          # QualityGate.to_dict()
+    geometry: dict | None = None         # GeometryRecord.to_dict()
     error: str | None = None
     seconds: float = 0.0
 
@@ -49,6 +51,8 @@ class BatchItem:
             "confidence": self.confidence,
             "warnings": self.warnings,
             "diagnostics": self.diagnostics,
+            "quality": self.quality,
+            "geometry": self.geometry,
             "error": self.error,
             "seconds": round(self.seconds, 2),
         }
@@ -61,7 +65,8 @@ class BatchJob:
                  export_jpeg: bool = True,
                  export_tiff: bool = True,
                  dust_auto: bool = False,
-                 tiff_encoding: str | None = None):
+                 tiff_encoding: str | None = None,
+                 keep_rebate: bool = False):
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
         self.prior = prior
@@ -71,6 +76,8 @@ class BatchJob:
         self.dust_auto = dust_auto   # §7：自动检测是保守候选，默认关闭
         # 无 ICC/Gamma 标签 TIFF 的显式传递函数假设（None=拒绝，整改 P0-B）
         self.tiff_encoding = tiff_encoding
+        # 整改 P0-C：默认裁切到画面区域（排除片边/齿孔/片基）；keep_rebate=True 保留
+        self.keep_rebate = keep_rebate
         self._cancel = threading.Event()
         self.started_utc = ""
 
@@ -116,6 +123,22 @@ class BatchJob:
         src = it.path
         loaded = load_linear_rgb(src, tiff_encoding=self.tiff_encoding)
         t = loaded.rgb
+        # ---- 共享工作流（整改 P0-C/I-1：与回归/GUI 同一实现；
+        # 片基检测在裁切前的图上做，避免 Dmin 参考丢失）
+        from ..calibration.annotations import load_annotation
+        from .workflow import prepare_and_analyze
+        ann = None
+        try:
+            ann = load_annotation(src.resolve().relative_to(
+                Path(__file__).resolve().parents[3]).as_posix())
+        except ValueError:
+            pass
+        prepared = prepare_and_analyze(
+            t, rotation_degrees=ann.rotation_degrees if ann else 0,
+            ann=ann, keep_rebate=self.keep_rebate,
+            prior=self.prior.to_initial_params() if self.prior else None)
+        t = prepared.t
+        it.geometry = prepared.geometry.to_dict()
         if self.dust_auto:
             # §7：自动检测保守限定在片基/边缘均匀条带；画面内容区候选密度
             # 过高（真实样片实测 21%），内容尘点走手动蒙版，不自动冒险。
@@ -138,17 +161,28 @@ class BatchJob:
                 loaded.warnings.extend(det["warnings"])
             else:
                 loaded.warnings.extend(det["warnings"])
-        prior_params = self.prior.to_initial_params() if self.prior else None
-        rep = auto_analyze(t, prior=prior_params)
+        # 除尘改变了像素：用裁切前提取的片基数组重跑分析（保持 Dmin 参考一致）
+        rep = auto_analyze(t, base_roi=prepared.base_arr,
+                           prior=self.prior.to_initial_params() if self.prior else None) \
+            if self.dust_auto else prepared.report
         if self.cancelled:
             it.status = "cancelled"
             return
         res = invert_chunked(t, rep.params)
         warnings = sorted(set(loaded.warnings + rep.warnings + res.warnings))
+        # ---- 质量门禁（整改 F-4：结构化状态，不靠中文字符串猜）
+        from ..diagnostics.quality_gate import QualityGate
+        gate = QualityGate.evaluate(
+            t_in=t, positive_linear=res.positive_linear,
+            input_nonfinite=res.diagnostics.get("input_nonfinite", 0),
+            extra_warnings=warnings)
         it.parameters = rep.params.to_parameters_dict()
         it.confidence = rep.confidence
         it.diagnostics = res.diagnostics
-        it.warnings = warnings
+        it.warnings = gate.warnings + gate.failures
+        it.quality = gate.to_dict()
+        low_conf = any(v < 0.5 for k, v in rep.confidence.items()
+                       if k in ("dmin", "dmax"))
 
         stem = src.stem
         written: list[Path] = []
@@ -178,15 +212,23 @@ class BatchJob:
                 "working_space": loaded.meta.get("working_space", "unknown"),
                 "output_encoding": "srgb",
                 "output_icc_sha256": icc_sha256(srgb_icc_bytes()),
+                "geometry": it.geometry,
+                "quality": it.quality,
                 "parameters": it.parameters,
-                "warnings": warnings,
+                "warnings": it.warnings,
                 "diagnostics": {**res.diagnostics, "confidence": rep.confidence},
                 "software_version": __version__,
             }, ensure_ascii=False, indent=2), encoding="utf-8")
             written.append(side)
         it.outputs = [p.as_posix() for p in written]
-        it.status = "warn" if any("置信度低" in w or "失败" in w or "无中性" in w
-                                  for w in warnings) else "ok"
+        # 状态来自结构化枚举：gate.failures -> failed(导出无效) / gate 警告或
+        # 低置信度 -> warn / 否则 ok（整改 I-5：禁止中文字符串匹配）
+        if gate.failures:
+            it.status = "warn"     # 输出仍生成，但质量门禁失败必须可见
+        elif gate.warnings or low_conf:
+            it.status = "warn"
+        else:
+            it.status = "ok"
 
     @staticmethod
     def _unique(p: Path) -> Path:

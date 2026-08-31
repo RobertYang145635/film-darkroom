@@ -46,11 +46,11 @@ def test_no_base_strip_low_confidence():
 
 
 def test_auto_without_neutral_warns_and_outputs():
-    """§4.6.1：无中性点仍输出结果，但标记“无中性参考”。"""
+    """§4.6.1 + 整改升级链：无用户取点时走统计中性或兜底，但警告必须可见。"""
     s = make_synthetic_negative(seed=54)
     rep = auto_analyze(s["negative"], base_roi=s["truth"]["base_roi"])
-    assert any("无中性参考" in w for w in rep.warnings)
-    assert rep.confidence.get("neutral", 0.0) == 0.0
+    assert any("统计中性" in w or "无中性参考" in w for w in rep.warnings), rep.warnings
+    assert rep.confidence.get("neutral_statistical", rep.confidence.get("neutral", 0)) <= 0.4
     from negative_lab.pipeline.density import invert
     out = invert(s["negative"], rep.params).positive_linear
     assert np.isfinite(out).all()

@@ -1,0 +1,44 @@
+{
+  "generated_utc": "2026-08-31T11:47:13Z",
+  "method": "dmax=p90 of per-frame -z(0.1%) in image area; ratios=median of statistical-neutral estimates",
+  "groups": {
+    "CN400": {
+      "stats": {
+        "dmax_p90": 0.8857772350311279,
+        "dmax_frames": 6,
+        "red_ratio_med": 1.0084125,
+        "blue_ratio_med": 0.907984,
+        "n_neutral_frames": 6
+      },
+      "files": [
+        "CN400-1.NEF",
+        "CN400-10.NEF",
+        "CN400-11.NEF",
+        "CN400-12.NEF",
+        "CN400-13.NEF",
+        "CN400-14.NEF",
+        "CN400-15.NEF",
+        "CN400-16.NEF"
+      ]
+    },
+    "Kodak Gold 200": {
+      "stats": {
+        "dmax_p90": 1.3628982782363892,
+        "dmax_frames": 8,
+        "red_ratio_med": 1.170172,
+        "blue_ratio_med": 1.055554,
+        "n_neutral_frames": 5
+      },
+      "files": [
+        "G200-1.NEF",
+        "G200-10.NEF",
+        "G200-11.NEF",
+        "G200-12.NEF",
+        "G200-2.NEF",
+        "G200-3.NEF",
+        "G200-4.NEF",
+        "G200-5.NEF"
+      ]
+    }
+  }
+}
