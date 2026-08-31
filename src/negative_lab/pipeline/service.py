@@ -65,6 +65,7 @@ class ProcessResult:
                 "white_balance_policy": im.get("white_balance_policy", "unknown"),
             },
             "working_space": im.get("working_space", "unknown"),
+            "flatfield": (self.meta or {}).get("flatfield", {"coverage": "off"}),
             "output": {"encoding": "srgb",
                        "icc_sha256": im.get("output_icc_sha256", "")},
             "parameters": self.report.params.to_parameters_dict(),
@@ -90,6 +91,8 @@ def process_image(t_source: np.ndarray, *,
                   dust_mask: np.ndarray | None = None,
                   dust_auto: bool = False,
                   force_params: InvertParams | None = None,
+                  blank: np.ndarray | None = None,
+                  flat_mode: str = "strip",
                   points_space: str = "oriented") -> ProcessResult:
     """执行固定顺序管线。points/dust_mask 默认在 ORIENTED（旋转后、裁切前）坐标。
 
@@ -103,9 +106,24 @@ def process_image(t_source: np.ndarray, *,
     # 1) 顺时针旋转（geometry.rotate_cw 是唯一实现）
     oriented = rotate_cw(t_source, rotation_degrees)
 
+    # 1b) flat-field（v3 P0-C：暗角/导光的正当解法，先于一切统计）
+    flat_info: dict = {"coverage": "off"}
+    if flat_mode != "off":
+        from ..calibration.flatfield import apply_flat, fit_base_surface
+        if blank is not None:
+            fit = fit_base_surface(oriented, blank=rotate_cw(blank, rotation_degrees))
+        else:
+            _det0 = detect_regions(oriented)
+            fit = (fit_base_surface(oriented, base_roi=_det0.get("base"))
+                   if _det0.get("base") else
+                   {"field": np.ones_like(oriented), "coverage": "none",
+                    "warnings": ["无片基条带也无 blank：flat-field 跳过"]})
+        oriented = apply_flat(oriented, fit)
+        flat_info = {"coverage": fit["coverage"], "warnings": fit["warnings"]}
+
     # 2) 全图检测（裁切前，保证片基参考可用）
     det = detect_regions(oriented)
-    warnings: list[str] = list(det.get("warnings", []))
+    warnings: list[str] = list(det.get("warnings", [])) + list(flat_info.get("warnings", []))
 
     # 3) 片基 ROI：用户 > verified 标注 > 自动
     if base_roi_oriented is not None:
@@ -222,4 +240,6 @@ def process_image(t_source: np.ndarray, *,
                                 calibration=calibration)
     rep.warnings = sorted(set(warnings + rep.warnings))
     return ProcessResult(t=t_work, geometry=geo, report=rep, result=res,
-                         gate=gate, meta={})
+                         gate=gate, meta={"flatfield": {
+                             "coverage": flat_info["coverage"],
+                             "warnings": flat_info.get("warnings", [])}})

@@ -79,10 +79,15 @@ def cmd_invert(args: argparse.Namespace) -> int:
     base_yx = (base[1], base[0], base[1] + base[3], base[0] + base[2]) \
         if base else None
     prior = load_profile(args.profile).to_initial_params() if args.profile else None
+    blank = None
+    if args.blank_frame:
+        blank = load_linear_rgb(Path(args.blank_frame),
+                                tiff_encoding=args.tiff_encoding).rgb
     pr = process_image(loaded.rgb, rotation_degrees=args.rotation,
                        frame_roi_source=frame, base_roi_source=base_yx,
                        keep_rebate=args.keep_rebate, prior=prior,
-                       dust_auto=args.dust_auto)
+                       dust_auto=args.dust_auto,
+                       blank=blank, flat_mode=args.flat_mode)
 
     if args.params is not None:
         pd = json.loads(Path(args.params).read_text(encoding="utf-8"))
@@ -216,6 +221,11 @@ def main(argv: list[str] | None = None) -> int:
                    help="保留片边不裁切（默认裁到画面区域）")
     p.add_argument("--profile", default=None, help="配置文件（先验）")
     p.add_argument("--dust-auto", action="store_true", help="片基条带保守自动除尘")
+    p.add_argument("--flat-mode", choices=["off", "strip", "blank"], default="strip",
+                   help="flat-field：off 关闭 / strip 片基条带一维曲面（默认） / "
+                        "blank 需 --blank-frame 完整二维")
+    p.add_argument("--blank-frame", default=None,
+                   help="同装置同几何未放胶片曝光帧（blank light frame）路径")
     p.add_argument("--jpeg-quality", type=int, default=95)
     p.add_argument("--tiff-encoding", default=None,
                    choices=["linear", "srgb", "adobe"],

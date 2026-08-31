@@ -1,0 +1,309 @@
+{
+  "schema_version": 1,
+  "roll": "1298_G200",
+  "n_frames": 12,
+  "n_measured": 12,
+  "frames": [
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-1.NEF",
+      "base_dmin": [
+        0.28366,
+        0.10931,
+        0.0315
+      ],
+      "base_confidence": 0.864,
+      "base_noise_sigma": [
+        0.06351,
+        0.03327,
+        0.02353
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.9623,
+        -1.9005,
+        -0.58,
+        0.0031
+      ],
+      "scene_above_base_frac": 4e-05,
+      "saturated_frac": 0.17778,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-10.NEF",
+      "base_dmin": [
+        0.22952,
+        0.08811,
+        0.02547
+      ],
+      "base_confidence": 0.851,
+      "base_noise_sigma": [
+        0.04842,
+        0.02508,
+        0.01561
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.031,
+        -1.8481,
+        -0.192,
+        0.0229
+      ],
+      "scene_above_base_frac": 0.00199,
+      "saturated_frac": 0.06731,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-11.NEF",
+      "base_dmin": [
+        0.25496,
+        0.09867,
+        0.02853
+      ],
+      "base_confidence": 0.864,
+      "base_noise_sigma": [
+        0.07465,
+        0.03571,
+        0.01535
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0476,
+        -1.9143,
+        -0.3936,
+        0.0055
+      ],
+      "scene_above_base_frac": 0.00083,
+      "saturated_frac": 0.09029,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-12.NEF",
+      "base_dmin": [
+        0.37495,
+        0.14408,
+        0.04193
+      ],
+      "base_confidence": 0.857,
+      "base_noise_sigma": [
+        0.1009,
+        0.05267,
+        0.03303
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.2645,
+        -2.1142,
+        -0.662,
+        0.0158
+      ],
+      "scene_above_base_frac": 0.00217,
+      "saturated_frac": 0.182,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-2.NEF",
+      "base_dmin": [
+        0.26941,
+        0.1033,
+        0.02983
+      ],
+      "base_confidence": 0.86,
+      "base_noise_sigma": [
+        0.05783,
+        0.02749,
+        0.01739
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0712,
+        -1.9778,
+        -0.4285,
+        0.0126
+      ],
+      "scene_above_base_frac": 0.00018,
+      "saturated_frac": 0.1571,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-3.NEF",
+      "base_dmin": [
+        0.30454,
+        0.11732,
+        0.03449
+      ],
+      "base_confidence": 0.883,
+      "base_noise_sigma": [
+        0.06682,
+        0.02879,
+        0.01608
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0333,
+        -2.0079,
+        -0.5593,
+        -0.0965
+      ],
+      "scene_above_base_frac": 0.00011,
+      "saturated_frac": 0.16176,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-4.NEF",
+      "base_dmin": [
+        0.30724,
+        0.11842,
+        0.03417
+      ],
+      "base_confidence": 0.885,
+      "base_noise_sigma": [
+        0.07188,
+        0.03793,
+        0.02372
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.1158,
+        -2.0191,
+        -0.5512,
+        -0.2335
+      ],
+      "scene_above_base_frac": 0.0,
+      "saturated_frac": 0.14577,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-5.NEF",
+      "base_dmin": [
+        0.30488,
+        0.11733,
+        0.03388
+      ],
+      "base_confidence": 0.871,
+      "base_noise_sigma": [
+        0.07419,
+        0.0392,
+        0.02361
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.9089,
+        -0.8244,
+        -0.4885,
+        0.0058
+      ],
+      "scene_above_base_frac": 4e-05,
+      "saturated_frac": 0.05032,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-6.NEF",
+      "base_dmin": [
+        0.27417,
+        0.10477,
+        0.03043
+      ],
+      "base_confidence": 0.837,
+      "base_noise_sigma": [
+        0.07411,
+        0.0401,
+        0.0213
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0494,
+        -1.9921,
+        -0.3886,
+        0.0114
+      ],
+      "scene_above_base_frac": 0.00166,
+      "saturated_frac": 0.12034,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-7.NEF",
+      "base_dmin": [
+        0.24599,
+        0.0946,
+        0.02746
+      ],
+      "base_confidence": 0.73,
+      "base_noise_sigma": [
+        0.06651,
+        0.03662,
+        0.01835
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0577,
+        -1.9824,
+        -0.2813,
+        0.0183
+      ],
+      "scene_above_base_frac": 0.00151,
+      "saturated_frac": 0.05916,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-8.NEF",
+      "base_dmin": [
+        0.31632,
+        0.12158,
+        0.03524
+      ],
+      "base_confidence": 0.866,
+      "base_noise_sigma": [
+        0.08353,
+        0.04018,
+        0.01923
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0144,
+        -1.0293,
+        -0.4548,
+        0.0125
+      ],
+      "scene_above_base_frac": 0.00157,
+      "saturated_frac": 0.05338,
+      "status": "ok"
+    },
+    {
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-9.NEF",
+      "base_dmin": [
+        0.23366,
+        0.0898,
+        0.02611
+      ],
+      "base_confidence": 0.837,
+      "base_noise_sigma": [
+        0.05721,
+        0.02642,
+        0.01494
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.9353,
+        -0.8134,
+        -0.2349,
+        0.0221
+      ],
+      "scene_above_base_frac": 0.003,
+      "saturated_frac": 0.06779,
+      "status": "ok"
+    }
+  ],
+  "roll_summary": {
+    "dmax_p90": 2.1113,
+    "dmax_median": 2.0404,
+    "base_dmin_median": [
+      0.27892,
+      0.10704,
+      0.03096
+    ],
+    "flat_coverage": [
+      "strip-1d"
+    ]
+  },
+  "note": "测量值非标定：标定需 verified 中性参考（v3 P0-E）"
+}

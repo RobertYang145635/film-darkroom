@@ -155,3 +155,31 @@
 - 未验证项：事务导出（P0-H）；幂等临时目录（P0-I）；ColorSpace 枚举语义
   （P0-E，下一项）
 - 下一门禁：P0-E RAW 色彩空间枚举修正
+
+## v3-P0-C：flat-field 与卷级测量
+
+- 状态：PASS
+- 修改文件：
+  - 新增 `calibration/flatfield.py`：blank frame -> 2D 多项式增益场；
+    片基条带 -> 沿条带轴 1D 拟合且**如实声明横向不可观测（部分校正）**；
+    场归一化到全局中位=1（不改 Dmin 量级）
+  - 新增 `calibration/rollmeasure.py` + `scripts/measure_rolls.py`：
+    卷级测量（片基统计/噪声/曲面覆盖/z 分位/超基占比/饱和占比）
+  - `pipeline/service.py`：flat_mode=strip(默认)/blank/off；blank 参数；
+    sidecar 记录 flatfield.coverage 与警告
+  - `cli.py`：--flat-mode / --blank-frame
+  - 测试 `tests/unit/test_flatfield.py`(4)：blank2D 上下片基一致<3%、
+    1D 部分覆盖诚实声明、超基占比 14%->0%（阈值 z>0.04 物理正确：
+    clear film z≈0 不算剪裁）、flat 后 Dmin 仍=片基真值
+- 实际执行命令：pytest tests/unit tests/synthetic -q；scripts/measure_rolls.py
+- 测试结果：123 passed（unit+synthetic）；开发中测试抓住 3 个自身 bug：
+  1D 拟合掩码不一致、设计矩阵维度、ROI 越界切片
+- 真实样片结果：4 卷测量 JSON 落盘 fixtures/measurements/；
+  **ECN-2 转换卷 6/6 帧可测**（base=[0.449,0.232,0.059]，dmax_med=1.41）；
+  1299 与 1298 片基统计差异大（0.178 vs 0.279）——按卷标定的必要性实锤
+- 视觉证据路径：fixtures/measurements/*.measure.json
+- 峰值内存/耗时：measure_rolls 全 4 卷 ~4min（ECN2 272MB/帧抽样 6 帧）
+- 未验证项：真实 G200-1 上 flat 效果（P0-G 联系表时验证；无 blank frame
+  样片，strip-1D 只能部分校正，符合诚实声明）
+- 下一门禁：v3-P0-D backend bake-off（power-reciprocal / density-affine /
+  density-curves 三后端 + 留出集对照）

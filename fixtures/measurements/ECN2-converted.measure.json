@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "roll": "ECN2-converted",
+  "n_frames": 6,
+  "n_measured": 6,
+  "frames": [
+    {
+      "file": "20260506_SAMPLE-ID/ECN2/5207-1.tif",
+      "base_dmin": [
+        0.65509,
+        0.36718,
+        0.21421
+      ],
+      "base_confidence": 0.799,
+      "base_noise_sigma": [
+        0.1521,
+        0.11321,
+        0.08831
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.4974,
+        -1.1824,
+        -0.354,
+        0.0577
+      ],
+      "scene_above_base_frac": 0.04313,
+      "saturated_frac": 0.00623,
+      "status": "ok"
+    },
+    {
+      "file": "20260506_SAMPLE-ID/ECN2/5207-20.tif",
+      "base_dmin": [
+        0.4623,
+        0.16919,
+        0.05995
+      ],
+      "base_confidence": 0.0,
+      "base_noise_sigma": [
+        0.16819,
+        0.13996,
+        0.08785
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.3011,
+        -1.1125,
+        -0.2817,
+        0.3716
+      ],
+      "scene_above_base_frac": 0.14012,
+      "saturated_frac": 0.03443,
+      "status": "ok"
+    },
+    {
+      "file": "20260506_SAMPLE-ID/ECN2/5207-31.tif",
+      "base_dmin": [
+        0.74793,
+        0.31447,
+        0.18403
+      ],
+      "base_confidence": 0.254,
+      "base_noise_sigma": [
+        0.29792,
+        0.16079,
+        0.11536
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.0536,
+        -1.7102,
+        -0.5973,
+        0.0221
+      ],
+      "scene_above_base_frac": 0.00734,
+      "saturated_frac": 0.06532,
+      "status": "ok"
+    },
+    {
+      "file": "20260506_SAMPLE-ID/ECN2/5207-9.tif",
+      "base_dmin": [
+        0.37687,
+        0.14745,
+        0.05783
+      ],
+      "base_confidence": 0.0,
+      "base_noise_sigma": [
+        0.15367,
+        0.11511,
+        0.09111
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.321,
+        -0.9074,
+        -0.164,
+        0.2931
+      ],
+      "scene_above_base_frac": 0.22878,
+      "saturated_frac": 0.00754,
+      "status": "ok"
+    },
+    {
+      "file": "20260506_SAMPLE-ID/ECN2/5219-2.tif",
+      "base_dmin": [
+        0.43218,
+        0.2118,
+        0.04839
+      ],
+      "base_confidence": 0.171,
+      "base_noise_sigma": [
+        0.12632,
+        0.07891,
+        0.02774
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -2.3011,
+        -2.0586,
+        -0.535,
+        0.2041
+      ],
+      "scene_above_base_frac": 0.15262,
+      "saturated_frac": 0.11238,
+      "status": "ok"
+    },
+    {
+      "file": "20260506_SAMPLE-ID/ECN2/5219-30.tif",
+      "base_dmin": [
+        0.43646,
+        0.25291,
+        0.05382
+      ],
+      "base_confidence": 0.442,
+      "base_noise_sigma": [
+        0.10334,
+        0.07838,
+        0.02809
+      ],
+      "flat_coverage": "strip-1d",
+      "z_quantiles": [
+        -1.1299,
+        -1.0287,
+        -0.526,
+        0.1762
+      ],
+      "scene_above_base_frac": 0.07855,
+      "saturated_frac": 0.0969,
+      "status": "ok"
+    }
+  ],
+  "roll_summary": {
+    "dmax_p90": 2.1773,
+    "dmax_median": 1.4092,
+    "base_dmin_median": [
+      0.44938,
+      0.23236,
+      0.05889
+    ],
+    "flat_coverage": [
+      "strip-1d"
+    ]
+  },
+  "note": "测量值非标定：标定需 verified 中性参考（v3 P0-E）"
+}
