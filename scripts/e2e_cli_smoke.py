@@ -25,7 +25,7 @@ def main() -> int:
 
     r = subprocess.run(
         [sys.executable, "-m", "negative_lab.cli", "invert", str(src),
-         "-o", str(tmp), "--base-roi",
+         "-o", str(tmp), "--tiff-encoding", "linear", "--base-roi",
          str(neg.shape[1] - (neg.shape[1] // 8)), "0", str(neg.shape[1] // 8), str(neg.shape[0])],
         capture_output=True, text=True, cwd=ROOT)
     print(r.stdout)

@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from . import __version__
+from .color.management import OutputEncoding
 from .io.images import ReadError, load_linear_rgb, save_jpeg8, save_tiff16
 from .pipeline.auto import auto_analyze
 from .pipeline.density import invert
@@ -38,13 +39,19 @@ def _sha256(path: Path, chunk: int = 1 << 20) -> str:
 
 def build_sidecar(src: Path, params: InvertParams, roi: dict, diagnostics: dict,
                   meta: dict, film_type: str = "unknown") -> dict:
-    """规格 §6 旁车 schema_version=1。"""
+    """规格 §6 旁车 schema_version=1（色彩字段按整改 P0-B 记录实测值，不硬编码）。"""
     return {
         "schema_version": 1,
         "source_sha256": _sha256(src),
         "film_type": film_type,
         "device_profile_id": meta.get("device_profile_id", "none"),
-        "input_profile": meta.get("input_profile", "linear-normalized"),
+        "input_profile": meta.get("input_encoding", "unknown"),
+        "input_profile_detail": meta.get("input_encoding_detail",
+                                         meta.get("white_balance_policy", "unknown")),
+        "input_icc_sha256": meta.get("input_icc_sha256", "none"),
+        "working_space": meta.get("working_space", "camera-linear-normalized"),
+        "output_encoding": "srgb",
+        "output_icc_sha256": meta.get("output_icc_sha256", ""),
         "roi": roi,
         "parameters": params.to_parameters_dict(),
         "diagnostics": diagnostics,
@@ -56,7 +63,7 @@ def cmd_invert(args: argparse.Namespace) -> int:
     src = Path(args.input)
     outdir = Path(args.output)
     try:
-        loaded = load_linear_rgb(src)
+        loaded = load_linear_rgb(src, tiff_encoding=args.tiff_encoding)
     except ReadError as e:
         print(f"[读取失败]\n{e}", file=sys.stderr)
         return 2
@@ -93,8 +100,10 @@ def cmd_invert(args: argparse.Namespace) -> int:
     jpg_path = outdir / f"{stem}.jpg"
     side_path = outdir / f"{stem}.negative.json"
 
-    save_tiff16(tif_path, res.preview_srgb, sources=[src])
-    save_jpeg8(jpg_path, res.preview_srgb, quality=args.jpeg_quality, sources=[src])
+    save_tiff16(tif_path, res.positive_linear, OutputEncoding.SRGB, sources=[src])
+    save_jpeg8(jpg_path, res.positive_linear, quality=args.jpeg_quality, sources=[src])
+    from .color.management import icc_sha256, srgb_icc_bytes
+    loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
     side = build_sidecar(src, params, roi, report_diagnostics, loaded.meta,
                         film_type=args.film_type)
     side_path.write_text(json.dumps(side, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -123,7 +132,8 @@ def cmd_batch(args: argparse.Namespace) -> int:
         return 2
     prior = load_profile(args.profile) if args.profile else None
     job = BatchJob(files, Path(args.output), prior=prior,
-                   jpeg_quality=args.jpeg_quality, dust_auto=args.dust_auto)
+                   jpeg_quality=args.jpeg_quality, dust_auto=args.dust_auto,
+                   tiff_encoding=args.tiff_encoding)
 
     def show(it):
         icon = {"ok": "✓", "warn": "⚠", "failed": "✗", "cancelled": "⊘"}.get(it.status, "…")
@@ -178,6 +188,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--base-roi", type=int, nargs=4, default=None, metavar=("X", "Y", "W", "H"),
                    help="未曝光片基取样框")
     p.add_argument("--jpeg-quality", type=int, default=95)
+    p.add_argument("--tiff-encoding", default=None,
+                   choices=["linear", "srgb", "adobe"],
+                   help="无 ICC/Gamma 标签 TIFF 的传递函数假设（否则拒绝处理）")
     p.add_argument("--film-type", default="unknown",
                    choices=["unknown", "c41_color", "bw", "ecn2_color"])
     p.set_defaults(fn=cmd_invert)
@@ -188,6 +201,9 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--profile", default=None, help="配置文件 .profile.json（仅作先验）")
     b.add_argument("--dust-auto", action="store_true",
                    help="启用保守自动除尘/划痕候选（§7，默认关闭）")
+    b.add_argument("--tiff-encoding", default=None,
+                   choices=["linear", "srgb", "adobe"],
+                   help="无 ICC/Gamma 标签 TIFF 的传递函数假设")
     b.add_argument("--jpeg-quality", type=int, default=95)
     b.set_defaults(fn=cmd_batch)
 

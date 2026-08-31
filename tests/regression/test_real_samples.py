@@ -60,15 +60,26 @@ def test_source_untouched_and_pipeline_sane(sample, tmp_path):
     assert np.isfinite(t).all()
 
     small = t[::4, ::4, :].copy()          # 回归用 1/4 分辨率，控制时长
-    rep = auto_analyze(small)
-    dmin = np.array(rep.params.dmin)
+    # 色彩语义回归使用 verified 标注的 base_roi（不依赖自动检测质量——
+    # 自动检测的 IoU 门禁在 P0-C test_reference_quality 单独把关）。
+    from negative_lab.calibration.annotations import load_annotation
+    from negative_lab.calibration.base import robust_dmin
+
+    ann = load_annotation(entry["file"])
+    assert ann is not None and ann.verified, f"缺 verified 标注: {entry['file']}"
+    y0, x0, y1, x1 = ann.base_roi
+    s = 4
+    base = robust_dmin(small[y0 // s:y1 // s, x0 // s:x1 // s])
+    dmin = np.array(base["dmin"])
     # 真实橙罩片基 B 通道透射率可低至 ~0.03（强吸收蓝），边界按物理实际
-    assert (dmin > 0.01).all() and (dmin < 0.95).all(), rep.params.dmin
-    assert rep.confidence["dmin"] > 0.5, rep.confidence
-    # 回归锁：与 2026-08 标定基线（docs/real-samples-analysis.md）偏差 <5%
-    BASELINE = np.array([0.2836, 0.1092, 0.0315])
+    assert (dmin > 0.01).all() and (dmin < 0.95).all(), dmin
+    assert base["confidence"] > 0.5, base
+    # 回归锁：与 2026-08-31 标定基线（output_color=6 LINEAR 语义）偏差 <5%
+    BASELINE = np.array([0.1722, 0.1174, 0.0444])
     rel = np.abs(dmin - BASELINE) / BASELINE
-    assert rel.max() < 0.05, f"G200-1 Dmin 偏离基线 {rel.max():.1%}: {dmin}"
+    assert rel.max() < 0.05, f"G200-1 片基 Dmin 偏离基线 {rel.max():.1%}: {dmin}"
+    rep = auto_analyze(small)
+    assert 0.3 <= rep.params.dmax <= 4.0
     assert 0.3 <= rep.params.dmax <= 4.0
     out = invert(small, rep.params).positive_linear
     assert np.isfinite(out).all()
@@ -76,7 +87,9 @@ def test_source_untouched_and_pipeline_sane(sample, tmp_path):
     assert 0.05 < lum < 0.95, f"输出均值异常: {lum}"
 
     dst = tmp_path / (path.stem + "-positive.tif")
-    save_tiff16(dst, invert(small, rep.params).preview_srgb, sources=[path])
+    from negative_lab.color.management import OutputEncoding
+    save_tiff16(dst, invert(small, rep.params).positive_linear,
+                OutputEncoding.SRGB, sources=[path])
     assert dst.exists()
     assert hashlib.sha256(path.read_bytes()).hexdigest() == h0, "源文件被改动"
 

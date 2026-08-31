@@ -60,7 +60,8 @@ class BatchJob:
                  jpeg_quality: int = 95,
                  export_jpeg: bool = True,
                  export_tiff: bool = True,
-                 dust_auto: bool = False):
+                 dust_auto: bool = False,
+                 tiff_encoding: str | None = None):
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
         self.prior = prior
@@ -68,6 +69,8 @@ class BatchJob:
         self.export_jpeg = export_jpeg
         self.export_tiff = export_tiff
         self.dust_auto = dust_auto   # §7：自动检测是保守候选，默认关闭
+        # 无 ICC/Gamma 标签 TIFF 的显式传递函数假设（None=拒绝，整改 P0-B）
+        self.tiff_encoding = tiff_encoding
         self._cancel = threading.Event()
         self.started_utc = ""
 
@@ -111,7 +114,7 @@ class BatchJob:
 
     def _process_one(self, it: BatchItem) -> None:
         src = it.path
-        loaded = load_linear_rgb(src)
+        loaded = load_linear_rgb(src, tiff_encoding=self.tiff_encoding)
         t = loaded.rgb
         if self.dust_auto:
             # §7：自动检测保守限定在片基/边缘均匀条带；画面内容区候选密度
@@ -149,25 +152,34 @@ class BatchJob:
 
         stem = src.stem
         written: list[Path] = []
+        from ..color.management import OutputEncoding
         if self.export_tiff:
             dst = self._unique(self.outdir / f"{stem}-positive.tif")
             ensure_not_source(dst, [src])
-            save_tiff16(dst, res.preview_srgb, sources=[src])
+            save_tiff16(dst, res.positive_linear, OutputEncoding.SRGB, sources=[src])
             written.append(dst)
         if self.export_jpeg:
             dst = self._unique(self.outdir / f"{stem}-positive.jpg")
             ensure_not_source(dst, [src])
-            save_jpeg8(dst, res.preview_srgb, quality=self.jpeg_quality,
+            save_jpeg8(dst, res.positive_linear, quality=self.jpeg_quality,
                        sources=[src])
             written.append(dst)
         if written:
             side = Path(str(written[0]) + ".negative.json")
+            from ..color.management import icc_sha256, srgb_icc_bytes
             side.write_text(json.dumps({
                 "schema_version": 1,
                 "source": src.as_posix(),
+                "source_sha256": loaded.meta.get("sha256", ""),
                 "film_type": self.prior.film_type if self.prior else "unknown",
                 "device_profile_id": self.prior.profile_id if self.prior else "none",
+                "input_profile": loaded.meta.get("input_encoding", "unknown"),
+                "input_icc_sha256": loaded.meta.get("input_icc_sha256", "none"),
+                "working_space": loaded.meta.get("working_space", "unknown"),
+                "output_encoding": "srgb",
+                "output_icc_sha256": icc_sha256(srgb_icc_bytes()),
                 "parameters": it.parameters,
+                "warnings": warnings,
                 "diagnostics": {**res.diagnostics, "confidence": rep.confidence},
                 "software_version": __version__,
             }, ensure_ascii=False, indent=2), encoding="utf-8")

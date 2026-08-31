@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pytest
 
+from negative_lab.color.management import OutputEncoding
 from negative_lab.io.atomic import atomic_write_bytes, ensure_not_source
 from negative_lab.io.images import save_tiff16
 
@@ -49,7 +50,8 @@ def test_write_failure_keeps_source_and_no_partial(tmp_path, monkeypatch):
 
     monkeypatch.setattr(os, "rename", boom)
     with pytest.raises(OSError):
-        save_tiff16(dst, np.full((8, 8, 3), 0.5, np.float32), sources=[src])
+        save_tiff16(dst, np.full((8, 8, 3), 0.5, np.float32), OutputEncoding.SRGB,
+                    sources=[src])
     assert not dst.exists()
     assert not list(tmp_path.glob("*.tmp-*"))
     assert src.read_bytes() == b"original"
@@ -59,5 +61,15 @@ def test_export_same_dir_different_name_ok(tmp_path):
     src = tmp_path / "a.tif"
     src.write_bytes(b"x")
     dst = tmp_path / "a-converted.tif"
-    save_tiff16(dst, np.full((8, 8, 3), 0.5, np.float32), sources=[src])
+    save_tiff16(dst, np.full((8, 8, 3), 0.5, np.float32), OutputEncoding.SRGB,
+                sources=[src])
     assert dst.exists() and src.read_bytes() == b"x"
+
+
+def test_save_requires_encoding_enum(tmp_path):
+    """整改 F-2：拒绝无枚举语义的导出请求。"""
+    dst = tmp_path / "x.tif"
+    with pytest.raises(TypeError):
+        save_tiff16(dst, np.zeros((4, 4, 3), np.float32), "srgb")  # 字符串不行
+    with pytest.raises(TypeError):
+        save_tiff16(dst, np.zeros((4, 4, 3), np.float32))          # 缺省不行

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QSlider, QVBoxLayout, QWidget)
 
 from .. import __version__
+from ..color.management import OutputEncoding
 from ..io.images import ReadError, load_linear_rgb, save_jpeg8, save_tiff16
 from ..pipeline.auto import auto_analyze
 from ..pipeline.density import invert, invert_chunked
@@ -289,11 +290,34 @@ class MainWindow(QMainWindow):
         try:
             res = load_linear_rgb(path)
         except ReadError as e:
-            QMessageBox.critical(self, "读取失败", str(e))
-            return
+            msg = str(e)
+            if "tiff_encoding" in msg:
+                # 无 ICC/Gamma 的 TIFF：让用户显式声明传递函数假设（P0-B）
+                box = QMessageBox(self)
+                box.setWindowTitle("TIFF 传递函数未知")
+                box.setText(msg + "\n\n请选择该文件的像素编码假设：")
+                b_lin = box.addButton("线性 (linear)", QMessageBox.AcceptRole)
+                b_srgb = box.addButton("sRGB", QMessageBox.AcceptRole)
+                b_adobe = box.addButton("Adobe RGB", QMessageBox.AcceptRole)
+                box.addButton("取消", QMessageBox.RejectRole)
+                box.exec()
+                choice = {b_lin: "linear", b_srgb: "srgb", b_adobe: "adobe"}.get(
+                    box.clickedButton())
+                if choice:
+                    try:
+                        res = load_linear_rgb(path, tiff_encoding=choice)
+                    except ReadError as e2:
+                        QMessageBox.critical(self, "读取失败", str(e2))
+                        return
+                else:
+                    return
+            else:
+                QMessageBox.critical(self, "读取失败", msg)
+                return
         self.src_path = path
         self.view.set_mask(None)   # 新图清除尘蒙版
         self._t_unrot = res.rgb  # 未旋转原始数组（只读语义）
+        self._load_meta = res.meta
         self.t_full = self._rot(res.rgb)
         scale = max(1, int(np.ceil(max(self.t_full.shape[:2]) / MAX_PREVIEW_DIM)))
         self.t_prev = self.t_full[::scale, ::scale, :].copy()
@@ -528,25 +552,43 @@ class MainWindow(QMainWindow):
         jpg = tif.with_suffix(".jpg")
         side = Path(str(tif) + ".negative.json")
         try:
-            save_tiff16(tif, res.preview_srgb, sources=[self.src_path])
-            save_jpeg8(jpg, res.preview_srgb, sources=[self.src_path])
+            save_tiff16(tif, res.positive_linear, OutputEncoding.SRGB,
+                        sources=[self.src_path])
+            save_jpeg8(jpg, res.positive_linear, sources=[self.src_path])
         except Exception as e:  # noqa: BLE001
             QMessageBox.critical(self, "导出失败", f"{type(e).__name__}: {e}\n源文件未改动")
             return
-        rect = self.view.roi(RoiKind.BASE)
-        roi = {"frame": [0, 0, self.t_full.shape[1], self.t_full.shape[0]],
-               "film_base": ([int(rect.x()), int(rect.y()),
-                              int(rect.width()), int(rect.height())]
-                             if rect is not None else ["auto"])}
+        base_rect = self.view.roi(RoiKind.BASE)
+        frame_rect = self.view.roi(RoiKind.FRAME)
+        roi = {
+            "frame": ([int(frame_rect.x()), int(frame_rect.y()),
+                       int(frame_rect.width()), int(frame_rect.height())]
+                      if frame_rect is not None else None),
+            "film_base": ([int(base_rect.x()), int(base_rect.y()),
+                           int(base_rect.width()), int(base_rect.height())]
+                          if base_rect is not None else None),
+            "coordinate_space": "preview",   # P1 统一为 source 坐标（整改 I-3）
+            "output_crop": None if rect is None else [x0, y0, x1 - x0, y1 - y0],
+        }
         import hashlib
         h = hashlib.sha256()
         with open(self.src_path, "rb") as f:
             for blk in iter(lambda: f.read(1 << 22), b""):
                 h.update(blk)
+        meta = getattr(self, "_load_meta", {}) or {}
+        from ..color.management import icc_sha256, srgb_icc_bytes
         side.write_text(json.dumps({
             "schema_version": 1, "source_sha256": h.hexdigest(),
             "film_type": self.combo_film.currentText(),
-            "device_profile_id": "none", "input_profile": "linear-normalized",
+            "device_profile_id": "none",
+            "input_profile": meta.get("input_encoding", "unknown"),
+            "input_profile_detail": meta.get("input_encoding_detail",
+                                             meta.get("white_balance_policy", "unknown")),
+            "input_icc_sha256": meta.get("input_icc_sha256", "none"),
+            "working_space": meta.get("working_space", "unknown"),
+            "output_encoding": "srgb",
+            "output_icc_sha256": icc_sha256(srgb_icc_bytes()),
+            "rotation_degrees": self.rotation,
             "roi": roi, "parameters": self.params.to_parameters_dict(),
             "diagnostics": res.diagnostics | {"confidence": self.confidence},
             "software_version": __version__,

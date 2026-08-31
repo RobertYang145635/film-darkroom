@@ -33,7 +33,7 @@ def batch_inputs(tmp_path):
 
 def test_single_failure_does_not_stop_batch(tmp_path, batch_inputs):
     d, files = batch_inputs
-    job = BatchJob(files, tmp_path / "out")
+    job = BatchJob(files, tmp_path / "out", tiff_encoding="linear")
     rep = job.run()
     st = {Path(i["file"]).name: i["status"] for i in rep["items"]}
     assert st["corrupt.tif"] == "failed"
@@ -55,7 +55,7 @@ def test_single_failure_does_not_stop_batch(tmp_path, batch_inputs):
 def test_cancel_leaves_no_partial(tmp_path, batch_inputs):
     d, files = batch_inputs
     out = tmp_path / "out"
-    job = BatchJob(files, out)
+    job = BatchJob(files, out, tiff_encoding="linear")
     job.cancel()
     rep = job.run()
     assert all(i["status"] == "cancelled" for i in rep["items"])
@@ -66,7 +66,7 @@ def test_cancel_leaves_no_partial(tmp_path, batch_inputs):
 def test_cancel_midway_no_temp_files(tmp_path, batch_inputs):
     d, files = batch_inputs
     out = tmp_path / "out"
-    job = BatchJob(files, out)
+    job = BatchJob(files, out, tiff_encoding="linear")
     seen = []
 
     def cb(it):
@@ -85,13 +85,13 @@ def test_cancel_midway_no_temp_files(tmp_path, batch_inputs):
 def test_retry_failed_items(tmp_path, batch_inputs, monkeypatch):
     d, files = batch_inputs
     out = tmp_path / "out"
-    job = BatchJob(files, out)
+    job = BatchJob(files, out, tiff_encoding="linear")
     job.run()
     failed = job.failed_items()
     assert [f.path.name for f in failed] == ["corrupt.tif"]
     # 模拟"修好文件"后单独重试
     _write_synth(d, "fixed.tif", 73)
-    retry = BatchJob([d / "fixed.tif"], out)
+    retry = BatchJob([d / "fixed.tif"], out, tiff_encoding="linear")
     rep = retry.run()
     assert rep["items"][0]["status"] in ("ok", "warn")
 
@@ -100,7 +100,7 @@ def test_profile_prior_is_initial_value_only(tmp_path, batch_inputs):
     """配置文件先验不得强行覆盖单张分析：Dmin 仍来自该片自己的片基检测。"""
     d, files = batch_inputs
     prof = FilmProfile(name="test", base_prior=[0.9, 0.9, 0.9])  # 故意离谱
-    job = BatchJob([files[0]], tmp_path / "out", prior=prof)
+    job = BatchJob([files[0]], tmp_path / "out", prior=prof, tiff_encoding="linear")
     rep = job.run()
     dmin = rep["items"][0]["parameters"]["dmin"]
     assert max(dmin) < 0.8, "离谱先验不应压过单张片基检测"

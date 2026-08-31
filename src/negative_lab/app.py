@@ -27,6 +27,7 @@ def selftest() -> int:
     try:
         import numpy as np
 
+        from .color.management import OutputEncoding
         from .io.images import save_jpeg8, save_tiff16
         from .pipeline.auto import auto_analyze
         from .pipeline.density import invert
@@ -43,8 +44,8 @@ def selftest() -> int:
             tifffile.imwrite(src, (s["negative"] * 65535).astype(np.uint16),
                              photometric="rgb")
             out = Path(td) / "out.tif"
-            save_tiff16(out, res.preview_srgb, sources=[src])
-            save_jpeg8(out.with_suffix(".jpg"), res.preview_srgb, sources=[src])
+            save_tiff16(out, res.positive_linear, OutputEncoding.SRGB, sources=[src])
+            save_jpeg8(out.with_suffix(".jpg"), res.positive_linear, sources=[src])
             assert out.exists() and out.with_suffix(".jpg").exists()
         try:
             import rawpy  # noqa: F401
