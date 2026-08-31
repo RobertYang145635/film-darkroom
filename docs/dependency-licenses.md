@@ -34,9 +34,15 @@
 
 ## 结论与待办
 
-1. **无阻塞项**：P0 全部依赖可在“闭源免费”或“宽松许可证”路线下分发，前提是遵守 LGPL 义务。
-2. **PySide6 LGPL 合规动作**（Phase 5 前完成）：动态链接、随包附 LGPL 文本与 Qt 源码获取方式、
-   允许用户替换 Qt DLL（不启用 Qt 的静态链接模式）。
-3. **rawpy/LibRaw 风险门**（规格 §3.1）：若打包验证失败，**保留 TIFF/DNG 路线，不伪造 RAW 支持**；
-   DNG 亦可用 tifffile+自解（无 LibRaw）作为降级路径，届时明确告知用户。
+1. **无阻塞项**：P0 全部依赖可在"闭源免费"或"宽松许可证"路线下分发，前提是遵守 LGPL 义务。
+2. **PySide6 LGPL 合规动作**（已执行，Phase 5）：
+   - 采用 **onedir** 打包（非 onefile）：`dist/negative-lab/_internal/` 内
+     Qt6 DLL 独立可见（实测 30 个），用户可自行替换，满足重新链接权；
+   - 本清单与第三方许可证文本随包分发（`_internal/docs/`）；
+   - 未使用 Qt 静态链接模式。
+3. **rawpy/LibRaw 风险门**（规格 §3.1）：已验证 rawpy 0.27.1 + LibRaw 0.22.1
+   可打包且冻结运行时导入成功（exe --selftest）；但 LibRaw 不支持
+   Nikon Z8 AV1 高效 NEF（docs/blockers.md B-1），TIFF/DNG 降级路线保留，
+   未伪造 RAW 支持。
 4. 项目许可证仍待用户决策（§11）；本清单在决策后复核一次。
+5. 待办：干净测试机安装/卸载验证（本机无法执行，见发布说明）。

@@ -1,0 +1,27 @@
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(0, 1, 0, 0),
+    prodvers=(0, 1, 0, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable('040904B0', [
+        StringStruct('CompanyName', 'negative-lab'),
+        StringStruct('FileDescription', '负片去色罩与反相（密度域+每通道幂指数）'),
+        StringStruct('FileVersion', '0.1.0'),
+        StringStruct('InternalName', 'negative-lab'),
+        StringStruct('LegalCopyright', '见 docs/dependency-licenses.md；项目许可证待用户确认'),
+        StringStruct('OriginalFilename', 'negative-lab.exe'),
+        StringStruct('ProductName', 'negative-lab'),
+        StringStruct('ProductVersion', '0.1.0')
+      ])
+    ]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)

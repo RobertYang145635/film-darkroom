@@ -21,3 +21,8 @@ fixtures/provided/references/
 *.cr2
 *.CR2
 outputs/
+
+# 打包产物与大文件
+dist/
+build/
+outputs/
