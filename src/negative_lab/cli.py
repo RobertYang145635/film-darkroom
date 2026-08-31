@@ -113,6 +113,60 @@ def cmd_invert(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_batch(args: argparse.Namespace) -> int:
+    from .pipeline.batch import BatchJob, collect_files
+    from .profiles.profile import load_profile
+
+    files = collect_files(Path(args.input))
+    if not files:
+        print(f"未找到可处理文件：{args.input}", file=sys.stderr)
+        return 2
+    prior = load_profile(args.profile) if args.profile else None
+    job = BatchJob(files, Path(args.output), prior=prior,
+                   jpeg_quality=args.jpeg_quality)
+
+    def show(it):
+        icon = {"ok": "✓", "warn": "⚠", "failed": "✗", "cancelled": "⊘"}.get(it.status, "…")
+        extra = f"  {it.error}" if it.error else ""
+        print(f"{icon} {it.path.name} [{it.status}]{extra}", flush=True)
+
+    job.run(on_update=show)
+    report_path = job.write_report()
+    rep = job.report()
+    print(f"报告：{report_path}")
+    print(f"汇总：{rep['summary']}")
+    print("提示：JPEG 固定为 8 位；TIFF 为 16 位；源文件只读未改动")
+    return 1 if rep["summary"].get("failed", 0) else 0
+
+
+def cmd_profile(args: argparse.Namespace) -> int:
+    from .profiles.profile import (FilmProfile, list_profiles, load_profile,
+                                   save_profile)
+    if args.action == "list":
+        for p in list_profiles():
+            print(f"{p.name}  id={p.profile_id} v{p.version} film={p.film_type} "
+                  f"device={p.device} light={p.light_source}")
+        return 0
+    if args.action == "show":
+        p = load_profile(args.name)
+        print(json.dumps(p.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+    if args.action == "create":
+        prof = FilmProfile(
+            name=args.name, film_type=args.film_type or "unknown",
+            device=args.device or "unknown", light_source=args.light or "unknown",
+            base_prior=list(args.dmin) if args.dmin else None,
+            exponent_prior={"reference_exponent": args.ref_exponent,
+                            "red_ratio": args.red_ratio, "blue_ratio": args.blue_ratio}
+            if None not in (args.ref_exponent, args.red_ratio, args.blue_ratio) else None,
+            notes=args.notes or "")
+        out = save_profile(prof)
+        print(f"已保存：{out}")
+        return 0
+    print("action 需为 create/list/show", file=sys.stderr)
+    return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="negative_lab", description="负片去色罩 CLI")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -127,7 +181,29 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--film-type", default="unknown",
                    choices=["unknown", "c41_color", "bw", "ecn2_color"])
     p.set_defaults(fn=cmd_invert)
+
+    b = sub.add_parser("batch", help="批处理：文件夹逐张独立分析导出")
+    b.add_argument("input", help="输入目录或文件")
+    b.add_argument("-o", "--output", required=True, help="输出目录")
+    b.add_argument("--profile", default=None, help="配置文件 .profile.json（仅作先验）")
+    b.add_argument("--jpeg-quality", type=int, default=95)
+    b.set_defaults(fn=cmd_batch)
+
+    q = sub.add_parser("profile", help="胶片/设备配置文件管理")
+    q.add_argument("action", choices=["create", "list", "show"])
+    q.add_argument("name", nargs="?", default=None)
+    q.add_argument("--film-type", default=None)
+    q.add_argument("--device", default=None)
+    q.add_argument("--light", default=None)
+    q.add_argument("--dmin", type=float, nargs=3, default=None)
+    q.add_argument("--ref-exponent", type=float, default=None)
+    q.add_argument("--red-ratio", type=float, default=None)
+    q.add_argument("--blue-ratio", type=float, default=None)
+    q.add_argument("--notes", default=None)
+    q.set_defaults(fn=cmd_profile)
     args = ap.parse_args(argv)
+    if args.cmd == "profile" and args.action in ("create", "show") and not args.name:
+        ap.error("create/show 需要 name")
     return args.fn(args)
 
 

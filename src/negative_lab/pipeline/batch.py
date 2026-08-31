@@ -1,0 +1,204 @@
+"""批处理队列（规格 §2.2.1、§5.2、§8.1.6）。
+
+- 每张图独立自动分析；配置文件只作初始先验，不强行覆盖单张结果。
+- 单张失败不影响其余；失败项可单独重试；取消不留半成品
+  （导出走原子写入，取消检查点在文件边界与导出前）。
+- 队列状态：pending/running/ok/warn/failed/cancelled。
+- 结束生成 batch-report.json + 可读摘要。
+"""
+
+from __future__ import annotations
+
+import json
+import threading
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import numpy as np
+
+from .. import __version__
+from ..io.atomic import ensure_not_source
+from ..io.images import load_linear_rgb, save_jpeg8, save_tiff16
+from ..pipeline.auto import auto_analyze
+from ..pipeline.density import invert_chunked
+from ..profiles.profile import FilmProfile
+
+STATUS_ICON = {"pending": "○", "running": "◐", "ok": "✓",
+               "warn": "⚠", "failed": "✗", "cancelled": "⊘"}
+
+
+@dataclass
+class BatchItem:
+    path: Path
+    status: str = "pending"
+    outputs: list[str] = field(default_factory=list)
+    parameters: dict | None = None
+    confidence: dict | None = None
+    warnings: list[str] = field(default_factory=list)
+    diagnostics: dict | None = None
+    error: str | None = None
+    seconds: float = 0.0
+
+    def to_dict(self) -> dict:
+        return {
+            "file": self.path.as_posix(),
+            "status": self.status,
+            "outputs": self.outputs,
+            "parameters": self.parameters,
+            "confidence": self.confidence,
+            "warnings": self.warnings,
+            "diagnostics": self.diagnostics,
+            "error": self.error,
+            "seconds": round(self.seconds, 2),
+        }
+
+
+class BatchJob:
+    def __init__(self, files: list[Path], outdir: Path,
+                 prior: FilmProfile | None = None,
+                 jpeg_quality: int = 95,
+                 export_jpeg: bool = True,
+                 export_tiff: bool = True):
+        self.items = [BatchItem(path=Path(f)) for f in files]
+        self.outdir = Path(outdir)
+        self.prior = prior
+        self.jpeg_quality = jpeg_quality
+        self.export_jpeg = export_jpeg
+        self.export_tiff = export_tiff
+        self._cancel = threading.Event()
+        self.started_utc = ""
+
+    # ---- 控制
+
+    def cancel(self) -> None:
+        self._cancel.set()
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancel.is_set()
+
+    def failed_items(self) -> list[BatchItem]:
+        return [it for it in self.items if it.status == "failed"]
+
+    # ---- 执行
+
+    def run(self, on_update=None) -> dict:
+        """顺序处理（单线程；GUI 侧放 QThread）。返回报告 dict。"""
+        self.outdir.mkdir(parents=True, exist_ok=True)
+        self.started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        for it in self.items:
+            if self.cancelled:
+                it.status = "cancelled"
+                if on_update:
+                    on_update(it)
+                continue
+            it.status = "running"
+            if on_update:
+                on_update(it)
+            t0 = time.perf_counter()
+            try:
+                self._process_one(it)
+            except Exception as e:  # noqa: BLE001 —— 单张失败不影响其余
+                it.status = "failed"
+                it.error = f"{type(e).__name__}: {e}"
+            it.seconds = time.perf_counter() - t0
+            if on_update:
+                on_update(it)
+        return self.report()
+
+    def _process_one(self, it: BatchItem) -> None:
+        src = it.path
+        loaded = load_linear_rgb(src)
+        t = loaded.rgb
+        prior_params = self.prior.to_initial_params() if self.prior else None
+        rep = auto_analyze(t, prior=prior_params)
+        if self.cancelled:
+            it.status = "cancelled"
+            return
+        res = invert_chunked(t, rep.params)
+        warnings = sorted(set(loaded.warnings + rep.warnings + res.warnings))
+        it.parameters = rep.params.to_parameters_dict()
+        it.confidence = rep.confidence
+        it.diagnostics = res.diagnostics
+        it.warnings = warnings
+
+        stem = src.stem
+        written: list[Path] = []
+        if self.export_tiff:
+            dst = self._unique(self.outdir / f"{stem}-positive.tif")
+            ensure_not_source(dst, [src])
+            save_tiff16(dst, res.preview_srgb, sources=[src])
+            written.append(dst)
+        if self.export_jpeg:
+            dst = self._unique(self.outdir / f"{stem}-positive.jpg")
+            ensure_not_source(dst, [src])
+            save_jpeg8(dst, res.preview_srgb, quality=self.jpeg_quality,
+                       sources=[src])
+            written.append(dst)
+        if written:
+            side = Path(str(written[0]) + ".negative.json")
+            side.write_text(json.dumps({
+                "schema_version": 1,
+                "source": src.as_posix(),
+                "film_type": self.prior.film_type if self.prior else "unknown",
+                "device_profile_id": self.prior.profile_id if self.prior else "none",
+                "parameters": it.parameters,
+                "diagnostics": {**res.diagnostics, "confidence": rep.confidence},
+                "software_version": __version__,
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            written.append(side)
+        it.outputs = [p.as_posix() for p in written]
+        it.status = "warn" if any("置信度低" in w or "失败" in w or "无中性" in w
+                                  for w in warnings) else "ok"
+
+    @staticmethod
+    def _unique(p: Path) -> Path:
+        i = 1
+        out = p
+        while out.exists():
+            out = p.with_name(f"{p.stem}-{i}{p.suffix}")
+            i += 1
+        return out
+
+    # ---- 报告
+
+    def report(self) -> dict:
+        counts: dict[str, int] = {}
+        for it in self.items:
+            counts[it.status] = counts.get(it.status, 0) + 1
+        return {
+            "schema_version": 1,
+            "software_version": __version__,
+            "started_utc": self.started_utc,
+            "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "outdir": self.outdir.as_posix(),
+            "profile": self.prior.name if self.prior else None,
+            "summary": counts,
+            "items": [it.to_dict() for it in self.items],
+        }
+
+    def write_report(self) -> Path:
+        out = self.outdir / "batch-report.json"
+        out.write_text(json.dumps(self.report(), ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+        lines = [f"批处理报告  {out}",
+                 f"总计 {len(self.items)} 张：",
+                 "  " + "  ".join(f"{STATUS_ICON.get(k,k)}{k}={v}"
+                                  for k, v in sorted(
+                                      self.report()['summary'].items()))]
+        for it in self.items:
+            if it.status == "failed":
+                lines.append(f"  失败 {it.path.name}: {it.error}")
+        (self.outdir / "batch-report.txt").write_text("\n".join(lines),
+                                                      encoding="utf-8")
+        return out
+
+
+def collect_files(root: Path, exts=(".tif", ".tiff", ".nef", ".dng", ".cr2",
+                                    ".arw", ".png")) -> list[Path]:
+    root = Path(root)
+    if root.is_file():
+        return [root]
+    return sorted(f for f in root.rglob("*")
+                  if f.suffix.lower() in exts and not f.name.lower().endswith(".downloading"))

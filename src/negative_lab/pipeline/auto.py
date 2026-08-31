@@ -98,7 +98,12 @@ def auto_analyze(t_rgb: np.ndarray,
     rep.warnings.extend(base["warnings"])
     rep.warnings.extend(base_roi_sanity_check(t, base_roi))
     rep.confidence["dmin"] = base["confidence"]
-    rep.params.dmin = tuple(float(v) for v in base["dmin"])
+    if base["confidence"] == 0.0 and prior is not None and prior.dmin != InvertParams().dmin:
+        # 片基检测失败但配置文件提供了先验：用先验并如实标记（§4.6.1 兜底路径）
+        rep.warnings.append("片基检测失败，使用胶片配置文件的片基先验（低置信度）")
+        rep.confidence["dmin"] = 0.0
+    else:
+        rep.params.dmin = tuple(float(v) for v in base["dmin"])
 
     # 4 Dmax / offset / 输入剪裁风险（帧检测成功时只用帧内区域，
     # 排除画框黑边——黑边透射率≈0 会虚假抬高 Dmax）

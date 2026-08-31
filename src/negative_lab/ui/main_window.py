@@ -111,8 +111,9 @@ class MainWindow(QMainWindow):
         self.btn_prev.setCheckable(True)
         self.btn_export = QPushButton("导出 TIFF16 + JPEG8 + 旁车")
         self.btn_export.setEnabled(False)
+        self.btn_batch = QPushButton("批处理…")
         for b in (self.btn_open, self.btn_auto, self.btn_orig, self.btn_prev,
-                  self.btn_export):
+                  self.btn_export, self.btn_batch):
             bar.addWidget(b)
         left.addLayout(bar)
         self.view = PreviewView()
@@ -230,6 +231,7 @@ class MainWindow(QMainWindow):
         self.btn_open.clicked.connect(self.open_file)
         self.btn_auto.clicked.connect(self.run_auto)
         self.btn_export.clicked.connect(self.export_all)
+        self.btn_batch.clicked.connect(self.open_batch)
         self.btn_orig.clicked.connect(lambda: self._toggle(True))
         self.btn_prev.clicked.connect(lambda: self._toggle(False))
         self.btn_rebase.clicked.connect(self.rebase)
@@ -241,6 +243,21 @@ class MainWindow(QMainWindow):
         self.combo_rot.currentIndexChanged.connect(self._rotated)
 
         self.statusBar().showMessage("就绪：打开 RAW / 16 位 TIFF / DNG")
+
+    def open_batch(self):
+        from PySide6.QtWidgets import QDialog, QDialogButtonBox
+        from .batch_panel import BatchPanel
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("批处理队列")
+        dlg.resize(900, 560)
+        lay = QVBoxLayout(dlg)
+        lay.addWidget(BatchPanel(dlg))
+        bb = QDialogButtonBox(QDialogButtonBox.Close)
+        bb.rejected.connect(dlg.reject)
+        bb.accepted.connect(dlg.accept)
+        lay.addWidget(bb)
+        dlg.exec()
 
     # ---------------- 文件
 
