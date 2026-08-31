@@ -26,7 +26,8 @@ from ..profiles.profile import FilmProfile
 
 # ASCII 状态词（整改 I-7/P0-D：默认 GBK 控制台不得崩溃）
 STATUS_ICON = {"pending": "PENDING", "running": "RUNNING", "ok": "OK",
-               "warn": "WARN", "failed": "FAILED", "cancelled": "CANCELLED"}
+               "warn": "WARN", "failed": "FAILED", "cancelled": "CANCELLED",
+               "needs_calibration": "NEEDS-CAL"}
 
 
 @dataclass
@@ -193,7 +194,12 @@ class BatchJob:
         it.outputs = [p.as_posix() for p in written]
         low_conf = any(v < 0.5 for k, v in pr.report.confidence.items()
                        if k in ("dmin", "dmax"))
-        it.status = "warn" if (pr.gate.warnings or low_conf) else "ok"
+        if pr.gate.status == "needs_calibration":
+            it.status = "needs_calibration"   # v3：可导出但明确非标定状态
+        elif pr.gate.warnings or low_conf:
+            it.status = "warn"
+        else:
+            it.status = "ok"
 
     @staticmethod
     def _unique(p: Path) -> Path:

@@ -74,8 +74,9 @@ def test_source_untouched_and_pipeline_sane(sample, tmp_path):
     # 真实橙罩片基 B 通道透射率可低至 ~0.03（强吸收蓝），边界按物理实际
     assert (dmin > 0.01).all() and (dmin < 0.95).all(), dmin
     assert base["confidence"] > 0.5, base
-    # 回归锁：与 2026-08-31 标定基线（output_color=6 LINEAR 语义）偏差 <5%
-    BASELINE = np.array([0.1722, 0.1174, 0.0444])
+    # 回归锁：与 2026-09-01 标定基线（v3 P0-A：sRGB-linear 工作空间、
+    # Dmin 纯片基来源——v3 禁止场景 p99.5 覆写后重测）偏差 <5%
+    BASELINE = np.array([0.2836, 0.1093, 0.0315])
     rel = np.abs(dmin - BASELINE) / BASELINE
     assert rel.max() < 0.05, f"G200-1 片基 Dmin 偏离基线 {rel.max():.1%}: {dmin}"
     rep = auto_analyze(small)

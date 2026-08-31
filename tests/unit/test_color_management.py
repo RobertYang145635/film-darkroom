@@ -7,9 +7,9 @@ import pytest
 import tifffile
 
 from negative_lab.color.management import (
-    InputEncoding, OutputEncoding, RAW_DECODE_PARAMS, WORKING_SPACE,
+    InputEncoding, OutputEncoding, TiffClassification, WORKING_SPACE,
     classify_tiff, decode_linear, encode_output, icc_sha256, linear_to_srgb,
-    srgb_icc_bytes, srgb_to_linear)
+    raw_decode_params, srgb_icc_bytes, srgb_to_linear)
 from negative_lab.io.images import ReadError, load_linear_rgb, save_tiff16
 
 
@@ -40,16 +40,30 @@ class TestTransferFunctions:
 
 
 class TestRawPolicy:
-    def test_raw_decode_params_explicit(self):
-        """整改 F-2：RAW 解码参数全部显式锁定（实测教训见 ADR）。"""
-        assert RAW_DECODE_PARAMS["use_camera_wb"] is False
-        assert RAW_DECODE_PARAMS["use_auto_wb"] is False
-        assert "user_mul" not in RAW_DECODE_PARAMS          # 实测破坏归一化，禁用
-        assert RAW_DECODE_PARAMS["output_color"] == 6       # LINEAR
-        assert RAW_DECODE_PARAMS["gamm"] == (1.0, 1.0, 1.0, 1.0)  # 注意拼写
-        assert RAW_DECODE_PARAMS["no_auto_bright"] is True
-        assert RAW_DECODE_PARAMS["output_bps"] == 16
-        assert WORKING_SPACE == "camera-linear-normalized"
+    def test_raw_decode_params_named_enum(self):
+        """v3 F-ALG-1/P0-A：命名枚举，禁止裸整数与 "6=LINEAR" 错误语义。"""
+        import rawpy
+
+        spec = raw_decode_params()
+        assert spec["use_camera_wb"] is False
+        assert spec["use_auto_wb"] is False
+        assert "user_mul" not in spec
+        assert spec["output_color"] == int(rawpy.ColorSpace.sRGB.value)
+        assert spec["output_color_name"] == "sRGB"
+        assert spec["gamm"] == (1.0, 1.0, 1.0, 1.0)
+        assert spec["no_auto_bright"] is True
+        assert spec["output_bps"] == 16
+        # v3 F-ALG-8：flip 语义如实记录（-1 = metadata-oriented）
+        assert spec["user_flip"] == -1
+        assert WORKING_SPACE == "srgb-linear-d65-normalized"
+
+    def test_aces_never_labeled_linear(self):
+        """回归锁：代码/元数据中不得再出现 ACES 值冒充 LINEAR。"""
+        import rawpy
+
+        spec = raw_decode_params()
+        assert spec["output_color"] != int(rawpy.ColorSpace.ACES.value)
+        assert "camera-linear" not in WORKING_SPACE
 
 
 class TestTiffClassification:

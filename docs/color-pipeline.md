@@ -1,7 +1,16 @@
-# 色彩管线 ADR（整改 P0-B，决策记录）
+# 色彩管线 ADR（整改 P0-B；决策 docs/color-pipeline.md）
 
-状态：生效。任何实现与本 ADR 冲突时以本 ADR 为准；修改本 ADR 必须提升
-sidecar `schema_version` 或公式等价性测试（原规格 §4.3 末段、整改 §1.6）。
+> **2026-09-01 v3 修订**：本 ADR 原"output_color=6=LINEAR"决策被复核
+> 证伪（rawpy 0.27 中 6=ACES）。现行决策：临时默认 sRGB-linear(D65)
+> （oc=sRGB + gamm=1，与导出 sRGB TRC/ICC 自洽）；最终默认由
+> scripts/benchmark_color_pipeline.py 三路径 bake-off 在留出集上决定。
+> 工作空间名：srgb-linear-d65-normalized。Dmin 只能来自片基（禁止场景
+> 分位覆写）；gray-world 仅作建议不自动应用。详见
+> docs/remediation-progress.md 撤销记录。
+
+状态：生效（v3 修订版）。任何实现与本 ADR 冲突时以本 ADR 为准；修改本
+ADR 必须提升 sidecar `schema_version` 或公式等价性测试（原规格 §4.3 末段、
+整改 §1.6）。
 
 ## 1. RAW 解码策略（回答"这些数字从哪来"）
 

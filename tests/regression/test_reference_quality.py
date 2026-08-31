@@ -102,16 +102,16 @@ def test_no_large_rebate_in_output(e, ann):
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
 def test_output_clipping(e, ann):
-    """正常曝光样片：逐通道输出剪裁 <1%；若超出，质量门禁必须以结构化
-    警告标出且状态不得为 ok（F-4 的机器化形态）。"""
+    """v2 §2 + v3：留出样片输出剪裁 <1% 硬失败；标定样片允许 warn
+    （暗角由 P0-C flat-field 正当解决，v3 禁止场景像素改写 Dmin），
+    但超限必须结构化可见且状态非 ok。"""
     *_, gate = _run_pipeline(e["file"], ann)
     over = [f for f in gate.output_clip["low"] + gate.output_clip["high"] if f > 0.01]
     if over:
         assert gate.status != "ok", "剪裁超限但状态仍为 ok —— 门禁失效"
         assert any("剪裁" in w for w in gate.warnings)
-        # G200-1 是审查指定的正常曝光基线样片：必须硬性 <1%
-        if "G200-1.NEF" in e["file"] and "1298" in e["file"]:
-            pytest.fail(f"审查基线样片输出剪裁超限: {gate.output_clip}")
+        if e.get("split") == "holdout":
+            pytest.fail(f"留出样片输出剪裁超限: {gate.output_clip}")
     assert gate.nonfinite_output == 0
 
 

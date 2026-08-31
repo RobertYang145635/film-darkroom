@@ -112,64 +112,75 @@ def icc_sha256(data: bytes) -> str:
 
 # ---------------------------------------------------------------- RAW 解码
 
-RAW_DECODE_PARAMS: dict = {
-    "use_camera_wb": False,
-    "use_auto_wb": False,
-    # 不设 user_mul：实测 user_mul=(1,1,1,1) 会改变 LibRaw 内部通道归一化
-    # （片基 R 从 0.17 塌缩到 0.11）。白平衡乘数采用 LibRaw 默认（as-shot
-    # daylight）；任何逐通道增益都会在 z=log10(t/Dmin) 中被 Dmin 归一化抵消，
-    # 不影响密度模型正确性——但必须如实记录策略，不得谎称"无白平衡"。
-    "output_color": 6,          # LINEAR：应用相机色彩矩阵、无 gamma —— 原规格
-                                # §4.1.1 的"线性 RGB"；sensor-raw(0) 通道含串扰，
-                                # 且与 negadoctor/RawPedia 的线性 RGB 语义不符
-    "gamm": (1.0, 1.0, 1.0, 1.0),   # rawpy 0.27 属性名就是 "gamm"（非 gamma）；
-                                     # 写错会被 setattr 静默忽略 -> 输出带 2.2 gamma
-                                     # （实测教训：片基 0.172 -> 0.399）
-    "no_auto_bright": True,
-    "highlight": 0,             # 不过滤高光（剪裁交给诊断）
-    "output_bps": 16,
-    "no_auto_scale": False,
-    "half_size": False,
-    "user_flip": -1,            # 不自动翻转：方向是显式几何参数（annotations）
-}
+# 工作空间决策（v3 P0-A，2026-09-01）：
+# - rawpy 0.27.1 实测 ColorSpace: raw=0, sRGB=1, Adobe=2, Wide=3, ProPhoto=4,
+#   XYZ=5, ACES=6, P3D65=7, Rec2020=8。旧代码把 6 当 "LINEAR" 是错误语义
+#   （v3 F-ALG-1）；"ACES 数值 + sRGB 标记" 组合已禁止。
+# - 临时默认 = sRGB 线性（oc=sRGB + gamm=1）：应用相机矩阵、D65、无传递函数，
+#   与导出端 sRGB TRC + sRGB ICC 自洽。最终默认由 benchmark_color_pipeline
+#   三路径 bake-off 在留出集上决定（v3 P0-A.4）。
+WORKING_SPACE = "srgb-linear-d65-normalized"
 
-WORKING_SPACE = "camera-linear-normalized"
+
+def raw_decode_params() -> dict:
+    """显式解码参数（命名枚举运行时解析；禁止裸整数语义）。"""
+    import rawpy
+
+    return {
+        "use_camera_wb": False,
+        "use_auto_wb": False,
+        # 不设 user_mul：实测 (1,1,1,1) 改变 LibRaw 内部通道归一化。
+        # 实际生效 = LibRaw 默认 daylight 乘数，运行时读取并如实记录
+        # （v3 F-ALG-8：不得笼统写 as-shot/none）。
+        "output_color": int(rawpy.ColorSpace.sRGB.value),
+        "output_color_name": "sRGB",
+        "gamm": (1.0, 1.0, 1.0, 1.0),   # rawpy 0.27 属性名就是 "gamm"
+        "no_auto_bright": True,
+        "highlight": 0,                  # 不过滤高光（剪裁交给诊断）
+        "output_bps": 16,
+        "no_auto_scale": False,
+        "half_size": False,
+        # v3 F-ALG-8 如实记录：-1 = 按 RAW 元数据自动定向。
+        # 本项目 SOURCE 坐标空间定义为 "metadata-oriented decode"，
+        # 与主流查看器一致；不得再谎称"不自动翻转"。
+        "user_flip": -1,
+    }
 
 
 def decode_raw(path: str | Path) -> tuple[np.ndarray, dict]:
-    """RAW -> 归一化线性透射率 t (float32 HxWx3) + 完整解码 meta。
-
-    所有参数显式来自 RAW_DECODE_PARAMS（整改 F-2：禁止依赖库默认值）。
-    """
+    """RAW -> 归一化线性 sRGB-D65 RGB (float32 HxWx3) + 完整解码 meta。"""
     import rawpy
 
     p = Path(path)
+    spec = raw_decode_params()
     with rawpy.imread(str(p)) as r:
         params = rawpy.Params()
-        for k, v in RAW_DECODE_PARAMS.items():
+        for k, v in spec.items():
             setattr(params, k, v)
-        # 防呆：rawpy 的 C 扩展对未知属性 setattr 静默通过，
-        # 必须回读校验关键参数真的生效（gamm 拼错=整条管线色彩错误）。
-        if tuple(params.gamm) != tuple(RAW_DECODE_PARAMS["gamm"]):
-            raise RuntimeError(
-                f"rawpy gamma 参数未生效: {tuple(params.gamm)}，"
-                f"LibRaw 版本接口可能已变（整改 P0-B 防呆）")
-        if params.output_color != RAW_DECODE_PARAMS["output_color"]:
+        # 防呆：rawpy C 扩展对未知属性 setattr 静默通过，必须回读校验
+        if tuple(params.gamm) != (1.0, 1.0, 1.0, 1.0):
+            raise RuntimeError(f"rawpy gamma 参数未生效: {tuple(params.gamm)}")
+        if int(params.output_color) != spec["output_color"]:
             raise RuntimeError("rawpy output_color 参数未生效")
         arr = r.postprocess(params)
         meta = {
             "kind": "raw",
-            "raw_decode_params": dict(RAW_DECODE_PARAMS),
+            "raw_decode_params": {k: v for k, v in spec.items()},
             "decoder": f"rawpy {rawpy.__version__} / LibRaw {rawpy.libraw_version}",
             "black_level_per_channel": [int(v) for v in r.black_level_per_channel],
             "white_level": int(r.white_level),
             "camera": f"{r.lens.make} {r.model or ''}".strip() if hasattr(r, "model") else (r.lens.make or "unknown"),
             "lens": r.lens.model or "unknown",
             "working_space": WORKING_SPACE,
-            "white_balance_policy": "libraw-default as-shot multipliers (camera_wb/auto_wb off; per-channel gains cancel in z-normalization)",
+            # v3 F-ALG-8：记录实际生效的白平衡乘数，不写笼统标签
+            "white_balance_policy": "libraw-default daylight multipliers (camera_wb/auto_wb off)",
+            "applied_wb_daylight": [float(v) for v in r.daylight_whitebalance],
+            "camera_wb_as_shot": [float(v) for v in r.camera_whitebalance],
+            "rgb_xyz_matrix": np.asarray(r.rgb_xyz_matrix, dtype=float).tolist(),
+            "orientation_policy": "metadata-oriented (user_flip=-1)",
             "input_encoding": "linear",
-            "input_encoding_detail": "RAW 解码输出（显式参数，gamma=1，相机矩阵 LINEAR）",
-            "input_icc_sha256": "none (RAW 无 ICC；线性相机 RGB)",
+            "input_encoding_detail": "RAW 解码：相机矩阵 + sRGB 基色 + gamma=1",
+            "input_icc_sha256": "none (RAW；工作空间见 working_space)",
         }
     t = arr.astype(np.float32) / 65535.0
     t = np.clip(t, 0.0, None)

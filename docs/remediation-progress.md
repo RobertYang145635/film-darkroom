@@ -1,5 +1,26 @@
 # 整改进度（负片软件整改_AI执行规格.md §5 固定格式）
 
+## 2026-09-01 复核撤销（v3 F-ALG-9，不覆盖旧日志）
+
+- **P0-B 色彩管线：PASS -> FAIL**。撤销理由：output_color=6 实为
+  rawpy.ColorSpace.ACES（实测枚举表 raw=0,sRGB=1,...,ACES=6），被错误
+  命名为 camera-linear；密度输出为 ACES 基色语义却仅加 sRGB TRC 并嵌
+  sRGB ICC（v3 F-ALG-1）。工作空间已改为 srgb-linear-d65-normalized
+  （临时默认，待 bake-off），ACES 断言测试已删除并替换为命名枚举回归锁。
+- **P0-C 自动颜色：PASS -> FAIL**。撤销理由：Dmin 被画面内 p99.5 覆写
+  （v3 F-ALG-3 禁止——场景像素不得改物理基准；暗角应走 flat-field）；
+  统计 gray-world 自动改写指数/白平衡属自证循环（v3 F-ALG-4）。
+  两处均已移除：Dmin 纯片基来源；gray-world 降级为"建议不应用"。
+- **P0-D 统一主路径：PASS -> PARTIAL**。管线统一/sidecar v2/fail 阻断
+  结构有效，但其上的色彩结论随 P0-B/C 撤销失效；GUI 冒烟在历史输出
+  目录上不可重复（v2 P0-I 待做）。
+- QualityGate 新增 needs_calibration（v3 P0-G 部分）：彩色负片缺
+  verified 标定/中性点时不再伪装为 warn。
+- 三路径 bake-off 首轮（outputs/benchmarks/20260901-030604）：
+  A 路径矩阵方向错误（G 通道全零）待修；B/C 正常产出对比数据。
+- G200-1 Dmin 基线重测为 [0.2836,0.1093,0.0315]（sRGB-linear 工作空间、
+  纯片基来源）——语义变更导致的合法重基线，非放宽阈值。
+
 ## P0-A
 
 - 状态：PASS（附条件：发布门禁测试 test_release_gate_blocked_until_fixtures 按规格保持红色，直到用户补充黑白/ECN-2-TIFF/色卡样片）

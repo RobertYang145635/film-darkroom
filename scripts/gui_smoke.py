@@ -68,7 +68,7 @@ def main() -> int:
     assert side["rotation_degrees"] == win.rotation
     assert side["geometry"]["crop_oriented"] is not None, "GUI 导出必须裁到画面"
     assert side["geometry"]["roi_source_space"]["coordinate_space"] == "source"
-    assert side["quality"]["status"] in ("ok", "warn")
+    assert side["quality"]["status"] in ("ok", "warn", "needs_calibration")
     assert side["output"]["icc_sha256"], "旁车必须记录输出 ICC"
     import tifffile
     with tifffile.TiffFile(str(out_dir / "G200-1-positive.tif")) as tf:

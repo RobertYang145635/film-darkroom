@@ -37,7 +37,7 @@ class TestService:
     def test_geometry_and_sidecar(self, synth):
         t = synth["negative"]
         pr = process_image(t, rotation_degrees=0)
-        assert pr.gate.status in ("ok", "warn")
+        assert pr.gate.status in ("ok", "warn", "needs_calibration")
         geo = pr.geometry
         assert geo.source_size == t.shape[:2]
         assert geo.crop_oriented is not None          # 默认裁到画面

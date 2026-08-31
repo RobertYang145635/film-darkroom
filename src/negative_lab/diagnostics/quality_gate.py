@@ -38,7 +38,11 @@ class QualityGate:
                  positive_linear: np.ndarray | None = None,
                  input_nonfinite: int = 0,
                  extra_warnings: list[str] | None = None,
-                 clip_warn_frac: float = CLIP_WARN_FRAC) -> "QualityGate":
+                 clip_warn_frac: float = CLIP_WARN_FRAC,
+                 calibration: dict | None = None) -> "QualityGate":
+        """calibration（v3 P0-G）：{"level": verified-calibration 名 或 None,
+        "confidence": float}。彩色负片缺卷级标定/中性参考时
+        status=needs_calibration（不是 warn，v3 F-ALG-7）。"""
         g = cls()
         if t_in is not None:
             g.input_clip = _clip(t_in)
@@ -72,6 +76,13 @@ class QualityGate:
         g.warnings.extend(extra_warnings or [])
         if g.failures:
             g.status = "fail"
+        elif calibration is not None and not calibration.get("level") \
+                and float(calibration.get("confidence", 0)) < 0.5:
+            # v3：自动彩色负片缺有效标定 -> needs_calibration（阻断"成功"语义）
+            g.status = "needs_calibration"
+            g.warnings.insert(0,
+                "NEEDS-CALIBRATION: 彩色负片自动结果缺少 verified 卷级标定/中性参考"
+                "（experimental，勿作为正式成品；请提供色卡帧或人工取点）")
         elif g.warnings:
             g.status = "warn"
         return g

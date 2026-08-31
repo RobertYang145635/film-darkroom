@@ -205,10 +205,21 @@ def process_image(t_source: np.ndarray, *,
         rep.params = force_params
     res = invert_chunked(t_work, rep.params)
 
-    # 10) 质量门禁
+    # 10) 质量门禁（v3 P0-G：缺有效标定的彩色负片自动结果 = needs_calibration）
+    calib_level = None
+    if (nb or nd) and (nb and nd):
+        calib_level = "user-neutral-points"
+    elif ann is not None and ann.verified and ann.neutral_rois:
+        calib_level = "verified-roi"
+    elif prior is not None and getattr(prior, "_calibrated", False):
+        calib_level = "roll-profile"
+    calibration = {"level": calib_level,
+                   "confidence": min(rep.confidence.get("dmin", 0),
+                                     rep.confidence.get("dmax", 0))}
     gate = QualityGate.evaluate(t_in=t_work, positive_linear=res.positive_linear,
                                 input_nonfinite=res.diagnostics.get("input_nonfinite", 0),
-                                extra_warnings=warnings + rep.warnings + res.warnings)
+                                extra_warnings=warnings + rep.warnings + res.warnings,
+                                calibration=calibration)
     rep.warnings = sorted(set(warnings + rep.warnings))
     return ProcessResult(t=t_work, geometry=geo, report=rep, result=res,
                          gate=gate, meta={})

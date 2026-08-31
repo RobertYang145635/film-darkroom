@@ -43,7 +43,7 @@ def main() -> int:
     d = json.loads(side.read_text(encoding="utf-8"))
     assert d["schema_version"] == 2 and len(d["source_sha256"]) == 64
     assert d["geometry"]["roi_source_space"]["coordinate_space"] == "source"
-    assert d["quality"]["status"] in ("ok", "warn")
+    assert d["quality"]["status"] in ("ok", "warn", "needs_calibration")
     assert d["output"]["icc_sha256"]
     assert set(["dmin", "dmax", "offset", "wb_low", "wb_high", "reference_exponent",
                 "red_ratio", "blue_ratio", "black", "gamma", "exposure"]) <= set(d["parameters"])

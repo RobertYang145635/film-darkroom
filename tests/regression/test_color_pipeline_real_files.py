@@ -10,7 +10,7 @@ import tifffile
 from PIL import Image
 
 from negative_lab.color.management import (
-    RAW_DECODE_PARAMS, OutputEncoding, icc_sha256, srgb_icc_bytes)
+    OutputEncoding, icc_sha256, raw_decode_params, srgb_icc_bytes)
 from negative_lab.io.images import load_linear_rgb, save_jpeg8, save_tiff16
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,11 +30,14 @@ def test_raw_meta_records_explicit_policy():
     e = _entry(lambda x: x["decode_status"] == "ok" and x["file"].endswith(".NEF"))
     if e is None:
         pytest.skip("无可解码 RAW 样片（missing-fixture，见 docs/support-matrix.md）")
+    from negative_lab.color.management import raw_decode_params
     res = load_linear_rgb(ROOT / e["file"])
     m = res.meta
-    assert m["raw_decode_params"] == RAW_DECODE_PARAMS
-    assert m["white_balance_policy"].startswith("libraw-default")
-    assert m["working_space"] == "camera-linear-normalized"
+    assert m["raw_decode_params"] == raw_decode_params()
+    assert m["white_balance_policy"].startswith("libraw-default daylight")
+    assert m["applied_wb_daylight"] and len(m["applied_wb_daylight"]) == 4
+    assert m["orientation_policy"] == "metadata-oriented (user_flip=-1)"
+    assert m["working_space"] == "srgb-linear-d65-normalized"
     assert m["input_icc_sha256"].startswith("none (RAW")
     assert m["sha256"] == e["sha256"], "样片哈希与清单不一致"
 

@@ -103,29 +103,11 @@ def auto_analyze(t_rgb: np.ndarray,
         rep.warnings.append("片基检测失败，使用胶片配置文件的片基先验（低置信度）")
         rep.confidence["dmin"] = 0.0
     else:
-        dmin = np.asarray(base["dmin"], dtype=np.float32)
-        # 有效片基 = max(边缘片基中位, 帧内最亮透射 p99.9)。
-        # 物理依据：负片帧内最亮像素就是未曝光片基（场景亮部在负片里是暗的）；
-        # 翻拍暗角/导光使画面内透明区可比边缘片基亮 3-10%（G200-1 实测 B 通道），
-        # 不补偿则画面黑位系统性低于黑点 -> 低端剪裁超限。
-        # 必须限定在画面区域内：帧内齿孔是透光直筒（比片基亮 60%+），
-        # 帧外灯箱更亮——只有画面内的最亮像素才是"片内未曝光片基"。
-        if det is not None and det.get("image_area") is not None:
-            sy0, sx0, sy1, sx1 = det["image_area"]
-            scene_region = t[sy0:sy1, sx0:sx1, :].reshape(-1, 3)
-        elif det is not None and det.get("frame") is not None:
-            fy0, fx0, fy1, fx1 = det["frame"]
-            scene_region = t[fy0:fy1, fx0:fx1, :].reshape(-1, 3)
-        else:
-            scene_region = t.reshape(-1, 3)
-        scene_hi = np.percentile(scene_region, 99.5, axis=0).astype(np.float32)
-        ratio = scene_hi / np.maximum(dmin, 1e-6)
-        dmin = np.maximum(dmin, scene_hi)
-        if float(np.max(ratio)) > 1.05:
-            rep.warnings.append(
-                f"画面内透明区比边缘片基亮 {float(np.max(ratio)):.1%}"
-                "（暗角/导光），Dmin 已按画面内基准校正")
-        rep.params.dmin = tuple(float(v) for v in dmin)
+        # v3 F-ALG-3：Dmin 只能来自片基本底。禁止用场景内容（画面内
+        # p99.5/p99.9）"补亮" 物理基准——那会把场景高光、齿孔漏光、
+        # 灯箱和构图色注入色罩估计。暗角/导光不均的正当解法是
+        # blank-light flat-field（v3 P0-C），不是改写 Dmin。
+        rep.params.dmin = tuple(float(v) for v in base["dmin"])
 
     # 4 Dmax / offset / 输入剪裁风险（帧检测成功时只用帧内区域，
     # 排除画框黑边——黑边透射率≈0 会虚假抬高 Dmax）
@@ -177,32 +159,26 @@ def auto_analyze(t_rgb: np.ndarray,
             rep.warnings.extend(wl["warnings"])
         rep.stages.append("5 中性参考点：已用于幂指数/白平衡估计")
     else:
-        # 升级链第 2 级：统计中性候选（受限 gray-world，低置信度）
+        # v3 F-ALG-4/P0-E：统计 gray-world 是自证循环（用当前参数选"看起来
+        # 中性"的像素再改同一组参数），不得自动改写正式通道参数。
+        # 只能作为"建议"呈现给用户，由用户确认后以 force_params 方式采纳。
         from ..calibration.neutral_stats import find_neutral_z_samples
         ns = find_neutral_z_samples(t, rep.params)
-        rep.warnings.extend(ns["warnings"])
         if ns["samples"]:
-            ex = estimate_exponent_ratios(ns["samples"],
-                                          rep.params.reference_exponent,
-                                          weights=ns["weights"])
-            if ex["confidence"] > 0 and len(ns["samples"]) >= 2:
-                rep.params.red_ratio = ex["red_ratio"]
-                rep.params.blue_ratio = ex["blue_ratio"]
-            k = channel_exponents(rep.params)
-            wh = estimate_wb_high(ns["samples"], rep.params.dmax,
-                                  rep.params.offset, rep.params.wb_low, k,
-                                  weights=ns["weights"])
-            rep.params.wb_high = tuple(wh["wb_high"])
-            rep.confidence["neutral_statistical"] = 0.4
+            est = estimate_exponent_ratios(ns["samples"], weights=ns["weights"]) \
+                if len(ns["samples"]) >= 2 else None
+            rep.confidence["neutral_statistical"] = 0.0   # 建议，非标定
             rep.warnings.append(
-                f"使用统计中性候选（占画面 {ns['frac']:.1%}，非色卡）："
-                "白平衡/幂指数为估计值，请人工核对肤色与中性灰，必要时取点重算")
-            rep.stages.append("5 中性参考点：统计候选（低置信度）")
+                "无 verified 中性参考：统计中性建议已生成但【未应用】"
+                f"（建议 ratios R/B="
+                f"{est['red_ratio']:.3f}/{est['blue_ratio']:.3f} 仅供参考，"
+                "请人工取点或提供色卡）" if est else
+                "无中性参考点：仅使用片基基准（§4.6.1）；请取亮/暗中性点")
         else:
             rep.confidence["neutral"] = 0.0
             rep.warnings.append("无中性参考点：仅使用片基基准（标记“无中性参考”，§4.6.1）；"
                                 "如结果异常请点击一个亮部与一个暗部中性区域（§4.6.2）")
-            rep.stages.append("5 中性参考点：缺失，使用片基/预设兜底")
+        rep.stages.append("5 中性参考点：缺失（统计建议不自动应用，v3 P0-E）")
 
     # 6-7 反相 + 诊断
     res = invert(t, rep.params)
