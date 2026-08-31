@@ -1,0 +1,28 @@
+[project]
+name = "negative-lab"
+version = "0.1.0"
+description = "负片去色罩与反相软件（密度域 + 每通道幂指数混合模型）"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "tifffile>=2024.2",
+    "Pillow>=10.2",
+]
+
+[project.optional-dependencies]
+# GUI 与 RAW 解码依赖推迟到 Phase 2 再安装（规格 §13.2：不安装不必要的大型依赖）。
+gui = ["PySide6>=6.6"]
+raw = ["rawpy>=0.19"]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"

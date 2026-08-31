@@ -1,0 +1,22 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# 用户原始样片与大文件：绝不入库（规格 §8.3.6）
+20260709_SAMPLE-ID(1)/
+fixtures/provided/images/
+fixtures/provided/references/
+*.NEF
+*.nef
+*.tif
+*.tiff
+*.dng
+*.DNG
+*.cr2
+*.CR2
+outputs/
