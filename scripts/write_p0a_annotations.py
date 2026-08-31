@@ -35,12 +35,16 @@ ANN = [
                roll="1298_G200", rotation_degrees=180,
                notes="方向目检 180；框待核对", verified=False),
     Annotation(file="20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-1.NEF",
-               roll="1299_G200", rotation_degrees=180,
-               notes="holdout 卷；方向目检 180（地形上/天空下为倒）；框待核对",
+               roll="1299_G200", rotation_degrees=90,
+               notes="holdout 卷；方向目检 90CW（outputs/visual/G200-1_1299_orient.jpg："
+                     "草原+山+建筑，天空在上）；画面框 (1584,143,7370,5203) 与片基带"
+                     "精确衔接，待用户核对后升 verified",
                verified=False),
     Annotation(file="20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-5.NEF",
-               roll="1299_G200", rotation_degrees=180,
-               notes="holdout 卷；方向待复核（缩略图内容不清）", verified=False),
+               roll="1299_G200", rotation_degrees=90,
+               notes="holdout 卷；方向目检 90CW；检测框 x0=1111 含 KODAK 字样片边带，"
+                     "需右移（见 outputs/visual/G200-5_1299_orient.jpg 顶带）",
+               verified=False),
     Annotation(file="20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-1.NEF",
                roll="1300_CN400", rotation_degrees=90,
                notes="胶片条带横向放置：天空在左缘 -> 顺时针 90°；框待核对",

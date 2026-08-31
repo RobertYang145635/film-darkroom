@@ -1,14 +1,14 @@
 {
   "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-5.NEF",
   "roll": "1299_G200",
-  "rotation_degrees": 180,
+  "rotation_degrees": 90,
   "coordinate_space": "source",
   "frame_roi": null,
   "base_roi": null,
   "neutral_rois": [],
   "mask_rois": [],
   "reference_file": null,
-  "notes": "holdout 卷；方向待复核（缩略图内容不清）",
+  "notes": "holdout 卷；方向目检 90CW；检测框 x0=1111 含 KODAK 字样片边带，需右移（见 outputs/visual/G200-5_1299_orient.jpg 顶带）",
   "verified": false,
   "verified_by": "",
   "verified_date": ""
