@@ -1,0 +1,15 @@
+{
+  "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-1.NEF",
+  "roll": "1299_G200",
+  "rotation_degrees": 180,
+  "coordinate_space": "source",
+  "frame_roi": null,
+  "base_roi": null,
+  "neutral_rois": [],
+  "mask_rois": [],
+  "reference_file": null,
+  "notes": "holdout 卷；方向目检 180（地形上/天空下为倒）；框待核对",
+  "verified": false,
+  "verified_by": "",
+  "verified_date": ""
+}

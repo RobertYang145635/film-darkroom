@@ -1,9 +1,14 @@
 # 阻塞与风险记录（执行契约 §6：具体证据，不静默降级）
 
+> 2026-08-31 整改 P0-A 更新：本文件与 `fixtures/manifest.json` 的矛盾（旧清单
+> 用 24 字节启发式把 72 张 AV1 NEF 标为 `ok`）已修复——清单现由
+> `negative_lab.io.probe` 的**真实最小解码探针**生成（schema v2），
+> 实测 `ok=97 / unsupported=72`，与 rawpy 行为一致。
+
 ## B-1（已确认，影响 ECN-2 样片）：Nikon Z8 高效 NEF（AV1 压缩 RAW）无法解码
 
-- **现象**：`20260506_SAMPLE-ID/1171_5219`（36 张）与 `1172_5207`（36 张）全部
-  `rawpy.imread().unpack()` 抛 `LibRawFileUnsupportedError: Unsupported file format or not RAW file`。
+- **现象**：`20260506_SAMPLE-ID/1171_5219`（35 张）与 `1172_5207`（37 张）全部
+  真实解码探针返回 `unsupported`（rawpy `LibRawFileUnsupportedError`）。
 - **证据**：
   - 两卷文件结构完整：RAW 条带 `offset+bytecount` 恰好等于文件大小（未截断）；
     IFD 与可正常解码的 G200/CN400 卷完全同构（NIKON Z 8，固件 Ver.03.10，
@@ -21,8 +26,11 @@
   1. 用 Nikon NX Studio（免费）把这 72 张批量导出 16 位线性 TIFF（本项目 TIFF 路线直接支持）；
   2. 相机内或 NX Studio 转存为「无损压缩/未压缩 NEF」；
   3. 等待 LibRaw 增加 Nikon AV1-NEF 支持后升级 rawpy（本项目会持续检测）。
-- **清单标记**：`fixtures/manifest.json` 每条含 `decode_status` 字段
-  （`ok` / `av1_unsupported`），批处理遇到 `av1_unsupported` 将逐张报告失败原因。
+- **清单标记**：`fixtures/manifest.json`（schema v2）每条含 `decode_status`
+  （真实探针枚举：`ok/unsupported/corrupt/missing_dependency/unknown`）与
+  `decode_reason`；批处理遇到 `unsupported` 逐张报告失败原因。
+  支持矩阵见 `docs/support-matrix.md`：ECN-2 格 = `unsupported`，
+  黑白/真实 TIFF/DNG/第二设备 = `missing-fixture`，发布门禁测试保持红色阻断。
 
 ## B-2（观察项）：真实翻拍样片的结构差异
 

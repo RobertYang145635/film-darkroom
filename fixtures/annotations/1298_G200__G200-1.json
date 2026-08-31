@@ -1,0 +1,25 @@
+{
+  "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-1.NEF",
+  "roll": "1298_G200",
+  "rotation_degrees": 180,
+  "coordinate_space": "source",
+  "frame_roi": [
+    966,
+    376,
+    6541,
+    5166
+  ],
+  "base_roi": [
+    6721,
+    66,
+    7370,
+    5522
+  ],
+  "neutral_rois": [],
+  "mask_rois": [],
+  "reference_file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-1.jpg",
+  "notes": "整改前失败基线：倒置、含片边、偏青蓝、冲淡。天空在场景上方=负片下缘高密度。",
+  "verified": true,
+  "verified_by": "agent-inspected",
+  "verified_date": "2026-08-31"
+}

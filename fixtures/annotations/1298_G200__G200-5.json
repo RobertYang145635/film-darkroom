@@ -1,0 +1,15 @@
+{
+  "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-5.NEF",
+  "roll": "1298_G200",
+  "rotation_degrees": 180,
+  "coordinate_space": "source",
+  "frame_roi": null,
+  "base_roi": null,
+  "neutral_rois": [],
+  "mask_rois": [],
+  "reference_file": null,
+  "notes": "方向目检 180；框待核对",
+  "verified": false,
+  "verified_by": "",
+  "verified_date": ""
+}

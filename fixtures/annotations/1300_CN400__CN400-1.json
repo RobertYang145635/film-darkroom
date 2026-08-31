@@ -1,0 +1,15 @@
+{
+  "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-1.NEF",
+  "roll": "1300_CN400",
+  "rotation_degrees": 90,
+  "coordinate_space": "source",
+  "frame_roi": null,
+  "base_roi": null,
+  "neutral_rois": [],
+  "mask_rois": [],
+  "reference_file": null,
+  "notes": "胶片条带横向放置：天空在左缘 -> 顺时针 90°；框待核对",
+  "verified": false,
+  "verified_by": "",
+  "verified_date": ""
+}
