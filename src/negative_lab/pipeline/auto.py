@@ -152,11 +152,20 @@ def auto_analyze(t_rgb: np.ndarray,
             rep.confidence["wb_high"] = wh["confidence"]
             rep.warnings.extend(wh["warnings"])
         if zd:
-            wl = estimate_wb_low(zd, rep.params.dmax, rep.params.offset,
-                                 rep.params.wb_high, k, weights=wd_)
-            rep.params.wb_low = tuple(wl["wb_low"])
-            rep.confidence["wb_low"] = wl["confidence"]
-            rep.warnings.extend(wl["warnings"])
+            # v3 P0-E 可识别性：wb_low 只通过 offset_c=wb_high*offset*wb_low 起作用，
+            # |offset| 过小时该自由度不可辨识（除以近零 -> 病态解，实测 wb_low
+            # 曾发散到 3.57/0.05）。锁定并降置信度。
+            if abs(rep.params.offset) >= 0.08:
+                wl = estimate_wb_low(zd, rep.params.dmax, rep.params.offset,
+                                     rep.params.wb_high, k, weights=wd_)
+                rep.params.wb_low = tuple(wl["wb_low"])
+                rep.confidence["wb_low"] = wl["confidence"]
+                rep.warnings.extend(wl["warnings"])
+            else:
+                rep.confidence["wb_low"] = 0.0
+                rep.warnings.append(
+                    f"offset={rep.params.offset:.3f} 过小，阴影色偏(wb_low)不可辨识，"
+                    "已锁定 1.0（v3 P0-E 可识别性约束）")
         rep.stages.append("5 中性参考点：已用于幂指数/白平衡估计")
     else:
         # v3 F-ALG-4/P0-E：统计 gray-world 是自证循环（用当前参数选"看起来

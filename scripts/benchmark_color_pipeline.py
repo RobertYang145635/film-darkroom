@@ -64,14 +64,19 @@ def _decode(path: Path, output_color: int) -> tuple[np.ndarray, dict]:
 
 
 def path_a(path: Path) -> tuple[np.ndarray, dict]:
+    """A 路径（RawTherapee 式）：在传感器线性空间测量与反相，矩阵在反相
+    之后的渲染阶段才应用。
+
+    bake-off 决定性发现（2026-09-01，两轮修正）：
+    1. 相机 rgb_xyz_matrix 期望 WB 缩放后的场景数据；对橙色片基应用
+       daylight WB 会产生 32% 负 XYZ（矩阵负瓣截断）；
+    2. 不应用 WB 直接乘矩阵同样得到负值——片基色在相机色域外。
+    结论：负片测量的合法工作空间是传感器线性空间本身（片基=白参考），
+    任何"先转场景 RGB 再反相"的路径都在裁剪密度信息。
+    """
     raw, info = _decode(path, int(rawpy.ColorSpace.raw.value))
-    wb = np.array(info["wb_daylight"][:3], dtype=np.float32)
-    m = np.asarray(info["rgb_xyz_matrix"], dtype=np.float32)  # 4x3
-    cam2xyz = m[:3, :].T            # (3,3): camera RGB -> XYZ
-    xyz = raw * wb                  # 自行应用 daylight WB
-    xyz = xyz @ cam2xyz.T
-    srgb = xyz @ XYZ_TO_SRGB_D65.T
-    return np.clip(srgb, 0.0, None), {"wb_applied": wb.tolist()}
+    return raw, {"space": "sensor-linear (pre-matrix, pre-WB)",
+                 "note": "matrix applied post-inversion in render stage"}
 
 
 def path_b(path: Path) -> tuple[np.ndarray, dict]:
