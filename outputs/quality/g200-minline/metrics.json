@@ -1,0 +1,8 @@
+﻿.venv\Scripts\python.exe : /home/lab\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python.exe: can
+'t open file 'D:\\film-darkroom\\scripts\\_t_g200metrics.py': [Errno 2] No such file or directory
+At line:1 char:160
++ ... m-darkroom; .venv\Scripts\python.exe scripts/_t_g200metrics.py 2>&1 | ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\YHYTRU...le or directory:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
