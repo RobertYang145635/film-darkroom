@@ -93,6 +93,7 @@ def process_image(t_source: np.ndarray, *,
                   force_params: InvertParams | None = None,
                   blank: np.ndarray | None = None,
                   flat_mode: str = "strip",
+                  calibration=None,          # RollCalibration（v3 P0-E）
                   points_space: str = "oriented") -> ProcessResult:
     """执行固定顺序管线。points/dust_mask 默认在 ORIENTED（旋转后、裁切前）坐标。
 
@@ -219,13 +220,31 @@ def process_image(t_source: np.ndarray, *,
     # 8) 自动分析（片基参考来自裁切前数组）+ 用户显式覆盖（§4.2.2）
     rep = auto_analyze(t_work, base_roi=base_arr, prior=prior,
                        neutral_bright_points=nb, neutral_dark_points=nd)
+    # v3 P0-E 层级：verified 校准（user-points/chart）覆盖逐帧猜测，
+    # 但 Dmin 保持本帧片基测量（物理量按帧）；force_params 最终裁决。
+    if calibration is not None and calibration.usable_for_color:
+        if calibration.dmax:
+            rep.params.dmax = float(calibration.dmax)
+        if calibration.red_ratio is not None:
+            rep.params.red_ratio = float(calibration.red_ratio)
+        if calibration.blue_ratio is not None:
+            rep.params.blue_ratio = float(calibration.blue_ratio)
+        if calibration.wb_high is not None:
+            rep.params.wb_high = tuple(calibration.wb_high)
+        if calibration.density_matrix is not None:
+            rep.params.density_matrix = tuple(calibration.density_matrix)
+        rep.confidence["calibration_source"] = calibration.source
+        rep.warnings.append(
+            f"已应用卷级校准（{calibration.source}，roll={calibration.roll}）")
     if force_params is not None:
         rep.params = force_params
     res = invert_chunked(t_work, rep.params)
 
     # 10) 质量门禁（v3 P0-G：缺有效标定的彩色负片自动结果 = needs_calibration）
     calib_level = None
-    if (nb or nd) and (nb and nd):
+    if calibration is not None and calibration.usable_for_color:
+        calib_level = calibration.source
+    elif (nb or nd) and (nb and nd):
         calib_level = "user-neutral-points"
     elif ann is not None and ann.verified and ann.neutral_rois:
         calib_level = "verified-roi"
