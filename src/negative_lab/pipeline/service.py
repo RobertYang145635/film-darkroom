@@ -236,25 +236,13 @@ def process_image(t_source: np.ndarray, *,
     cy0 = crop[0] if crop else 0
     cx0 = crop[1] if crop else 0
 
-    # 6) 除尘（oriented 域，先于裁切；手动基区也作为保守候选区）
-    if dust_auto:
-        from ..restoration.dust import detect_dust as _dd
-        region = None
-        if base_o is not None:
-            by0, bx0, by1, bx1 = base_o
-            region = np.zeros(oriented.shape[:2], bool)
-            region[by0:by1, bx0:bx1] = True
-        d = _dd(oriented, region=region)
-        if d["mask"].any():
-            dust_mask = d["mask"] if dust_mask is None else (dust_mask | d["mask"])
-        warnings.extend(d["warnings"])
+    # 6b) 除尘（用户裁决 2026-09-01 暂缓：检测与修复均不执行；
+    # dust_mask/dust_auto 参数保留以备未来启用）
     dust_applied = False
+    # 用户裁决（2026-09-01）：除尘暂不执行——跳过全部 inpaint 路径。
+    # dust_mask/dust_auto 参数保留，未来启用时把上面的窗口化修复一起恢复。
     if dust_mask is not None and dust_mask.any():
-        from ..restoration.dust import safe_inpaint
-        oriented, err = safe_inpaint(oriented, dust_mask)
-        dust_applied = err is None
-        if err:
-            warnings.append(err)
+        warnings.append("除尘已按用户裁决暂缓：蒙版已记录，未执行修复")
 
     # 7) 分析区域（image_area）内的自动分析；输出区域（output crop）反相
     t_analysis = oriented[area_o[0]:area_o[2], area_o[1]:area_o[3], :] \

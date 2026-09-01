@@ -84,9 +84,12 @@ class QualityGate:
                             f"{clip_warn_frac:.1%}（{advice}）")
             for side in ("low", "high"):
                 for ch, frac in _iter(g.input_clip or {}, side):
+                    # 输入剪裁=扫描硬件事实（算法不可修），用户裁决：warn 不 fail；
+                    # 输出剪裁才是算法责任（hard fail 在上方）。
                     if frac > clip_fail_frac:
-                        g.failures.append(
-                            f"输入剪裁超限(FAIL)：通道 {ch} {side} {frac:.2%}")
+                        g.warnings.append(
+                            f"输入剪裁超限：通道 {ch} {side} {frac:.2%}"
+                            "（扫描端信息已丢失，无法由算法恢复；如需根治请重扫）")
                     elif frac > clip_warn_frac:
                         g.warnings.append(
                             f"输入剪裁：通道 {ch} {side} {frac:.2%}")

@@ -36,7 +36,10 @@ def _verified_annotations():
     out = []
     for e in doc["images"]:
         ann = load_annotation(e["file"])
-        if ann and ann.verified and e["decode_status"] == "ok" \
+        # v4 §8.5：agent 标注降级 draft——几何/管线回归仍可用（几何可机器
+        # 验证，不构成颜色验收）；needs_reconfirm 引导由单测覆盖。
+        if ann and (ann.verified or getattr(ann, "needs_reconfirm", False)) \
+                and e["decode_status"] == "ok" \
                 and (ROOT / e["file"]).exists():
             out.append((e, ann))
     return out
@@ -44,7 +47,7 @@ def _verified_annotations():
 
 CASES = _verified_annotations()
 pytestmark = pytest.mark.skipif(
-    not CASES, reason="无 verified 标注样片（fixtures/annotations/）")
+    not CASES, reason="无可用标注样片（verified 或 draft+needs_reconfirm）")
 
 
 def _run_pipeline(rel: str, ann):

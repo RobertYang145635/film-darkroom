@@ -66,7 +66,12 @@ def test_source_untouched_and_pipeline_sane(sample, tmp_path):
     from negative_lab.calibration.base import robust_dmin
 
     ann = load_annotation(entry["file"])
-    assert ann is not None and ann.verified, f"缺 verified 标注: {entry['file']}"
+    # v4 §8.5：agent 标注已降级 draft（用户尚未在 GUI 重新确认）。
+    # 本测试只锁"几何+Dmin 数值稳定性"——用 draft 框仍有效（几何/数值
+    # 回归不构成颜色验收）；needs_reconfirm 引导由 test_annotations 覆盖。
+    assert ann is not None, f"缺标注: {entry['file']}"
+    assert getattr(ann, "needs_reconfirm", True) or ann.verified, \
+        "标注既非 verified 也未标记 needs_reconfirm（迁移逻辑缺失）"
     y0, x0, y1, x1 = ann.base_roi
     s = 4
     base = robust_dmin(small[y0 // s:y1 // s, x0 // s:x1 // s])
