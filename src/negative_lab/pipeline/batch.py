@@ -162,35 +162,24 @@ class BatchJob:
         it.quality = pr.gate.to_dict()
         it.warnings = pr.gate.warnings
 
-        stem = src.stem
-        written: list[Path] = []
-        from ..color.management import OutputEncoding
-        if self.export_tiff:
-            dst = self._unique(self.outdir / f"{stem}-positive.tif")
-            ensure_not_source(dst, [src])
-            save_tiff16(dst, pr.result.positive_linear, OutputEncoding.SRGB,
-                        sources=[src])
-            written.append(dst)
-        if self.export_jpeg:
-            dst = self._unique(self.outdir / f"{stem}-positive.jpg")
-            ensure_not_source(dst, [src])
-            save_jpeg8(dst, pr.result.positive_linear, quality=self.jpeg_quality,
-                       sources=[src])
-            written.append(dst)
-        if written:
-            from ..color.management import icc_sha256, srgb_icc_bytes
-            loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
-            payload = pr.sidecar(
-                source_sha256=loaded.meta.get("sha256", ""),
-                source_path=src.as_posix(),
-                film_type=(self.prior.film_type if self.prior else "unknown"),
-                profile_id=(self.prior.profile_id if self.prior else "none"),
-                input_meta=loaded.meta)
-            side = Path(str(written[0]) + ".negative.json")
-            from ..io.atomic import atomic_write_bytes
-            atomic_write_bytes(side, json.dumps(payload, ensure_ascii=False,
-                                                indent=2).encode("utf-8"))
-            written.append(side)
+        from ..color.management import icc_sha256, srgb_icc_bytes
+        loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
+        payload = pr.sidecar(
+            source_sha256=loaded.meta.get("sha256", ""),
+            source_path=src.as_posix(),
+            film_type=(self.prior.film_type if self.prior else "unknown"),
+            profile_id=(self.prior.profile_id if self.prior else "none"),
+            input_meta=loaded.meta)
+        # 事务三件套（v3 P0-H：staging->校验->提交，失败零残留）
+        from ..io.export import ExportError, export_triplet
+        try:
+            written = export_triplet(self.outdir, src.stem,
+                                     pr.result.positive_linear, payload,
+                                     sources=[src], jpeg_quality=self.jpeg_quality)
+        except ExportError as e:
+            it.status = "failed"
+            it.error = str(e)
+            return
         it.outputs = [p.as_posix() for p in written]
         low_conf = any(v < 0.5 for k, v in pr.report.confidence.items()
                        if k in ("dmin", "dmax"))

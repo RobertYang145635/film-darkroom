@@ -620,13 +620,7 @@ class MainWindow(QMainWindow):
             return
         outdir = self.export_dir or self.src_path.parent
         stem = self.src_path.stem
-        tif = self._unique(outdir / f"{stem}-positive.tif")
-        jpg = tif.with_suffix(".jpg")
-        side = Path(str(tif) + ".negative.json")
         try:
-            save_tiff16(tif, pr.result.positive_linear, OutputEncoding.SRGB,
-                        sources=[self.src_path])
-            save_jpeg8(jpg, pr.result.positive_linear, sources=[self.src_path])
             from ..color.management import icc_sha256, srgb_icc_bytes
             meta = dict(getattr(self, "_load_meta", {}) or {})
             meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
@@ -637,16 +631,19 @@ class MainWindow(QMainWindow):
                 profile_id=(self._profile.profile_id
                             if getattr(self, "_profile", None) else "none"),
                 input_meta=meta)
-            side.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                            encoding="utf-8")
+            from ..io.export import export_triplet
+            written = export_triplet(outdir, stem, pr.result.positive_linear,
+                                     payload, sources=[self.src_path])
         except Exception as e:  # noqa: BLE001
-            QMessageBox.critical(self, "导出失败", f"{type(e).__name__}: {e}\n源文件未改动")
+            QMessageBox.critical(self, "导出失败（已回滚，无半套工件）",
+                                 f"{type(e).__name__}: {e}\n源文件未改动")
             return
+        self._last_export = [str(p) for p in written]
         warns = [f"[{pr.gate.status.upper()}] {w}" for w in pr.gate.warnings]
         if warns:
             self._set_warnings(warns)
         self.statusBar().showMessage(
-            f"导出完成：{tif.name} / {jpg.name}（JPEG 固定 8 位）+ 旁车 v2 "
+            f"导出完成（事务提交）：{', '.join(p.name for p in written)} "
             f"quality={pr.gate.status}")
 
     @staticmethod

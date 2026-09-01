@@ -108,14 +108,6 @@ def cmd_invert(args: argparse.Namespace) -> int:
 
     outdir.mkdir(parents=True, exist_ok=True)
     stem = args.prefix or src.stem
-    tif_path = _unique(outdir / f"{stem}.tif")
-    jpg_path = tif_path.with_suffix(".jpg")
-    side_path = Path(str(tif_path) + ".negative.json")
-
-    save_tiff16(tif_path, pr.result.positive_linear, OutputEncoding.SRGB,
-                sources=[src])
-    save_jpeg8(jpg_path, pr.result.positive_linear, quality=args.jpeg_quality,
-               sources=[src])
     from .color.management import icc_sha256, srgb_icc_bytes
     loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
     payload = pr.sidecar(source_sha256=loaded.meta.get("sha256", ""),
@@ -123,8 +115,15 @@ def cmd_invert(args: argparse.Namespace) -> int:
                          film_type=args.film_type,
                          profile_id=(args.profile or "none"),
                          input_meta=loaded.meta)
-    side_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2),
-                         encoding="utf-8")
+    from .io.export import ExportError, export_triplet
+    try:
+        written = export_triplet(outdir, stem, pr.result.positive_linear,
+                                 payload, sources=[src],
+                                 jpeg_quality=args.jpeg_quality)
+    except ExportError as e:
+        print(f"FAILED: {e}", file=sys.stderr)
+        return 4
+    tif_path, jpg_path, side_path = written
 
     p = pr.report.params
     print(f"OK params: dmin={[round(v,4) for v in p.dmin]} dmax={p.dmax:.3f} "
