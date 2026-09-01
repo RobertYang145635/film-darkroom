@@ -299,8 +299,11 @@ def process_image(t_source: np.ndarray, *,
             rep.confidence["calibration_source"] = calibration.source
             rep.warnings.append(
                 f"已应用卷级校准（{calibration.source}，roll={calibration.roll}）")
+    # 帧级黑位：不再自动下压 offset（backend 的解析软趾已把硬剪裁变为
+    # 渐近逼近；全局压黑牺牲中间调彩度——G200-1 实测 sat_p90 0.83->0.44）。
+    # 场景专属黑位调整是用户 offset 手动职责。
     if force_params is not None:
-        rep.params = force_params
+        rep.params = force_params   # 用户显式参数最终裁决（§4.2.2/v4 §6.6）
 
     # 8) 技术反相（v4 §4.3：注册表唯一路径）
     res = invert_chunked(t_out, rep.params)

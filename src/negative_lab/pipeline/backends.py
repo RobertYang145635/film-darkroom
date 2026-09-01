@@ -58,6 +58,11 @@ def _core(t: np.ndarray, params: InvertParams, A: np.ndarray,
     q = -(wh / params.dmax)[None, None, :] * v \
         + (wh * params.offset * wl)[None, None, :]
     paper = (1.0 + params.black) - np.power(10.0, q)
+    # 黑位解析软趾（v4 §4.1 technical_endpoints 映射的一部分）：
+    # 低于黑点的像素渐近逼近 0 而非硬剪为 0——保留"多黑"的信息
+    # （smooth-abs，C∞、单调、above-3toe 恒等；剪裁指标从此只计真硬剪裁）
+    toe = 0.004
+    paper = (paper + np.sqrt(paper * paper + (2.0 * toe) ** 2)) / 2.0
     return np.clip(paper, 0.0, 1.0).astype(np.float32)
 
 
