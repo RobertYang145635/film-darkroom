@@ -60,8 +60,10 @@ def build_sidecar(src: Path, params: InvertParams, roi: dict, diagnostics: dict,
 
 
 def cmd_invert(args: argparse.Namespace) -> int:
-    """单张反相（整改 v2 P0-D：与 GUI/批处理同一 process_image 管线）。"""
-    from .pipeline.density import invert_chunked
+    """单张反相（v4：与 GUI/批处理同一 process_image；--params 一次性
+    作为 force_params 传入，§6.6 禁止先跑再重建门禁）。"""
+    from .calibration.rollcalib import RollCalibration
+    from .pipeline.render import RenderIntent
     from .pipeline.service import process_image
     from .profiles.profile import load_profile
 
@@ -73,32 +75,33 @@ def cmd_invert(args: argparse.Namespace) -> int:
         print(f"[读取失败]\n{e}", file=sys.stderr)
         return 2
 
+    force_params = None
+    if args.params is not None:
+        pd = json.loads(Path(args.params).read_text(encoding="utf-8"))
+        force_params = InvertParams.from_parameters_dict(pd.get("parameters", pd))
     frame = tuple(args.frame_roi) if args.frame_roi else None
     base = tuple(args.base_roi) if args.base_roi else None
     # base-roi 兼容旧参数序 x y w h -> y0 x0 y1 x1
     base_yx = (base[1], base[0], base[1] + base[3], base[0] + base[2]) \
         if base else None
     prior = load_profile(args.profile).to_initial_params() if args.profile else None
+    calibration = None
+    if getattr(args, "calibration", None):
+        calibration = RollCalibration.load(Path(args.calibration))
+    intent = RenderIntent.from_legacy_parameters(
+        force_params.to_parameters_dict()) if force_params is None and \
+        getattr(args, "legacy_style", False) else None
     blank = None
     if args.blank_frame:
         blank = load_linear_rgb(Path(args.blank_frame),
                                 tiff_encoding=args.tiff_encoding).rgb
     pr = process_image(loaded.rgb, rotation_degrees=args.rotation,
-                       frame_roi_source=frame, base_roi_source=base_yx,
+                       output_crop_source=frame, base_roi_source=base_yx,
                        keep_rebate=args.keep_rebate, prior=prior,
                        dust_auto=args.dust_auto,
-                       blank=blank, flat_mode=args.flat_mode)
-
-    if args.params is not None:
-        pd = json.loads(Path(args.params).read_text(encoding="utf-8"))
-        pr.report.params = InvertParams.from_parameters_dict(
-            pd.get("parameters", pd))
-        pr.result = invert_chunked(pr.t, pr.report.params)
-        from .diagnostics.quality_gate import QualityGate
-        pr.gate = QualityGate.evaluate(
-            t_in=pr.t, positive_linear=pr.result.positive_linear,
-            input_nonfinite=pr.result.diagnostics.get("input_nonfinite", 0),
-            extra_warnings=pr.report.warnings + pr.result.warnings)
+                       blank=blank, flat_mode=args.flat_mode,
+                       calibration=calibration, force_params=force_params,
+                       render_intent=intent, film_type=args.film_type)
 
     if pr.gate.status == "fail":
         print("FAILED: 质量门禁阻断导出：", file=sys.stderr)
@@ -117,7 +120,8 @@ def cmd_invert(args: argparse.Namespace) -> int:
                          input_meta=loaded.meta)
     from .io.export import ExportError, export_triplet
     try:
-        written = export_triplet(outdir, stem, pr.result.positive_linear,
+        # v4 §2：默认导出 rendered（中性 intent 时与技术正片逐像素等价）
+        written = export_triplet(outdir, stem, pr.rendered_positive_linear,
                                  payload, sources=[src],
                                  jpeg_quality=args.jpeg_quality)
     except ExportError as e:
@@ -219,6 +223,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--keep-rebate", action="store_true",
                    help="保留片边不裁切（默认裁到画面区域）")
     p.add_argument("--profile", default=None, help="配置文件（先验）")
+    p.add_argument("--calibration", default=None,
+                   help="卷级校准 JSON（RollCalibration，v4 §5.1）")
     p.add_argument("--dust-auto", action="store_true", help="片基条带保守自动除尘")
     p.add_argument("--flat-mode", choices=["off", "strip", "blank"], default="strip",
                    help="flat-field：off 关闭 / strip 片基条带一维曲面（默认） / "

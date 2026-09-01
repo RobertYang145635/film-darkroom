@@ -7,7 +7,6 @@ import pytest
 
 from negative_lab.calibration.base import robust_dmin
 from negative_lab.pipeline.backends import (density_affine,
-                                            fit_decrosstalk,
                                             fit_decrosstalk_supervised,
                                             get_backend, power_reciprocal)
 from negative_lab.pipeline.density import transmittance_to_z
@@ -52,13 +51,15 @@ class TestBackends:
             get_backend("quantum-magic")
 
     def test_fit_insufficient_samples_stays_identity(self):
-        out = fit_decrosstalk(np.random.default_rng(1).normal(size=(2, 3)))
+        out = fit_decrosstalk_supervised(
+            np.random.default_rng(1).normal(size=(2, 3)),
+            np.random.default_rng(1).normal(size=(2, 3)))
         assert np.allclose(np.array(out["matrix"]).reshape(3, 3), np.eye(3))
         assert out["confidence"] == 0.0
 
     def test_fit_single_density_stays_identity(self):
         z = np.tile(np.array([-1.0, -0.9, -1.1]), (50, 1))
-        out = fit_decrosstalk(z)
+        out = fit_decrosstalk_supervised(z, z)   # 秩不足（单射线）
         assert np.allclose(np.array(out["matrix"]).reshape(3, 3), np.eye(3),
                            atol=1e-6)
 
@@ -69,10 +70,10 @@ class TestBackends:
         # 只取灰阶斜坡列（真中性，单射线）
         z = transmittance_to_z(t[:, 10:300], dmin)
         Z = z.reshape(-1, 3)[::37]
-        fit = fit_decrosstalk(Z)
+        fit = fit_decrosstalk_supervised(Z, Z)   # 中性目标=自身，秩仍不足
         assert np.allclose(np.array(fit["matrix"]).reshape(3, 3), np.eye(3))
         assert fit["confidence"] == 0.0
-        assert any("不可辨识" in w for w in fit["warnings"]), fit["warnings"]
+        assert fit["warnings"], fit
 
     def test_supervised_fit_recovers_crosstalk_matrix(self):
         """监督拟合（色卡等价物：已知目标密度）必须恢复串扰逆。"""

@@ -1,62 +1,61 @@
-# 算法笔记（Phase 1）
+# 技术反相数学契约（v4 §4.1，唯一权威表述）
 
-## 符号约定（最重要，勿改）
+状态：生效。任何实现与本文冲突时以本文为准；修改必须提升
+sidecar `schema_version` 并更新参数敏感性测试。
 
-`z_c = log10(max(t_c,ε)/max(Dmin_c,ε))`，与 darktable negadoctor 源码同方向：
+## 1. 符号约定（唯一：正密度表述）
 
-- 未曝光片基：`t = Dmin` → `z = 0`；
-- 画面内容：`t ≤ Dmin` → `z ≤ 0`；场景越亮 → 胶片越密 → `z` 越负；
-- 反相输出随场景亮度单调递增。
+生产 API、sidecar、文档只暴露以下符号；旧的负向 z=log10(t/b) 仅作为
+等价推导出现在注释中，不得出现在接口命名或 sidecar 字段。
 
-方向由 `tests/synthetic/test_direction.py`（斜坡单调、片基映射到黑）与
-`tests/unit/test_density_model.py::TestSignConvention` 锁定。
-若改用正密度 `d = log10(Dmin/t)`，必须重写 §4.3 全部反算并新增等价性测试（规格原文要求）。
-
-## 密度域主模型（§4.3 逐字实现）
-
-```
-wb_high_internal_c = wb_high_c / max(Dmax, ε)
-offset_c           = wb_high_c · offset · wb_low_c
-q_c                = wb_high_internal_c · z_eff_c + offset_c
-black_internal     = -exposure · (1 + black)        # 内部带符号量
-paper_linear_c     = max(0, -(exposure·10^q_c + black_internal))
-positive_linear_c  = paper_linear_c ^ gamma
+```text
+b_c        未曝光片基（或 verified base ROI）的线性透射率，逐通道
+d_c        正密度  d_c = -log10( max(t_c, eps) / max(b_c, eps) )   （画面内 d>=0 为常态）
+u          密度域混合  u = A d + a      A: 3x3 解混矩阵；a: 密度域偏置（当前恒 0）
+v_c        通道响应    v_c = s_c * u_c  s_c>0：逐通道斜率（技术参数）
+q_c        技术曝光    q_c = -(wb_high_c / Dmax) * v_c + wb_high_c * offset * wb_low_c
+technical  G(v, technical_endpoints) = clip( (1+black) - 10^{q_c}, 0, 1 )
 ```
 
-代数等价形式 `paper = exposure·((1+black) − 10^q)` 用于解释方向：
-`z=0, offset=0, black=0` 时 paper=0（片基→纸黑）；`z→−Dmax` 时 paper→exposure·(1+black−0.1)。
+与旧公式的等价性：旧 z = -d，旧 q = (wb_high/Dmax)·z + wb_high·offset·wb_low
+代入即得上式——逐项等价，仅符号方向约定不同。
 
-`black`（用户语义，≥0）与 `black_internal`（带符号内部量）严格分离，见 `params.py` 注释。
+## 2. 强制语义
 
-## 幂指数修正（§4.4）
+1. `b_c/Dmin` 只来自未曝光片基或 verified base ROI。禁止被场景分位数、
+   齿孔、最亮物体改写（v3 F-ALG-3、v4 §4.1）。
+2. `A` 只表达密度域混合。运行时应用的 A 必须与拟合/序列化的 A 完全一致；
+   **禁止 backend 内部做未记录的行归一化、斜率重置等隐藏重参数化**
+   （v4 §1.2.11 实锤）。若可辨识性需要把 A 分解为单位对角 × 通道尺度，
+   分解后的 A 与 s_c 全部序列化，并有测试证明重组 = 拟合变换。
+3. `f_c`（通道响应）必须单调。路线 C 的曲线节点受限并正则化；
+   完整 3x3 A 与非线性曲线**不能**从单一片基或一条中性密度射线估出
+   （可辨识性：中性样本在密度空间只张成一维射线）。
+4. `technical_endpoints`（Dmax、offset、black）只做技术范围映射。
+   曝光、对比度、高光、阴影、白色、黑色调性、饱和度、审美曲线一律属于
+   RenderIntent（v4 §4.4）。
+5. 每个保留参数必须有敏感性测试：改变参数 → 输出按预期变化。
+   无效果或语义重叠的参数删除或迁移，禁止假旋钮（v4 §1.2.9/10 实锤：
+   旧 power_reciprocal 计算了 k 却不用；exposure 全链路无效）。
 
-`z'_c = k_c·z_c`，`k_G=reference_exponent`，`k_R=k_G·red_ratio`，`k_B=k_G·blue_ratio`。
-校正比例与乳剂差异**互反**：若红通道密度斜率是 1.15 倍，则 `red_ratio=1/1.15` 才能拉平。
-由亮、暗两个不剪裁中性点估计；样本不足时保持 1.0 并降置信度（不猜测）。
+## 3. Backend 路线（同一注册表、同一生产接口）
 
-**信噪加权**（合成测试暴露的问题）：z 域噪声 σ_z≈σ_t/(t·ln10)，
-低透射率（亮场景）样本的通道比例噪声可达数个百分点；等权平均会让噪声样本
-在 k=1 的真值上产生 ~1% 的假校正，进而在暗部引入可见色偏。
-估计器按 `w=(t̄·|z̄|)²` 加权中位，生产路径与测试一致。
+| 路线 | backend_name | 模型 | 用途 |
+|---|---|---|---|
+| A | `power-reciprocal`（旧兼容名） | A=I，s_c=逐通道斜率 | 可解释基线 |
+| B | `density-affine` | verified 3x3 A + 明确 s_c | 一阶串扰 |
+| C | `density-affine-curves` | B + 受约束单调通道曲线 | 染料非线性（优先候选） |
 
-## Dmax / offset 自动估计（§4.5.4）
+- `invert()` 与 `invert_chunked()` 必须经同一注册表执行；chunked 只负责
+  分块与诊断聚合，每块调用与非分块相同的核心。
+- bake-off（§4.2）完成前，任何路线不得自称"彩色负片默认"；
+  `power-reciprocal` 只是明确选择的旧兼容对照。
+- 未知 backend、非 3x3 / 非有限 / 病态矩阵必须在处理前失败（可读错误）。
 
-- Dmax：剔除零剪裁像素（t≤1e-5，密度信息已丢失）后取 z 的 2% 分位相反数。
-  教训：用 0.5% 分位时，高密度胶片（Dmax=2.8）的噪声零剪裁像素把估计推到
-  clip 上限 4.0（误差 43%）；剔除+2% 分位后误差 <3%。
-- offset：令画面最暗 0.5% 像素恰落到纸黑的启发式，截断 [-0.5, 1.0]，可手动覆盖。
-- Dmax 非法（≤0/NaN/字符串）→ 回退 2.0 并警告，绝不产生 Inf（§4.3）。
+## 4. 已废止的隐藏行为（回归锁）
 
-## 置信度与警告
-
-Dmin：样本量、尘点剔除保留率、通道散布三分量取 min；ROI 亮度低于全图 99 分位
-的 80% → 提示“ROI 可能不在片基上”。无中性点 → 置信度 0 + “无中性参考”警告，
-仍输出结果（§4.6.1），不静默。
-
-## 未验证 / 已知边界
-
-- 以上全部基于合成数据；真实 NEF 的镜头眩光、片基不均（边缘渐晕）
-  对 robust 统计的影响未验证（Phase 2/3 用 1298_G200 样片回归）。
-- 高光软压缩为 Reinhard 型单调尾巴，strength=0 默认关闭；与 negadoctor 的
-  压缩曲线不追求一致。
-- ICC/sRGB 仅做了固定 sRGB 编码；输入侧 ICC 配置处理属 Phase 2。
+- backend 内 `k` 计算后不使用（red/blue_ratio 无效）→ 已重写，s_c 真实生效。
+- `exposure` 在技术链路无效 → 已迁移 RenderIntent.exposure。
+- density_affine 行归一化 + 斜率重置的隐藏重参数化 → 已删除。
+- Lab 计算先加 TRC 再乘线性矩阵（L*[0.5]=88.70）→ colorimetry.py 唯一实现，
+  L*[0.5]=76.069 测试锁定。

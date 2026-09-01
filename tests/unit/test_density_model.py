@@ -96,12 +96,20 @@ class TestRobustness:
         out = invert(img, p).positive_linear
         assert np.isfinite(out).all()
 
-    @pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), 1e-12, "x", None])
-    def test_dmax_invalid_falls_back(self, bad):
+    @pytest.mark.parametrize("bad", [0.0, -1.0, float("nan"), "x", None])
+    def test_dmax_invalid_fails_fast(self, bad):
+        """sanitize_dmax 助手仍提供 UI 兜底；但生产 invert() 按 v4 §4.3.5
+        在处理前快速失败（不再静默回退伪装成功）。"""
         v, w = sanitize_dmax(bad)
         assert v == 2.0 and w is not None
-        p = InvertParams(dmax=bad if not isinstance(bad, str) else 2.0)
-        res = invert(np.full((4, 4, 3), 0.4, np.float32), p)
+        import pytest as _pytest
+        p = InvertParams(dmax=bad)
+        with _pytest.raises(ValueError, match="dmax"):
+            invert(np.full((4, 4, 3), 0.4, np.float32), p)
+
+    def test_dmax_tiny_is_valid_but_clips(self):
+        """1e-12 是合法正数：不报错，但输出全黑（剪裁由门禁报告）。"""
+        res = invert(np.full((4, 4, 3), 0.4, np.float32), InvertParams(dmax=1e-12))
         assert np.isfinite(res.positive_linear).all()
 
 

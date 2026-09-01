@@ -494,7 +494,8 @@ class MainWindow(QMainWindow):
             frame_roi_oriented=self._view_rect_oriented(RoiKind.FRAME),
             base_roi_oriented=self._view_rect_oriented(RoiKind.BASE),
             prior=prior, neutral_bright_points=nb, neutral_dark_points=nd,
-            dust_mask=dust, force_params=force_params)
+            dust_mask=dust, force_params=force_params,
+            render_intent=getattr(self, "_intent", None))
         self.params = self._pr.report.params
         self.confidence = self._pr.report.confidence
         return self._pr
@@ -537,7 +538,16 @@ class MainWindow(QMainWindow):
     # ---------------- 参数回调
 
     def _param(self, name, v):
-        setattr(self.params, name, float(v))
+        # v4 §6.4：风格滑杆绑定 RenderIntent，不再改写技术参数
+        intent_map = {"gamma": "grade", "exposure": "exposure",
+                      "highlight_strength": "highlight_strength"}
+        if name in intent_map:
+            if getattr(self, "_intent", None) is None:
+                from ..pipeline.render import RenderIntent
+                self._intent = RenderIntent()
+            setattr(self._intent, intent_map[name], float(v))
+        else:
+            setattr(self.params, name, float(v))
         self._refresh()
 
     def _dmin_changed(self, name, v):
@@ -567,9 +577,12 @@ class MainWindow(QMainWindow):
         self.s_redr.setValue(p.red_ratio)
         self.s_bler.setValue(p.blue_ratio)
         self.s_black.setValue(p.black)
-        self.s_gamma.setValue(p.gamma)
-        self.s_hl.setValue(p.highlight_strength)
-        self.s_exp.setValue(p.exposure)
+        intent = getattr(self, "_intent", None)
+        from ..pipeline.render import RenderIntent
+        it = intent or RenderIntent()
+        self.s_gamma.setValue(it.grade)
+        self.s_hl.setValue(it.highlight_strength)
+        self.s_exp.setValue(it.exposure)
 
     # ---------------- 除尘（§7）
 
@@ -627,13 +640,16 @@ class MainWindow(QMainWindow):
             self.view.set_image(self.t_prev)
             self.hist.set_image(self.t_prev)
         else:
-            # 预览用服务已算好的工作图（预览分辨率）+ 当前参数；
-            # 导出始终重新走全分辨率服务（同一参数、同一管线）
-            td = self._pr.t[::self._pscale, ::self._pscale, :][:self.t_prev.shape[0],
-                                                               :self.t_prev.shape[1]]
-            res = invert(td, self.params)
-            self.view.set_image(res.preview_srgb)
-            self.hist.set_image(res.preview_srgb)
+            # v4 §6：技术正片（服务已算，缓存的 result）+ RenderIntent 风格层；
+            # 导出重新走全分辨率服务（同一 intent、同一管线）。
+            from ..pipeline.render import RenderIntent, apply_render
+            it = getattr(self, "_intent", None) or RenderIntent()
+            tp = self._pr.result.positive_linear[::self._pscale, ::self._pscale][
+                :self.t_prev.shape[0], :self.t_prev.shape[1]]
+            view = apply_render(tp, it)
+            from ..pipeline.density import encode_srgb
+            self.view.set_image(encode_srgb(view))
+            self.hist.set_image(encode_srgb(view))
 
     def _toggle(self, orig: bool):
         self.show_original = orig

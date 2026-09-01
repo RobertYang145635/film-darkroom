@@ -24,24 +24,30 @@ class InvertParams:
     reference_exponent: float = 1.0
     red_ratio: float = 1.0
     blue_ratio: float = 1.0
-    # 相纸式正片映射
+    # 相纸式正片映射（技术端点；v4 §4.4：black 属技术范围映射）
     black: float = 0.0     # 纸黑 >= 0
-    gamma: float = 1.0     # 必须 > 0
-    exposure: float = 1.0  # 必须 > 0
-    # 高光软压缩（§4.3 末：单调高光映射）。strength=0 时恒等。
-    highlight_knee: float = 0.9
+    # ---- 以下为已废止的技术字段（v4 §1.2.10/§4.4 裁决：风格迁移 RenderIntent）----
+    # gamma/exposure/highlight_* 保留仅为旧 sidecar 加载兼容，技术链路不再读取；
+    # 一次性兼容映射见 RenderIntent.from_legacy_parameters()。
+    gamma: float = 1.0             # 已废弃：-> RenderIntent.grade
+    exposure: float = 1.0          # 已废弃：-> RenderIntent.exposure
+    highlight_knee: float = 0.9    # 已废弃：-> RenderIntent.highlight_*
     highlight_strength: float = 0.0
-    # 密度域解混矩阵（v3 P0-D density-affine backend，行主 3x3）。
-    # 单位阵 = 与逐通道对角模型等价（power-reciprocal）。
-    # 该字段加入即公式语义扩展：formula_version 提升（v3 §1.6）。
+    # 密度域解混矩阵（行主 3x3；单位阵 = 路线 A 基线）。
     density_matrix: tuple = (1, 0, 0, 0, 1, 0, 0, 0, 1)
+    # 路线 C 通道曲线（(x,y) 节点三元组；空 = 线性 = 路线 B）
+    channel_curves: tuple = ()
+    # v4 §4.3：显式 backend（默认=旧兼容基线；不得自称彩色负片最优默认，
+    # 生产默认由 bake-off 留出集证据确定）
+    backend_name: str = "power-reciprocal"
 
-    FORMULA_VERSION = "2026-09-density-affine"
+    FORMULA_VERSION = "2026-09-v4-technical-contract"
 
     def to_parameters_dict(self) -> dict:
-        """输出规格 §6 parameters 字段（含本实现新增的高光控制项，附加字段向后兼容）。"""
+        """技术参数（v4 sidecar：只含技术字段；风格在 render_intent 字段）。"""
         return {
             "formula_version": self.FORMULA_VERSION,
+            "backend_name": self.backend_name,
             "dmin": [float(v) for v in self.dmin],
             "dmax": float(self.dmax),
             "offset": float(self.offset),
@@ -51,11 +57,11 @@ class InvertParams:
             "red_ratio": float(self.red_ratio),
             "blue_ratio": float(self.blue_ratio),
             "black": float(self.black),
-            "gamma": float(self.gamma),
-            "exposure": float(self.exposure),
-            "highlight_knee": float(self.highlight_knee),
-            "highlight_strength": float(self.highlight_strength),
             "density_matrix": [float(v) for v in self.density_matrix],
+            "channel_curves": [
+                ([list(map(float, k)) for k in curve] if curve else None)
+                for curve in self.channel_curves
+            ] if self.channel_curves else [],
         }
 
     @classmethod

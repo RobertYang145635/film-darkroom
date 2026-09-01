@@ -154,22 +154,31 @@ def encode_srgb(linear: np.ndarray) -> np.ndarray:
 
 
 def invert(t_rgb: np.ndarray, p: InvertParams) -> InvertResult:
-    """完整单帧反相：线性透射率 -> z -> z' -> 密度域正片 -> 高光压缩 -> 预览编码。
+    """技术反相生产入口（v4 §4.3.3：经唯一 backend 注册表，无旁路公式）。
 
-    输入 t_rgb: (H,W,3) float32 线性 RGB（内部允许暂时超出 [0,1]，导出前处理，§4.1.1）。
+    仅技术阶段（docs/algorithm-notes.md 契约）；风格（gamma/exposure/
+    highlight/saturation）在 render.apply_render，不在本函数。
     """
+    from .backends import get_backend
+
     warnings: list[str] = []
+    # v4 §4.3.5：无效参数在处理前失败（可读错误），不再静默回退
+    try:
+        dmax_ok = bool(np.isfinite(p.dmax)) and float(p.dmax) > 0
+    except (TypeError, ValueError):
+        dmax_ok = False
+    if not dmax_ok:
+        raise ValueError(f"dmax 必须为正有限值，得到 {p.dmax!r}")
     t, n_bad = sanitize_finite(t_rgb)
     if n_bad:
         warnings.append(f"输入含 {n_bad} 个 NaN/Inf，已替换为 0.0 并记录")
 
-    z = transmittance_to_z(t, p.dmin)
-    z_eff = apply_exponents(z, channel_exponents(p))
-    positive = density_to_positive(z_eff, p, warnings)
-    positive = soft_highlight_compress(positive, p.highlight_knee, p.highlight_strength)
+    core = get_backend(p.backend_name)      # 未知 backend 在此失败（可读错误）
+    positive = core(t, p)
 
     # 诊断（§4.5.7）：输入/输出剪裁比例、非有限值
     diag: dict = {
+        "backend": p.backend_name,
         "input_nonfinite": n_bad,
         "input_clip": channel_clip_ratios(t),
         "output_clip": channel_clip_ratios(positive),

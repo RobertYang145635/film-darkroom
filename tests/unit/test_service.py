@@ -44,7 +44,10 @@ class TestService:
         y0, x0, y1, x1 = geo.crop_oriented
         assert pr.t.shape == (y1 - y0, x1 - x0, 3)
         sc = pr.sidecar(source_sha256="x" * 64, source_path="a.tif")
-        assert sc["schema_version"] == 2
+        assert sc["schema_version"] == 3   # v4 §2/§6.7：技术/风格分列、可追溯
+        assert "technical_parameters" in sc and "render_intent" in sc
+        assert sc["backend"] == pr.report.params.backend_name
+        assert sc["geometry"]["roi_source_space"]["coordinate_space"] == "source"
         assert sc["geometry"]["roi_source_space"]["coordinate_space"] == "source"
         assert "preview" not in json_dumps(sc)
         assert sc["quality"]["status"] == pr.gate.status

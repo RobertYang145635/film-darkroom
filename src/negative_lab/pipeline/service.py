@@ -1,19 +1,19 @@
-"""统一处理服务（整改 v2 P0-D）：GUI、CLI、批处理唯一允许的管线入口。
+"""统一处理服务（v4 §2 唯一目标架构）：GUI、CLI、批处理唯一管线入口。
 
-固定顺序（v2 §2.1）：
-  load/linearize(调用方) -> rotate_cw(source) -> 全图检测 frame/base/image_area
-  -> 裁切前 oriented 坐标取片基 ROI -> crop(oriented) -> 透射率域除尘(可回退)
-  -> auto_analyze(prior/中性点) -> invert_chunked -> QualityGate
-入口禁止自行实现旋转/裁切/自动分析/质量判断。
+固定顺序：
+  load/linearize(调用方) -> 线性 sRGB D65 工作空间 -> 几何/三 ROI/flat/dust
+  -> 卷级校准选择与校验 -> 技术反相（选定 backend）-> 技术质量门禁
+  -> RenderIntent（可选风格层）-> 输出诊断 -> 事务导出+sidecar v3
 
-sidecar v2（P0-F）：所有 ROI 以 SOURCE 坐标声明；crop_oriented 单独声明
-ORIENTED 坐标；coordinate_space: "preview" 不再出现。
+三 ROI 语义（v4 §2，不得混用）：
+  output_crop_roi  最终构图（可有意保留齿孔/片边）
+  image_area_roi   算法与质量统计区域（必须排除片边/齿孔/非画面）
+  base_roi         片基/色罩估计取样
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable
 
 import numpy as np
 
@@ -26,24 +26,43 @@ from .density import InvertResult, invert_chunked
 from .geometry import (GeometryRecord, apply_geometry, oriented_to_source,
                        rotate_cw, roi_source_to_oriented)
 from .params import InvertParams
+from .render import RenderIntent, apply_render
 
 
 @dataclass
 class ProcessResult:
-    t: np.ndarray                       # 工作图（oriented+crop+dust 后）
+    t: np.ndarray                       # 输出裁切区工作图（反相输入）
     geometry: GeometryRecord
     report: AutoReport
-    result: InvertResult
-    gate: QualityGate
+    result: InvertResult                # 技术反相结果（positive_linear=技术正片）
+    gate: QualityGate                   # 技术质量门禁（v4 §6.2：只读技术正片）
+    rendered_positive_linear: np.ndarray | None = None
+    rendered_diagnostics: dict = field(default_factory=dict)
+    render_intent: RenderIntent = field(default_factory=RenderIntent)
+    backend_name: str = "power-reciprocal"
+    calibration_info: dict = field(default_factory=dict)
+    valid_mask: np.ndarray | None = None
     meta: dict = field(default_factory=dict)
+
+    # 兼容别名
+    @property
+    def technical_positive_linear(self) -> np.ndarray:
+        return self.result.positive_linear
+
+    @property
+    def preview_srgb(self) -> np.ndarray:
+        if self.rendered_positive_linear is not None:
+            from .density import encode_srgb
+            return encode_srgb(self.rendered_positive_linear)
+        return self.result.preview_srgb
 
     def sidecar(self, *, source_sha256: str, source_path: str = "",
                 film_type: str = "unknown", profile_id: str = "none",
                 input_meta: dict | None = None) -> dict:
-        """schema v2 旁车载荷（所有入口共用这一个 builder）。"""
+        """schema v3 旁车（v4 §2/§6.7：技术参数与风格参数分列、可追溯）。"""
         im = input_meta or self.meta or {}
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "source_sha256": source_sha256,
             "source": source_path,
             "source_size": list(self.geometry.source_size),
@@ -68,22 +87,40 @@ class ProcessResult:
             "flatfield": (self.meta or {}).get("flatfield", {"coverage": "off"}),
             "output": {"encoding": "srgb",
                        "icc_sha256": im.get("output_icc_sha256", "")},
-            "parameters": self.report.params.to_parameters_dict(),
+            "backend": self.backend_name,
+            "calibration": self.calibration_info,
+            "technical_parameters": self.report.params.to_parameters_dict(),
+            "render_intent": self.render_intent.to_dict(),
             "confidence": self.report.confidence,
             "quality": self.gate.to_dict(),
+            "rendered_diagnostics": self.rendered_diagnostics,
             "warnings": sorted(set(self.report.warnings + self.result.warnings
                                    + self.gate.warnings + self.gate.failures)),
             "software_version": __version__,
         }
 
 
+def _roi_source(ann: Annotation | None, new_attr: str, legacy_attr: str):
+    """标注 ROI 取值：新三字段优先，旧 frame_roi 兼容。"""
+    if ann is None:
+        return None
+    v = getattr(ann, new_attr, None)
+    if v:
+        return tuple(v)
+    return getattr(ann, legacy_attr, None)
+
+
 def process_image(t_source: np.ndarray, *,
                   rotation_degrees: int = 0,
                   ann: Annotation | None = None,
-                  frame_roi_source: tuple | None = None,
+                  output_crop_source: tuple | None = None,
+                  image_area_source: tuple | None = None,
                   base_roi_source: tuple | None = None,
-                  frame_roi_oriented: tuple | None = None,
+                  output_crop_oriented: tuple | None = None,
+                  image_area_oriented: tuple | None = None,
                   base_roi_oriented: tuple | None = None,
+                  frame_roi_source: tuple | None = None,   # 旧参数名兼容
+                  frame_roi_oriented: tuple | None = None,
                   keep_rebate: bool = False,
                   prior: InvertParams | None = None,
                   neutral_bright_points: list | None = None,
@@ -93,39 +130,65 @@ def process_image(t_source: np.ndarray, *,
                   force_params: InvertParams | None = None,
                   blank: np.ndarray | None = None,
                   flat_mode: str = "strip",
-                  calibration=None,          # RollCalibration（v3 P0-E）
+                  calibration=None,          # RollCalibration | None（v4 §5.1 强类型）
+                  render_intent: RenderIntent | None = None,
+                  film_type: str = "unknown",
                   points_space: str = "oriented") -> ProcessResult:
-    """执行固定顺序管线。points/dust_mask 默认在 ORIENTED（旋转后、裁切前）坐标。
+    """执行 v4 §2 固定顺序管线。ROI 参数：SOURCE 或 ORIENTED 坐标。
 
-    base_roi_source / frame_roi_source：SOURCE 坐标的用户覆盖（优先于标注，
-    标注 verified 时优先于自动检测）。
+    兼容：frame_roi_source/frame_roi_oriented 旧参数名映射到 output_crop
+    （并兼作 image_area，直到标注迁移完成）。
     """
     if rotation_degrees not in (0, 90, 180, 270):
         raise ValueError(f"rotation_degrees 必须 0|90|180|270，得到 {rotation_degrees}")
     sh, sw = t_source.shape[:2]
 
-    # 1) 顺时针旋转（geometry.rotate_cw 是唯一实现）
+    # 1) 顺时针旋转
     oriented = rotate_cw(t_source, rotation_degrees)
 
-    # 1b) flat-field（v3 P0-C：暗角/导光的正当解法，先于一切统计）
+    # 2) 三 ROI 解析（用户 > 标注 > 自动）：SOURCE -> ORIENTED 统一
+    def _to_o(src_xy, o_xy, legacy):
+        v = o_xy or src_xy or legacy
+        if v is None:
+            return None
+        if o_xy is not None:
+            return tuple(o_xy)
+        return roi_source_to_oriented(tuple(v), sh, sw, rotation_degrees)
+
+    crop_o = _to_o(output_crop_source, output_crop_oriented, None)
+    area_o = _to_o(image_area_source, image_area_oriented, None)
+    base_o = _to_o(base_roi_source, base_roi_oriented, None)
+    # 旧 frame_roi 参数名兼容：同时承担 output_crop 与 image_area（v4 §2 迁移期）
+    if frame_roi_oriented is not None:
+        crop_o = crop_o or tuple(frame_roi_oriented)
+        area_o = area_o or tuple(frame_roi_oriented)
+    elif frame_roi_source is not None:
+        _fo = roi_source_to_oriented(tuple(frame_roi_source), sh, sw, rotation_degrees)
+        crop_o = crop_o or _fo
+        area_o = area_o or _fo
+
+    ann_crop = _roi_source(ann, "output_crop_roi", "frame_roi")
+    ann_area = _roi_source(ann, "image_area_roi", "frame_roi")
+    ann_base = _roi_source(ann, "base_roi", "base_roi")
+    use_ann = ann is not None and ann.verified
+
+    if crop_o is None and use_ann and ann_crop:
+        crop_o = roi_source_to_oriented(tuple(ann_crop), sh, sw, rotation_degrees)
+    if area_o is None and use_ann and ann_area:
+        area_o = roi_source_to_oriented(tuple(ann_area), sh, sw, rotation_degrees)
+    if base_o is None and use_ann and ann_base:
+        base_o = roi_source_to_oriented(tuple(ann_base), sh, sw, rotation_degrees)
+
+    manual = bool(crop_o and area_o and base_o)
+
+    # 3) flat-field（先于一切统计；手动时用用户基区）
     flat_info: dict = {"coverage": "off"}
-    _mf = frame_roi_source or frame_roi_oriented or (
-        ann is not None and ann.verified and ann.frame_roi)
-    _mb = base_roi_source or base_roi_oriented or (
-        ann is not None and ann.verified and ann.base_roi)
-    manual = bool(_mf and _mb)
     if flat_mode != "off":
         from ..calibration.flatfield import apply_flat, fit_base_surface
         if blank is not None:
             fit = fit_base_surface(oriented, blank=rotate_cw(blank, rotation_degrees))
-        elif manual:
-            _bb = base_roi_oriented or (
-                roi_source_to_oriented(tuple(base_roi_source), sh, sw,
-                                       rotation_degrees)
-                if base_roi_source else
-                roi_source_to_oriented(tuple(ann.base_roi), sh, sw,
-                                       rotation_degrees))
-            fit = fit_base_surface(oriented, base_roi=_bb)
+        elif base_o is not None:
+            fit = fit_base_surface(oriented, base_roi=tuple(base_o))
         else:
             _det0 = detect_regions(oriented)
             fit = (fit_base_surface(oriented, base_roi=_det0.get("base"))
@@ -135,149 +198,164 @@ def process_image(t_source: np.ndarray, *,
         oriented = apply_flat(oriented, fit)
         flat_info = {"coverage": fit["coverage"], "warnings": fit["warnings"]}
 
-    # 2) 区域来源：手动（用户框选/verified 标注）优先；齐全则完全跳过自动检测
-    #    （v3 用户裁决 2026-09-01：玩家自选裁切区与画面区，算法只在画面区内跑）
-    if manual:
-        det = {"frame": None, "base": None, "image_area": None, "edge": None,
-               "warnings": ["手动区域已指定：跳过自动检测（用户为准）"]}
-    else:
+    # 4) 自动检测（仅在区域不全时兜底；手动齐全则完全跳过）
+    det: dict = {"warnings": []}
+    if not (crop_o and area_o and base_o):
         det = detect_regions(oriented)
+        if base_o is None and det.get("base"):
+            base_o = tuple(det["base"])
+        if area_o is None and det.get("image_area"):
+            area_o = tuple(det["image_area"])
+        if crop_o is None and det.get("image_area"):
+            crop_o = tuple(det["image_area"])
     warnings: list[str] = list(det.get("warnings", [])) + list(flat_info.get("warnings", []))
+    if manual:
+        warnings.append("手动区域已指定：跳过自动检测（用户为准）")
 
-    # 3) 片基 ROI：用户 > verified 标注 > 自动
-    if base_roi_oriented is not None:
-        base_roi_source = oriented_to_source(tuple(base_roi_oriented), sh, sw,
-                                             rotation_degrees)
-    base_arr = None
-    base_src_used = None
-    if base_roi_source is not None:
-        b = roi_source_to_oriented(tuple(base_roi_source), sh, sw, rotation_degrees)
-        base_arr = oriented[b[0]:b[2], b[1]:b[3], :]
-        base_src_used = list(base_roi_source)
-        det["base"] = (b[0], b[1], b[2], b[3])   # 手动基区也供除尘区域使用
-    elif ann is not None and ann.verified and ann.base_roi:
-        b = roi_source_to_oriented(tuple(ann.base_roi), sh, sw, rotation_degrees)
-        base_arr = oriented[b[0]:b[2], b[1]:b[3], :]
-        base_src_used = list(ann.base_roi)
-    elif det.get("base") is not None:
-        y0, x0, y1, x1 = det["base"]
-        base_arr = oriented[y0:y1, x0:x1, :]
+    # 5) output crop（构图）：keep_rebate=True 保留全帧（旧兼容，明确语义）
+    crop = None if keep_rebate else (tuple(crop_o) if crop_o else None)
+    if keep_rebate:
+        warnings.append("keep_rebate：输出为全帧（旧兼容）；"
+                        "请迁移到显式 output_crop_roi（v4 §2）")
+    if crop is None and not keep_rebate:
+        warnings.append("画面区域不可用：未裁切（保留片边），请手动框选 output crop")
 
-    # 4) 画面裁切：用户 > verified 标注 > 自动 image_area；keep_rebate 不裁
-    crop = None
-    crop_src_used = None
-    if not keep_rebate:
-        if frame_roi_oriented is not None:
-            frame_roi_source = oriented_to_source(tuple(frame_roi_oriented),
-                                                  sh, sw, rotation_degrees)
-        if frame_roi_source is not None:
-            crop = roi_source_to_oriented(tuple(frame_roi_source), sh, sw,
-                                          rotation_degrees)
-            crop_src_used = list(frame_roi_source)
-        elif ann is not None and ann.verified and ann.frame_roi:
-            crop = roi_source_to_oriented(tuple(ann.frame_roi), sh, sw,
-                                          rotation_degrees)
-            crop_src_used = list(ann.frame_roi)
-        elif det.get("image_area") is not None:
-            crop = tuple(det["image_area"])
-        if crop is None:
-            warnings.append("画面区域检测失败：未裁切（保留片边），请手动指定 frame ROI")
-
-    # 5) 应用裁切（apply_geometry 记录最终几何事实）
-    t_work, geo = apply_geometry(oriented, rotation_degrees=0, crop_oriented=crop)
+    t_out, geo = apply_geometry(oriented, rotation_degrees=0, crop_oriented=crop)
     geo.rotation_degrees = rotation_degrees
     geo.source_size = (sh, sw)
     geo.roi_source_space = {
-        "film_base": base_src_used if base_src_used else
-                     (list(det["base"]) if det.get("base") else None),
-        "frame": crop_src_used if crop_src_used else
-                 (list(det["image_area"]) if det.get("image_area") else None),
+        "output_crop_roi": oriented_to_source(crop_o, sh, sw, rotation_degrees)
+        if (crop_o and not keep_rebate) else
+        ([0, 0, sw, sh] if keep_rebate else None),
+        "image_area_roi": oriented_to_source(area_o, sh, sw, rotation_degrees)
+        if area_o else None,
+        "base_roi": oriented_to_source(base_o, sh, sw, rotation_degrees)
+        if base_o else None,
         "coordinate_space": "source",
     }
     cy0 = crop[0] if crop else 0
     cx0 = crop[1] if crop else 0
 
-    # 6) 除尘（透射率域，可回退；mask 从 oriented 平移到 crop 空间）
+    # 6) 除尘（oriented 域，先于裁切；手动基区也作为保守候选区）
     if dust_auto:
-        # §7：自动候选保守限定在片基/边缘均匀条带（内容区误检率高，手动）
         from ..restoration.dust import detect_dust as _dd
         region = None
-        if det.get("base") is not None:
-            by0, bx0, by1, bx1 = det["base"]
+        if base_o is not None:
+            by0, bx0, by1, bx1 = base_o
             region = np.zeros(oriented.shape[:2], bool)
             region[by0:by1, bx0:bx1] = True
         d = _dd(oriented, region=region)
         if d["mask"].any():
             dust_mask = d["mask"] if dust_mask is None else (dust_mask | d["mask"])
         warnings.extend(d["warnings"])
+    dust_applied = False
     if dust_mask is not None and dust_mask.any():
         from ..restoration.dust import safe_inpaint
-        m = dust_mask
-        if crop:
-            h0, w0 = cy0, cx0
-            h1 = min(m.shape[0], cy0 + t_work.shape[0])
-            w1 = min(m.shape[1], cx0 + t_work.shape[1])
-            sub = np.zeros(t_work.shape[:2], bool)
-            sub[:h1 - h0, :w1 - w0] = m[h0:h1, w0:w1]
-            m = sub
-        t_work, err = safe_inpaint(t_work, m)
+        oriented, err = safe_inpaint(oriented, dust_mask)
+        dust_applied = err is None
         if err:
             warnings.append(err)
 
-    # 7) 中性点（oriented -> crop 坐标）
+    # 7) 分析区域（image_area）内的自动分析；输出区域（output crop）反相
+    t_analysis = oriented[area_o[0]:area_o[2], area_o[1]:area_o[3], :] \
+        if area_o else t_out
+    base_arr = oriented[base_o[0]:base_o[2], base_o[1]:base_o[3], :] \
+        if base_o else None
+
     nb = neutral_bright_points
     nd = neutral_dark_points
-    if crop:
-        def _shift(pts):
-            return None if not pts else [(int(y - cy0), int(x - cx0))
-                                         for (y, x) in pts
-                                         if cy0 <= y < cy0 + t_work.shape[0]
-                                         and cx0 <= x < cx0 + t_work.shape[1]]
-        if points_space == "oriented":
-            nb, nd = _shift(nb), _shift(nd)
+    if points_space == "oriented":
+        def _shift(pts, y0, x0, h, w):
+            if not pts:
+                return None
+            return [(int(y - y0), int(x - x0)) for (y, x) in pts
+                    if y0 <= y < y0 + h and x0 <= x < x0 + w] or None
+        ay0, ax0 = (area_o[0], area_o[1]) if area_o else (0, 0)
+        nb = _shift(nb, ay0, ax0, t_analysis.shape[0], t_analysis.shape[1])
+        nd = _shift(nd, ay0, ax0, t_analysis.shape[0], t_analysis.shape[1])
 
-    # 8) 自动分析（片基参考来自裁切前数组）+ 用户显式覆盖（§4.2.2）
-    rep = auto_analyze(t_work, base_roi=base_arr, prior=prior,
+    rep = auto_analyze(t_analysis, base_roi=base_arr, prior=prior,
                        neutral_bright_points=nb, neutral_dark_points=nd)
-    # v3 P0-E 层级：verified 校准（user-points/chart）覆盖逐帧猜测，
-    # 但 Dmin 保持本帧片基测量（物理量按帧）；force_params 最终裁决。
-    if calibration is not None and calibration.usable_for_color:
-        if calibration.dmax:
-            rep.params.dmax = float(calibration.dmax)
-        if calibration.red_ratio is not None:
-            rep.params.red_ratio = float(calibration.red_ratio)
-        if calibration.blue_ratio is not None:
-            rep.params.blue_ratio = float(calibration.blue_ratio)
-        if calibration.wb_high is not None:
-            rep.params.wb_high = tuple(calibration.wb_high)
-        if calibration.density_matrix is not None:
-            rep.params.density_matrix = tuple(calibration.density_matrix)
-        rep.confidence["calibration_source"] = calibration.source
-        rep.warnings.append(
-            f"已应用卷级校准（{calibration.source}，roll={calibration.roll}）")
+    # v4 §5：verified 校准整体采用（原子）；Dmin 保持本帧物理测量
+    calibration_info: dict = {"source": "none", "roll": None}
+    if calibration is not None:
+        calibration_info = {"source": calibration.source,
+                            "roll": calibration.roll,
+                            "verified": bool(calibration.verified),
+                            "film_type": calibration.film_type}
+        if calibration.usable_for_color:
+            if calibration.dmax:
+                rep.params.dmax = float(calibration.dmax)
+            if calibration.red_ratio is not None:
+                rep.params.red_ratio = float(calibration.red_ratio)
+            if calibration.blue_ratio is not None:
+                rep.params.blue_ratio = float(calibration.blue_ratio)
+            if calibration.wb_high is not None:
+                rep.params.wb_high = tuple(calibration.wb_high)
+            if calibration.density_matrix is not None:
+                rep.params.density_matrix = tuple(calibration.density_matrix)
+            if calibration.backend_name:
+                rep.params.backend_name = calibration.backend_name
+            rep.confidence["calibration_source"] = calibration.source
+            rep.warnings.append(
+                f"已应用卷级校准（{calibration.source}，roll={calibration.roll}）")
     if force_params is not None:
         rep.params = force_params
-    res = invert_chunked(t_work, rep.params)
 
-    # 10) 质量门禁（v3 P0-G：缺有效标定的彩色负片自动结果 = needs_calibration）
-    calib_level = None
-    if calibration is not None and calibration.usable_for_color:
-        calib_level = calibration.source
-    elif (nb or nd) and (nb and nd):
-        calib_level = "user-neutral-points"
-    elif ann is not None and ann.verified and ann.neutral_rois:
-        calib_level = "verified-roi"
-    elif prior is not None and getattr(prior, "_calibrated", False):
-        calib_level = "roll-profile"
-    calibration = {"level": calib_level,
-                   "confidence": min(rep.confidence.get("dmin", 0),
-                                     rep.confidence.get("dmax", 0))}
-    gate = QualityGate.evaluate(t_in=t_work, positive_linear=res.positive_linear,
-                                input_nonfinite=res.diagnostics.get("input_nonfinite", 0),
-                                extra_warnings=warnings + rep.warnings + res.warnings,
-                                calibration=calibration)
+    # 8) 技术反相（v4 §4.3：注册表唯一路径）
+    res = invert_chunked(t_out, rep.params)
+
+    # 9) valid_mask：image_area ∩ output crop（最终输出坐标；v4 §7.3）
+    valid_mask = None
+    if area_o:
+        ay0 = max(area_o[0] - cy0, 0)
+        ax0 = max(area_o[1] - cx0, 0)
+        ay1 = min(area_o[2] - cy0, t_out.shape[0])
+        ax1 = min(area_o[3] - cx0, t_out.shape[1])
+        if ay1 > ay0 and ax1 > ax0:
+            valid_mask = np.zeros(t_out.shape[:2], bool)
+            valid_mask[ay0:ay1, ax0:ax1] = True
+        if dust_mask is not None and dust_mask.any() and dust_applied:
+            pass  # 除尘区已修复，仍计入有效像素（sidecar 记录 dust_applied）
+    gate_film = "b&w" if film_type in ("bw", "b&w", "黑白", "monochrome") else film_type
+
+    # 10) 技术质量门禁（只读技术正片；v4 §6.2）
+    calib_level = calibration_info.get("source") if calibration_info else None
+    if calib_level in ("none", None, "base-only"):
+        calib_level = None
+    if calib_level in ("none", None):
+        if nb and nd:
+            calib_level = "user-neutral-points"
+        elif ann is not None and ann.verified and getattr(ann, "neutral_refs", None):
+            calib_level = "verified-roi"
+        elif prior is not None and getattr(prior, "_calibrated", False):
+            calib_level = "roll-profile"
+    gate = QualityGate.evaluate(
+        t_in=t_out, positive_linear=res.positive_linear,
+        input_nonfinite=res.diagnostics.get("input_nonfinite", 0),
+        extra_warnings=warnings + rep.warnings + res.warnings,
+        calibration={"level": calib_level,
+                     "confidence": min(rep.confidence.get("dmin", 0),
+                                       rep.confidence.get("dmax", 0))},
+        valid_mask=valid_mask)
     rep.warnings = sorted(set(warnings + rep.warnings))
-    return ProcessResult(t=t_work, geometry=geo, report=rep, result=res,
-                         gate=gate, meta={"flatfield": {
-                             "coverage": flat_info["coverage"],
-                             "warnings": flat_info.get("warnings", [])}})
+
+    # 11) RenderIntent（v4 §6：中性恒等；渲染后剪裁单独记录，NaN 阻断导出）
+    intent = render_intent or RenderIntent()
+    rendered = apply_render(res.positive_linear, intent)
+    r_diag: dict = {"clip": {}, "nonfinite": int((~np.isfinite(rendered)).sum())}
+    from .density import channel_clip_ratios
+    r_diag["clip"] = channel_clip_ratios(rendered)
+    if r_diag["nonfinite"]:
+        gate.failures.append(
+            f"渲染后含 {r_diag['nonfinite']} 个 NaN/Inf（禁止进入导出）")
+        gate.status = "fail"
+
+    return ProcessResult(
+        t=t_out, geometry=geo, report=rep, result=res, gate=gate,
+        rendered_positive_linear=rendered, rendered_diagnostics=r_diag,
+        render_intent=intent, backend_name=rep.params.backend_name,
+        calibration_info=calibration_info, valid_mask=valid_mask,
+        meta={"flatfield": {"coverage": flat_info["coverage"],
+                            "warnings": flat_info.get("warnings", [])},
+              "dust_applied": dust_applied})
