@@ -201,3 +201,39 @@
 - 未验证项：真实留出集三后端对照表（需 1299 verified 标注，待用户核对
   裁切框）；density-curves 后端
 - 下一门禁：P0-E 校准层级（RollCalibration 对象 + 采纳流程）
+
+## v3-P0-E/F/G/H/I（2026-09-01 同日续）
+
+### P0-E 校准层级 — PASS（核心）
+- calibration/rollcalib.py：RollCalibration（user-points / chart-calibration /
+  base-only 层级；schema 校验拒旧版；usable_for_color 门槛）；
+  build_from_neutral_samples（色卡监督->解混矩阵；中性对->指数；
+  不可辨识->base-only 不伪装）；gray-world 永不进入校准对象
+- service.calibration 接线：verified 校准覆盖逐帧猜测，Dmin 保持逐帧物理
+- 测试 test_rollcalib(6)
+
+### P0-F 技术/风格分离 — PASS（核心）
+- pipeline/render.py：RenderIntent(grade/contrast/lift/saturation) 与
+  TechnicalPositive 分离；默认恒等；grade=1 即技术基线；风格不参与
+  标定与质量判定；测试 4 项（恒等/端点/单调/亮度保持）
+
+### P0-G 质量门禁重写 — PASS（核心）；视觉签字仍待用户
+- quality_gate：ΔE2000（Sharma 公式，有中性参考真值才测量，无参考
+  如实 notes 记录不伪装）；valid_mask 蒙版语义；色度塌缩 fail
+  （仅色彩被评估时启用）；notes/warnings 分离
+- 待办：真实留出集联系表需 1299 verified 框（用户核对）+ 用户签字
+
+### P0-H 事务导出 — PASS
+- io/export.py export_triplet：staging 写入 -> 重读校验（ICC/形状/schema
+  往返）-> 提交移动 -> 失败回滚全部本次工件；batch/CLI/GUI 三入口接入
+- 测试 test_export_transaction(8)：4 注入点零残留、回滚已提交、
+  唯一命名、坏 ICC 被校验抓住
+
+### P0-I 幂等冒烟 + GBK 安全 — PASS
+- e2e_cli_smoke：TemporaryDirectory x2 连续运行（本次 run 断言，不按
+  目录计数）；gui_smoke：临时目录导出 + 截图证据分离
+- verify_package/run_synthetic_report/contact_sheet 的 ✓✗⚠☐ 全部 ASCII 化
+  （GBK 控制台扫描零命中）
+- 证据：e2e 连续两次通过（临时目录 nl-e2e-*）；GUI 冒烟见下条提交信息
+
+- 下一门禁：全量回归 + 真实三后端 bake-off 报告 + 用户视觉签字（P0-G）

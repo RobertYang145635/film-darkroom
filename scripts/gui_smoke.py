@@ -53,14 +53,17 @@ def main() -> int:
     win.chk_dust.setChecked(False)   # 关闭必须完全回退
     win._refresh()
     win.chk_dust.setChecked(True)    # 导出走带除尘路径
-    out_dir = ROOT / "outputs" / "gui_smoke"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    win.export_dir = out_dir  # 冒烟测试不污染样片目录
+    import tempfile
+    _tmp = tempfile.TemporaryDirectory(prefix="nl-gui-smoke-")
+    out_dir = Path(_tmp.name)
+    win.export_dir = out_dir  # v3 P0-I：临时目录，幂等且不污染 outputs/
     win.export_all()
-    win.grab().save(str(out_dir / "gui_window.png"))
+    ev_dir = ROOT / "outputs" / "gui_smoke"
+    ev_dir.mkdir(parents=True, exist_ok=True)
+    win.grab().save(str(ev_dir / "gui_window.png"))   # 截图证据（不参与计数断言）
     exports = sorted(out_dir.glob("G200-1-positive*"))
     print("exports:", [f.name for f in exports])
-    assert len(exports) == 3, "应导出 TIFF/JPEG/旁车 三件"
+    assert len(exports) == 3, "应导出 TIFF/JPEG/旁车 三件（本次 run 临时目录）"
     side = json.loads(Path([f for f in exports if f.suffix == ".json"][0])
                      .read_text(encoding="utf-8"))
     # 整改 P0-I：断言 rotation/geometry/quality/ICC，而非只数文件

@@ -109,10 +109,23 @@ def process_image(t_source: np.ndarray, *,
 
     # 1b) flat-field（v3 P0-C：暗角/导光的正当解法，先于一切统计）
     flat_info: dict = {"coverage": "off"}
+    _mf = frame_roi_source or frame_roi_oriented or (
+        ann is not None and ann.verified and ann.frame_roi)
+    _mb = base_roi_source or base_roi_oriented or (
+        ann is not None and ann.verified and ann.base_roi)
+    manual = bool(_mf and _mb)
     if flat_mode != "off":
         from ..calibration.flatfield import apply_flat, fit_base_surface
         if blank is not None:
             fit = fit_base_surface(oriented, blank=rotate_cw(blank, rotation_degrees))
+        elif manual:
+            _bb = base_roi_oriented or (
+                roi_source_to_oriented(tuple(base_roi_source), sh, sw,
+                                       rotation_degrees)
+                if base_roi_source else
+                roi_source_to_oriented(tuple(ann.base_roi), sh, sw,
+                                       rotation_degrees))
+            fit = fit_base_surface(oriented, base_roi=_bb)
         else:
             _det0 = detect_regions(oriented)
             fit = (fit_base_surface(oriented, base_roi=_det0.get("base"))
@@ -122,8 +135,13 @@ def process_image(t_source: np.ndarray, *,
         oriented = apply_flat(oriented, fit)
         flat_info = {"coverage": fit["coverage"], "warnings": fit["warnings"]}
 
-    # 2) 全图检测（裁切前，保证片基参考可用）
-    det = detect_regions(oriented)
+    # 2) 区域来源：手动（用户框选/verified 标注）优先；齐全则完全跳过自动检测
+    #    （v3 用户裁决 2026-09-01：玩家自选裁切区与画面区，算法只在画面区内跑）
+    if manual:
+        det = {"frame": None, "base": None, "image_area": None, "edge": None,
+               "warnings": ["手动区域已指定：跳过自动检测（用户为准）"]}
+    else:
+        det = detect_regions(oriented)
     warnings: list[str] = list(det.get("warnings", [])) + list(flat_info.get("warnings", []))
 
     # 3) 片基 ROI：用户 > verified 标注 > 自动
@@ -136,6 +154,7 @@ def process_image(t_source: np.ndarray, *,
         b = roi_source_to_oriented(tuple(base_roi_source), sh, sw, rotation_degrees)
         base_arr = oriented[b[0]:b[2], b[1]:b[3], :]
         base_src_used = list(base_roi_source)
+        det["base"] = (b[0], b[1], b[2], b[3])   # 手动基区也供除尘区域使用
     elif ann is not None and ann.verified and ann.base_roi:
         b = roi_source_to_oriented(tuple(ann.base_roi), sh, sw, rotation_degrees)
         base_arr = oriented[b[0]:b[2], b[1]:b[3], :]

@@ -68,7 +68,8 @@ class BatchJob:
                  export_tiff: bool = True,
                  dust_auto: bool = False,
                  tiff_encoding: str | None = None,
-                 keep_rebate: bool = False):
+                 keep_rebate: bool = False,
+                 regions_policy: str = "auto"):
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
         self.prior = prior
@@ -80,6 +81,8 @@ class BatchJob:
         self.tiff_encoding = tiff_encoding
         # 整改 P0-C：默认裁切到画面区域（排除片边/齿孔/片基）；keep_rebate=True 保留
         self.keep_rebate = keep_rebate
+        # v3 用户裁决：require = 只处理有 verified 手动区域的图，其余 needs_regions
+        self.regions_policy = regions_policy
         self._cancel = threading.Event()
         self.started_utc = ""
 
@@ -139,6 +142,12 @@ class BatchJob:
                 Path(__file__).resolve().parents[3]).as_posix())
         except ValueError:
             pass
+        if self.regions_policy == "require" and not (
+                ann is not None and ann.verified
+                and ann.frame_roi and ann.base_roi):
+            it.status = "needs_regions"
+            it.error = "无 verified 手动区域（GUI 框选保存后重试；不自动猜）"
+            return
         pr = process_image(
             loaded.rgb,
             rotation_degrees=ann.rotation_degrees if ann else 0,

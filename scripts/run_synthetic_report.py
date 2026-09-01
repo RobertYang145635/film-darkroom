@@ -85,8 +85,8 @@ def main() -> int:
         ok = ok and good
         lines.append(
             f"| {c['name']} | {c['dmin_err']:.3%} | {c['dmax_err']:.2%} | "
-            f"{c['cast_bright']:.3%} | {c['cast_dark']:.3%} | {'✓' if c['monotonic'] else '✗'} | "
-            f"{'✓' if c['finite'] else '✗'} | {c['n_warn']} | {c['conf'].get('dmin', 0)} | "
+            f"{c['cast_bright']:.3%} | {c['cast_dark']:.3%} | {'OK' if c['monotonic'] else 'FAIL'} | "
+            f"{'OK' if c['finite'] else 'FAIL'} | {c['n_warn']} | {c['conf'].get('dmin', 0)} | "
             f"{c['conf'].get('exponent', 0)} |")
     lines += [
         "",

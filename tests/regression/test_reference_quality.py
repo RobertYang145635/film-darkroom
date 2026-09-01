@@ -48,7 +48,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _run_pipeline(rel: str, ann):
-    from negative_lab.pipeline.workflow import prepare_and_analyze
+    from negative_lab.pipeline.service import process_image
     from negative_lab.profiles.profile import load_profile
     t = load_linear_rgb(ROOT / rel).rgb
     det = detect_regions(t)
@@ -56,13 +56,10 @@ def _run_pipeline(rel: str, ann):
     pf = ROOT / "fixtures" / "priors" / "KodakGold200-Z8-led.profile.json"
     if "G200" in rel and pf.exists():
         prior = load_profile(pf).to_initial_params()
-    prepared = prepare_and_analyze(t, rotation_degrees=ann.rotation_degrees,
-                                   ann=ann, prior=prior)
-    res = invert_chunked(prepared.t, prepared.report.params)
-    gate = QualityGate.evaluate(t_in=prepared.t,
-                                positive_linear=res.positive_linear,
-                                input_nonfinite=res.diagnostics.get(
-                                    "input_nonfinite", 0))
+    prepared = process_image(t, rotation_degrees=ann.rotation_degrees,
+                             ann=ann, prior=prior)   # v3 F-1：回归走唯一服务
+    res = prepared.result
+    gate = prepared.gate
     return t, det, prepared.geometry, prepared.report, res, gate
 
 

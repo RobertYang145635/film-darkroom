@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import date
 from pathlib import Path
 
 ANNOTATIONS_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "annotations"
@@ -98,7 +99,17 @@ def save_annotation(ann: Annotation) -> Path:
     return f
 
 
-def load_all_verified() -> list[Annotation]:
+def save_annotation(rel: str, ann: Annotation) -> Path:
+    """把（用户框选的）区域写回标注文件。GUI『保存区域』按钮的落盘路径。
+    命名与 load_annotation/ann_path_for 同一约定。"""
+    ANNOTATIONS_DIR.mkdir(parents=True, exist_ok=True)
+    p = ann_path_for(rel)
+    d = asdict(ann)
+    d["file"] = rel
+    if ann.verified and not ann.verified_date:
+        d["verified_date"] = date.today().isoformat()
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    return p
     out = []
     if not ANNOTATIONS_DIR.exists():
         return out

@@ -141,6 +141,9 @@ class MainWindow(QMainWindow):
         self.lbl_profile = QLabel("当前配置：无")
         f1.addRow(self.btn_profile)
         f1.addRow(self.lbl_profile)
+        self.btn_save_regions = QPushButton("保存区域为标注（本图，用户为准）")
+        self.btn_save_regions.clicked.connect(self.save_regions)
+        f1.addRow(self.btn_save_regions)
         panel.addWidget(g1)
 
         g2 = QGroupBox("2 胶片区域与片基 Dmin")
@@ -263,6 +266,36 @@ class MainWindow(QMainWindow):
         self.chk_dust.toggled.connect(self._refresh)
 
         self.statusBar().showMessage("就绪：打开 RAW / 16 位 TIFF / DNG")
+
+    def save_regions(self):
+        """用户拖框 -> 保存为 verified 标注（v3 用户裁决：手动区域为主，
+        批处理/重开文件都认这份框，算法不再猜）。"""
+        if self._t_unrot is None or self.src_path is None:
+            return
+        frame = self._view_rect_oriented(RoiKind.FRAME)
+        base = self._view_rect_oriented(RoiKind.BASE)
+        if frame is None or base is None:
+            QMessageBox.information(self, "保存区域",
+                                    "需要同时框好画面区（绿）与片基区（黄）")
+            return
+        from ..calibration.annotations import Annotation, save_annotation
+        from ..pipeline.geometry import oriented_to_source
+        sh, sw = self._t_unrot.shape[:2]
+        try:
+            rel = self.src_path.resolve().relative_to(
+                Path(__file__).resolve().parents[3]).as_posix()
+        except ValueError:
+            rel = self.src_path.as_posix()
+        ann = Annotation(
+            file=rel, roll=self.src_path.parent.parent.name,
+            rotation_degrees=self.rotation,
+            frame_roi=oriented_to_source(frame, sh, sw, self.rotation),
+            base_roi=oriented_to_source(base, sh, sw, self.rotation),
+            verified=True, verified_by="user",
+            notes="GUI 用户框选")
+        self._ann = ann
+        p = save_annotation(rel, ann)
+        self.statusBar().showMessage(f"区域已保存为 verified 标注：{p.name}")
 
     def load_profile(self):
         """单张配置加载（整改 I-8）：损坏必须可见错误，成功后显示并驱动先验。"""

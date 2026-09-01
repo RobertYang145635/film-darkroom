@@ -19,7 +19,7 @@ EXE = DIST / "negative-lab.exe"
 
 
 def check(cond: bool, label: str, fails: list[str]):
-    print(("✓" if cond else "✗") + " " + label)
+    print(("[OK]  " if cond else "[FAIL]") + " " + label)   # ASCII（v3 P0-I：GBK 安全）
     if not cond:
         fails.append(label)
 
