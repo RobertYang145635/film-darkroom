@@ -340,7 +340,9 @@ def process_image(t_source: np.ndarray, *,
         calibration={"level": calib_level,
                      "confidence": min(rep.confidence.get("dmin", 0),
                                        rep.confidence.get("dmax", 0))},
-        valid_mask=valid_mask)
+        valid_mask=valid_mask,
+        film_type=film_type,
+        regions_ok=bool(crop_o and area_o and base_o))
     rep.warnings = sorted(set(warnings + rep.warnings))
 
     # 11) RenderIntent（v4 §6：中性恒等；渲染后剪裁单独记录，NaN 阻断导出）

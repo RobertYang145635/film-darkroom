@@ -138,7 +138,7 @@ def cmd_invert(args: argparse.Namespace) -> int:
         print(f"WARN: {w}")
     print(f"export: {tif_path} (16-bit TIFF, sRGB ICC)")
     print(f"export: {jpg_path} (JPEG, fixed 8-bit)")
-    print(f"sidecar: {side_path} (schema v2)")
+    print(f"sidecar: {side_path} (schema v3)")
     return 0
 
 

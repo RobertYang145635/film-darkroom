@@ -11,21 +11,35 @@ import numpy as np
 _XN, _YN, _ZN = 0.95047, 1.00000, 1.08883
 
 
-def srgb_to_lab(rgb: np.ndarray) -> np.ndarray:
-    """rgb: (...,3) 或 (N,3)，sRGB 编码值 [0,1] -> Lab (L,a,b)。"""
-    x = np.asarray(rgb, dtype=np.float64).reshape(-1, 3)
-    lin = np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+def linear_srgb_to_lab(lin: np.ndarray) -> np.ndarray:
+    """线性 sRGB [0,1] -> CIELAB D65（v4 §7.4：矩阵直接作用在线性值上）。
+
+    v4 §1.2.6 实锤修复：不得先加 sRGB TRC 再乘线性矩阵
+    （错误实现给 L*[0.5]=88.70；本实现锁定 76.069）。
+    """
+    x = np.asarray(lin, dtype=np.float64).reshape(-1, 3)
     m = np.array([[0.4124564, 0.3575761, 0.1804375],
                   [0.2126729, 0.7151522, 0.0721750],
                   [0.0193339, 0.1191920, 0.9503041]])
-    xyz = lin @ m.T
-    xyz /= np.array([_XN, _YN, _ZN])
-    eps, kap = 216 / 24389, 8 / 27
-    f = np.where(xyz > eps, np.cbrt(xyz), (kap * xyz + 16) / 116)
+    xyz = x @ m.T
+    return _xyz_to_lab(xyz)
+
+
+def _xyz_to_lab(xyz: np.ndarray) -> np.ndarray:
+    xyz = xyz / np.array([_XN, _YN, _ZN])
+    eps, kap = 216 / 24389, 24389 / 27          # v4 §7.4.3 标准形式
+    f = np.where(xyz > eps, np.cbrt(xyz), kap * xyz / 116 + 16 / 116)
     L = 116 * f[..., 1] - 16
     a = 500 * (f[..., 0] - f[..., 1])
     b = 200 * (f[..., 1] - f[..., 2])
     return np.stack([L, a, b], axis=-1)
+
+
+def srgb_to_lab(rgb: np.ndarray) -> np.ndarray:
+    """sRGB 编码值 [0,1] -> Lab（先 TRC 解码为线性再走 linear_srgb_to_lab）。"""
+    x = np.asarray(rgb, dtype=np.float64).reshape(-1, 3)
+    lin = np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+    return linear_srgb_to_lab(lin)
 
 
 def delta_e_2000(lab1: np.ndarray, lab2: np.ndarray) -> np.ndarray:

@@ -20,7 +20,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
-
 from negative_lab.ui.main_window import MainWindow  # noqa: E402
 from negative_lab.ui.preview_view import RoiKind  # noqa: E402
 
@@ -66,16 +65,35 @@ def main() -> int:
     assert len(exports) == 3, "应导出 TIFF/JPEG/旁车 三件（本次 run 临时目录）"
     side = json.loads(Path([f for f in exports if f.suffix == ".json"][0])
                      .read_text(encoding="utf-8"))
-    # 整改 P0-I：断言 rotation/geometry/quality/ICC，而非只数文件
-    assert side["schema_version"] == 2 and len(side["source_sha256"]) == 64
+    # v4 §10.6：断言 rotation/geometry/quality/ICC + 诚实质量指标（不再假绿）
+    assert side["schema_version"] == 3 and len(side["source_sha256"]) == 64
     assert side["rotation_degrees"] == win.rotation
     assert side["geometry"]["crop_oriented"] is not None, "GUI 导出必须裁到画面"
     assert side["geometry"]["roi_source_space"]["coordinate_space"] == "source"
     assert side["quality"]["status"] in ("ok", "warn", "needs_calibration")
     assert side["output"]["icc_sha256"], "旁车必须记录输出 ICC"
     import tifffile
-    with tifffile.TiffFile(str(out_dir / "G200-1-positive.tif")) as tf:
+    tif_path = out_dir / "G200-1-positive.tif"
+    with tifffile.TiffFile(str(tif_path)) as tf:
         assert tf.pages[0].tags.get(34675) is not None, "TIFF 必须嵌 ICC"
+        pos = tf.pages[0].asarray().astype(np.float32) / 65535.0
+    # 输出质量指标（sRGB 显示空间）
+    from negative_lab.color.management import linear_to_srgb
+    s = np.clip(linear_to_srgb(np.clip(pos, 0, 1)), 0, 1)
+    lum = pos @ np.array([0.2126, 0.7152, 0.0722], np.float32)
+    sat = (s.max(2) - s.min(2)) / np.maximum(s.mean(2), 1e-6)
+    clip_lo = (pos <= 1e-6).mean(axis=(0, 1))
+    clip_hi = (pos >= 1 - 1e-6).mean(axis=(0, 1))
+    metrics = {"lum_p50": round(float(np.quantile(lum, .5)), 4),
+               "sat_p50_p90": [round(float(np.quantile(sat, q)), 4)
+                               for q in (.5, .9)],
+               "clip_low": [round(float(v), 4) for v in clip_lo],
+               "clip_high": [round(float(v), 4) for v in clip_hi]}
+    print("quality metrics:", metrics)
+    if max(metrics["clip_low"]) > 0.01 or max(metrics["clip_high"]) > 0.01:
+        print("[SMOKE-QUALITY-FAIL] 输出剪裁 >1%（v4 §10.6：已知偏青冲淡图"
+              "不得打印 GUI SMOKE OK）")
+        return 3
     print("GUI SMOKE OK")
     return 0
 

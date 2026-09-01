@@ -21,7 +21,7 @@ ADR 必须提升 sidecar `schema_version` 或公式等价性测试（原规格 �
 | `use_camera_wb` | False | 不应用相机白平衡增益矩阵 |
 | `use_auto_wb` | False | 自动白平衡不可复现 |
 | `user_mul` | 不设置 | 实测 `(1,1,1,1)` 会改变 LibRaw 内部通道归一化（片基 R 0.17→0.11）；采用 LibRaw 默认 as-shot 乘数。**任何逐通道增益在 z=log10(t/Dmin) 中被 Dmin 归一化完全抵消**，不影响密度模型正确性，但策略必须如实记录 |
-| `output_color` | 6 (LINEAR) | 应用相机色彩矩阵、无传递函数：原规格 §4.1.1 的"线性 RGB"语义与 darktable negadoctor / RawPedia 一致；实测 sensor-raw(0) 的 R/G 通道在橙片基下几乎不可分（串扰），不适合逐通道密度模型 |
+| `output_color` | rawpy.ColorSpace.sRGB（=1） | 应用相机色彩矩阵至 sRGB 基色、无传递函数；v4 §11.1 现行决策。历史值 6 曾被错误命名为 "LINEAR"（实际=ACES，v4 §1.2.6 实锤）——**已撤销**；实测 sensor-raw(0) 的 R/G 通道在橙片基下几乎不可分（串扰），不适合逐通道密度模型 |
 | `gamma` | (1,1,1,1) | 线性输出（§4.1.2 反相前禁止显示曲线） |
 | `no_auto_bright` | True | 禁止自动亮度 |
 | `highlight` | 0（none，不过滤） | 高光剪裁由诊断报告，不静默修复 |
@@ -33,12 +33,13 @@ ADR 必须提升 sidecar `schema_version` 或公式等价性测试（原规格 �
 
 ## 2. 工作空间（回答"这些数字属于哪个色域"）
 
-- **线性工作空间**：相机线性 RGB（LibRaw LINEAR 输出：应用相机色彩矩阵、
-  无传递函数；基色=该相机/镜头组合的拍摄原色，非 sRGB/Adobe 等标准 RGB），
-  数值语义=相对透射率（除以 Dmin 后进入 z 域）。
-- 密度管线在矩阵之后**不再做通道间混合**；去色罩=逐通道除法（对数域减法）。
-- 该空间没有标准名称，sidecar 记录 `working_space: "camera-linear-normalized"`
-  + 输入设备/镜头/光源（unknown 就写 unknown）+ `raw_decode_params`。
+- **线性工作空间（现行）**：sRGB 基色、D65、无传递函数
+  （rawpy.ColorSpace.sRGB + gamm=(1,1,1,1)；LibRaw 内部完成 daylight WB +
+  相机矩阵）。sidecar 记录 `working_space: "srgb-linear-d65-normalized"` +
+  实际 WB 乘数 + `raw_decode_params`。
+- ~~camera-linear-normalized~~：**已撤销**（v4 §11.1）。
+- 密度管线逐通道运算；解混矩阵 A 为 density-affine backend 的显式参数
+  （数学契约见 docs/algorithm-notes.md），不再有"矩阵之后不混合"的绝对表述。
 
 ## 3. 输入侧 ICC / 传递函数（TIFF/JPEG）
 

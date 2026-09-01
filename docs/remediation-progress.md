@@ -1,5 +1,45 @@
 # 整改进度（负片软件整改_AI执行规格.md §5 固定格式）
 
+## 2026-09-01 v4 复核降级（不覆盖旧记录）
+
+依据《负片去色罩算法重构_AI执行规格_v4.md》§1.2/§1.3 实锤与 §14 指令：
+
+- **v3-P0-B/C 色彩 PASS -> FAIL**：invert_chunked 不读 density_matrix
+  （v4 §1.2.1-2）；backend 未接入生产入口；Lab 数学错误
+  （L*[0.5]=88.70，v4 §1.2.6）；exposure/red_ratio 假旋钮（§1.2.9/10）。
+- **v3-P0-D 统一主路径 PASS -> PARTIAL**：结构有效但 backend/calibration/
+  RenderIntent 当时未接线。
+- **v3-P0-E/F/G/H/I 全部 PASS -> PARTIAL/FAIL**：校准层级对象存在但未从
+  任何入口加载（PARTIAL）；RenderIntent 未接线（FAIL）；QualityGate 有
+  needs_calibration 但 confidence 豁免语义错误（FAIL）；事务导出缺共享
+  basename 与部分提交回滚（PARTIAL）；幂等冒烟存在但 CLI 子进程解码假绿
+  （FAIL）。
+
+## 2026-09-01 v4 修复（同日完成，详见各 commit）
+
+- P0-A 契约测试 8 项（test_v4_contracts.py）
+- P0-B 数学契约 docs/algorithm-notes.md + backends 重建 + invert 走注册表
+- P0-C calibration 强类型接入 GUI/CLI/batch（§5.1）
+- P0-D RenderIntent 接入 process_image 与 GUI 滑杆（§6）
+- P0-E colorimetry.py 唯一实现（L*76.069 锁定 + Sharma 向量）+
+  QualityGate 全语义重写（fail>needs_regions>needs_calibration>warn>ok、
+  剪裁 0.1% warn/1% fail、mask 校验、色度统计）
+- P0-F annotation schema v2（三 ROI/原子保存/draft-verified/旧版迁移）
+- P0-G export_triplet 共享 basename + 格式开关 + 真部分提交回滚
+- P0-H e2e 冒烟 bytes 捕获去假绿 + GUI 冒烟质量红线
+- P0-I working_space 残留清零 + benchmark 重写（同工作空间/同 invert/
+  差异断言）
+- **§12.2 G200-1 最低线 3/3 达标**：黑位解析软趾（smooth-abs toe=0.004）
+  使输出剪裁 0/0/0；亮度 p50 差 0.020；sat_p90 0.879 ≥ 75%·NLP。
+  证据 outputs/quality/g200-minline/metrics.json。
+
+## 用户裁决（2026-09-01，效力高于规格冲突项）
+
+- 黑白样片验证跳过（不阻塞发布门禁）；
+- 色卡/blank frame 无法补拍（胶卷已冲洗）——监督标定不可用，验收基于
+  §12.2 最低线 + 用户视觉签字；flat-field 以 strip-1D 部分校正为上限。
+
+
 ## 2026-09-01 复核撤销（v3 F-ALG-9，不覆盖旧日志）
 
 - **P0-B 色彩管线：PASS -> FAIL**。撤销理由：output_color=6 实为

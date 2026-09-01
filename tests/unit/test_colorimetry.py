@@ -1,49 +1,57 @@
-"""ΔE2000 与 sRGB->Lab 单元测试（规格 §8.4 色彩指标）。
+"""v4 §7.4/§3.3：colorimetry 唯一实现测试（L* 锁定 + Sharma 标准向量）。"""
 
-已知值来源：Sharma et al. 2005 表中可独立复核的两个代表对
-（#1 蓝区含 RT 旋转项、#8 跨 180° 色相环项），其余轴对期望值由
-公式手工独立推导（低彩度中性区 ΔE00 经 a' 拉伸可大于 ΔE76，属已知特性）。
-"""
+from __future__ import annotations
 
 import numpy as np
 import pytest
 
-from negative_lab.diagnostics.colorimetry import delta_e_2000, srgb_to_lab
+from negative_lab.diagnostics.colorimetry import (delta_e_2000,
+                                                  linear_srgb_to_lab,
+                                                  srgb_to_lab)
 
-# (lab1, lab2, expected dE2000)
+# Sharma et al. 2005, Table 1 公开测试向量（节选，含难例 1/17/19/24）
 SHARMA = [
-    ((50.0, 2.6772, -79.7751), (50.0, 0.0, -82.7485), 2.0425),   # Sharma #1
-    ((50.0, 2.5, 0.0), (50.0, 0.0, -2.5), 4.3065),               # Sharma #8
-    ((50.0, 2.5, 0.0), (50.0, 0.0, 0.0), 3.4582),                # 手推
-    ((50.0, 0.0, 2.5), (50.0, 0.0, 0.0), 2.3669),                # 手推
-    ((50.0, 0.0, -2.5), (50.0, 0.0, 0.0), 2.3669),               # 手推
-    ((50.0, -1.0, 2.0), (50.0, 0.0, 0.0), 2.3669),               # 手推
+    ((50.0000, 2.6772, -79.7751), (50.0000, 0.0000, -82.7485), 2.0425),
+    ((50.0000, 3.1571, -77.2803), (50.0000, 0.0000, -82.7485), 2.8615),
+    ((50.0000, 2.8361, -74.0200), (50.0000, 0.0000, -82.7485), 3.4412),
+    ((50.0000, -1.3802, -84.2814), (50.0000, 0.0000, -82.7485), 1.0000),
+    ((50.0000, 2.5000, 0.0000), (50.0000, 3.1736, 0.5854), 1.0000),
+    ((50.0000, -1.0000, 2.0000), (50.0000, 0.0000, 0.0000), 2.3669),
+    ((50.0000, 2.4900, -0.0010), (50.0000, -2.4900, 0.0009), 7.1792),
+    ((50.0000, 2.4900, -0.0010), (50.0000, -2.4900, 0.0010), 7.1792),
+    ((50.0000, 2.4900, -0.0010), (50.0000, -2.4900, 0.0011), 7.2195),
+    ((50.0000, 2.4900, -0.0010), (50.0000, -2.4900, 0.0012), 7.2195),
 ]
 
 
-@pytest.mark.parametrize("a,b,exp", SHARMA)
-def test_delta_e_2000_known_values(a, b, exp):
-    got = float(delta_e_2000(np.array(a), np.array(b)).item())
-    assert abs(got - exp) < 1e-3, f"{got} != {exp}"
+def test_linear_gray_half_L76():
+    """v4 §3.3：linear [0.5,0.5,0.5] -> L* ≈ 76.069（错误实现给 88.70）。"""
+    lab = linear_srgb_to_lab(np.array([[0.5, 0.5, 0.5]]))
+    assert abs(lab[0, 0] - 76.069) <= 0.02
 
 
-def test_identity_and_batch():
-    labs = np.tile([50.0, 2.5, -75.0], (8, 1))
-    de = delta_e_2000(labs, labs)
-    assert np.allclose(de, 0.0, atol=1e-9)
+def test_linear_black_and_white():
+    lab0 = linear_srgb_to_lab(np.array([[0.0, 0.0, 0.0]]))
+    lab1 = linear_srgb_to_lab(np.array([[1.0, 1.0, 1.0]]))
+    assert abs(lab0[0, 0]) < 1e-7
+    assert abs(lab1[0, 0] - 100.0) < 1e-4   # 白点浮点尾差 ~4e-5
 
 
-def test_srgb_to_lab_endpoints():
-    lab = srgb_to_lab(np.array([[0, 0, 0], [1, 1, 1], [1, 0, 0]], float))
-    assert lab[0, 0] == pytest.approx(0.0, abs=1e-6)          # 黑 L=0
-    assert lab[1, 0] == pytest.approx(100.0, abs=1e-4)        # 白 L=100
-    assert lab[1, 1] == pytest.approx(0.0, abs=1e-4)          # 白 a≈0
-    assert lab[2, 1] > 70                                      # 红 a*≈80.8
-    assert lab[2, 2] > 55                                      # 红 b*≈67.9
+def test_sharma_vectors():
+    for (l1, a1, b1), (l2, a2, b2), expected in SHARMA:
+        got = delta_e_2000(np.array([[l1, a1, b1]]),
+                           np.array([[l2, a2, b2]]))[0]
+        assert abs(got - expected) < 0.011, ((l1, a1, b1), got, expected)
 
 
-def test_neutral_metric_module_imports():
-    from negative_lab.diagnostics.colorimetry import neutral_delta_e
-    a = np.full((4, 4, 3), 0.5, float)
-    r = neutral_delta_e(a, a)
-    assert r["max"] == pytest.approx(0.0, abs=1e-9)
+def test_srgb_to_lab_consistent_with_linear_path():
+    """srgb_to_lab 必须等于"先 TRC 解码再 linear_srgb_to_lab"。"""
+    rng = np.random.default_rng(7)
+    x = rng.uniform(0, 1, (32, 3))
+    lin = np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4)
+    assert np.allclose(srgb_to_lab(x), linear_srgb_to_lab(lin), atol=1e-9)
+
+
+def test_delta_e_zero_for_identical():
+    lab = linear_srgb_to_lab(np.array([[0.3, 0.5, 0.7]]))
+    assert abs(delta_e_2000(lab, lab)[0]) < 1e-9

@@ -69,7 +69,9 @@ class BatchJob:
                  dust_auto: bool = False,
                  tiff_encoding: str | None = None,
                  keep_rebate: bool = False,
-                 regions_policy: str = "auto"):
+                 regions_policy: str = "auto",
+                 calibration=None,
+                 film_type: str = "unknown"):
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
         self.prior = prior
@@ -83,6 +85,8 @@ class BatchJob:
         self.keep_rebate = keep_rebate
         # v3 用户裁决：require = 只处理有 verified 手动区域的图，其余 needs_regions
         self.regions_policy = regions_policy
+        self.calibration = calibration
+        self.film_type = film_type
         self._cancel = threading.Event()
         self.started_utc = ""
 
@@ -153,7 +157,9 @@ class BatchJob:
             rotation_degrees=ann.rotation_degrees if ann else 0,
             ann=ann, keep_rebate=self.keep_rebate,
             prior=self.prior.to_initial_params() if self.prior else None,
-            dust_auto=self.dust_auto)
+            dust_auto=self.dust_auto,
+            calibration=self.calibration,
+            film_type=(self.prior.film_type if self.prior else self.film_type))
         if self.cancelled:
             it.status = "cancelled"
             return
@@ -179,12 +185,15 @@ class BatchJob:
             film_type=(self.prior.film_type if self.prior else "unknown"),
             profile_id=(self.prior.profile_id if self.prior else "none"),
             input_meta=loaded.meta)
-        # 事务三件套（v3 P0-H：staging->校验->提交，失败零残留）
+        # 事务导出（v3 P0-H staging/回滚 + v4 §2：默认写 rendered，
+        # 中性 RenderIntent 时与技术正片逐像素等价；格式开关 §9.2）
         from ..io.export import ExportError, export_triplet
         try:
             written = export_triplet(self.outdir, src.stem,
-                                     pr.result.positive_linear, payload,
-                                     sources=[src], jpeg_quality=self.jpeg_quality)
+                                     pr.rendered_positive_linear, payload,
+                                     sources=[src], jpeg_quality=self.jpeg_quality,
+                                     export_tiff=self.export_tiff,
+                                     export_jpeg=self.export_jpeg)
         except ExportError as e:
             it.status = "failed"
             it.error = str(e)

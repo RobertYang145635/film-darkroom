@@ -1,13 +1,12 @@
-"""统一质量门禁（整改 P0-C；F-4）。
+"""统一质量门禁（v4 §7 P0-E 全语义）。
 
-GUI、CLI、批处理、sidecar、报告共用同一结果结构；状态来自枚举，
-禁止靠中文字符串包含关系猜状态（整改 P1 批处理同样遵守）。
-
-规则（原规格 §8.4 + 整改 §2）：
-- 输入/输出逐通道低端与高端剪裁比例；非蒙版输出 >1% 即 WARN，
-  警告文本必须包含通道、方向与比例。
-- 任何 NaN/Inf 进入导出 -> FAIL。
-- 正常曝光留出样片 FAIL/WARN 会阻断发布（tests/regression）。
+状态优先级固定：fail > needs_regions > needs_calibration > warn > ok。
+- 彩色负片缺 verified 颜色标定：无条件 needs_calibration（与 confidence 无关）。
+- 剪裁分级（有效 mask 内逐通道）：>0.1% warn；>1.0% fail（阈值入 to_dict）。
+- valid_mask 形状/空校验：非法输入显式报错，不产生 NaN 比例。
+- ΔE2000 只用 diagnostics/colorimetry.py 唯一实现；无参考 = None + notes。
+- 色度统计（§7.5）：sRGB saturation p10/p50/p90、线性相对彩度 p50/p90；
+  有同帧参考时记 p90 比率门禁（默认 0.75，可用 saturation_p90_ratio 调整）。
 """
 
 from __future__ import annotations
@@ -16,44 +15,52 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .colorimetry import delta_e_2000, linear_srgb_to_lab
+
 CHANNELS = ("R", "G", "B")
 CLIP_TOL = 1e-6
-CLIP_WARN_FRAC = 0.01          # 1% 目标（原规格 §8.4）
+CLIP_WARN_FRAC = 0.001          # v4 §7.2：>0.1% warn
+CLIP_FAIL_FRAC = 0.01           # v4 §7.2：>1.0% fail
+SAT_P90_RATIO_DEFAULT = 0.75    # v4 §7.5：同帧参考的 holdout 下限
 
 
 @dataclass
 class QualityGate:
-    status: str = "ok"                       # ok|warn|fail|needs_calibration
-    input_clip: dict = field(default_factory=dict)    # {low:[r,g,b], high:[r,g,b]}
+    status: str = "ok"    # ok|warn|needs_regions|needs_calibration|fail
+    input_clip: dict = field(default_factory=dict)
     output_clip: dict = field(default_factory=dict)
     nonfinite_input: int = 0
     nonfinite_output: int = 0
-    delta_e2000: dict | None = None          # {mean,max,p95,n}（v3 P0-G）
-    mask_source: str = "none"                # none|user|dust|roi
-    notes: list[str] = field(default_factory=list)   # 信息性（不降级状态）
+    delta_e2000: dict | None = None
+    chroma_stats: dict = field(default_factory=dict)
+    mask_source: str = "none"
+    notes: list[str] = field(default_factory=list)
+    thresholds: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     failures: list[str] = field(default_factory=list)
-
-    # ---- 构建
 
     @classmethod
     def evaluate(cls, *, t_in: np.ndarray | None = None,
                  positive_linear: np.ndarray | None = None,
                  input_nonfinite: int = 0,
                  extra_warnings: list[str] | None = None,
-                 clip_warn_frac: float = CLIP_WARN_FRAC,
                  calibration: dict | None = None,
                  valid_mask: np.ndarray | None = None,
                  mask_source: str = "user",
                  neutral_ref_positive: np.ndarray | None = None,
-                 chroma_collapse_frac: float = 0.02) -> "QualityGate":
-        """calibration（v3 P0-G）：{"level": verified-calibration 名 或 None,
-        "confidence": float}。彩色负片缺卷级标定/中性参考时
-        status=needs_calibration（不是 warn，v3 F-ALG-7）。
-        valid_mask：True=参与统计的画面区域（蒙版区不伪装成正常）。
-        neutral_ref_positive：与 positive_linear 同位置的中性参考真值块
-        （色卡/verified ROI），用于 ΔE2000；缺省时如实记录 None。"""
+                 film_type: str = "unknown",
+                 regions_ok: bool = True,
+                 saturation_p90_ratio: float = SAT_P90_RATIO_DEFAULT,
+                 clip_warn_frac: float = CLIP_WARN_FRAC,
+                 clip_fail_frac: float = CLIP_FAIL_FRAC) -> "QualityGate":
         g = cls()
+        g.thresholds = {"clip_warn_frac": clip_warn_frac,
+                        "clip_fail_frac": clip_fail_frac,
+                        "saturation_p90_ratio": saturation_p90_ratio}
+        if valid_mask is not None:
+            _validate_mask(valid_mask, positive_linear, t_in)
+            g.mask_source = mask_source
+
         if t_in is not None:
             g.input_clip = _clip(t_in, valid_mask)
         if positive_linear is not None:
@@ -62,74 +69,83 @@ class QualityGate:
             if g.nonfinite_output:
                 g.failures.append(
                     f"输出含 {g.nonfinite_output} 个 NaN/Inf（禁止进入导出）")
-            if valid_mask is not None:
-                g.mask_source = mask_source
-            # 色度塌缩检查（v3 §0 失败模式）：仅在色彩被评估时启用
-            # （有中性参考真值，或调用方给出标定层级）——纯灰度合成
-            # 测试图不得被误判。
-            color_assessed = neutral_ref_positive is not None or (
-                calibration is not None and calibration.get("level"))
-            if color_assessed and positive_linear.shape[-1] == 3:
-                px = positive_linear[valid_mask] if valid_mask is not None \
-                    else positive_linear.reshape(-1, 3)
-                px = px[np.isfinite(px).all(axis=1)]
-                if len(px) > 256:
-                    mx, mn = px.max(axis=1), px.min(axis=1)
-                    lum = np.maximum(px.mean(axis=1), 1e-6)
-                    chroma = np.median((mx - mn) / lum)
-                    if chroma < chroma_collapse_frac:
+            g.chroma_stats = _chroma_stats(positive_linear, valid_mask)
+            # 剪裁分级（§7.2）
+            for side, label, advice in (("low", "暗部", "建议降低 Dmax 或调整 offset"),
+                                        ("high", "高光", "建议启用高光压缩")):
+                for ch, frac in _iter(g.output_clip, side):
+                    if frac > clip_fail_frac:
                         g.failures.append(
-                            f"色度塌缩：中位彩度 {chroma:.3f} < {chroma_collapse_frac}"
-                            "（输出接近灰度，去色罩失败）")
-            # ΔE2000（有中性参考真值时）
+                            f"输出{label}剪裁超限(FAIL)：通道 {ch} {frac:.2%} > "
+                            f"{clip_fail_frac:.1%}（{advice}）")
+                    elif frac > clip_warn_frac:
+                        g.warnings.append(
+                            f"输出{label}剪裁：通道 {ch} {frac:.2%} > "
+                            f"{clip_warn_frac:.1%}（{advice}）")
+            for side in ("low", "high"):
+                for ch, frac in _iter(g.input_clip or {}, side):
+                    if frac > clip_fail_frac:
+                        g.failures.append(
+                            f"输入剪裁超限(FAIL)：通道 {ch} {side} {frac:.2%}")
+                    elif frac > clip_warn_frac:
+                        g.warnings.append(
+                            f"输入剪裁：通道 {ch} {side} {frac:.2%}")
+            # ΔE2000（有已知目标才测；§7.4.5）
             if neutral_ref_positive is not None:
-                de = _delta_e2000_stats(neutral_ref_positive, positive_linear,
-                                        valid_mask)
-                g.delta_e2000 = de
-                if de["mean"] > 5.0:
+                if neutral_ref_positive.shape != positive_linear.shape:
+                    raise ValueError("neutral_ref_positive 形状必须与 "
+                                     "positive_linear 一致")
+                lab_r = linear_srgb_to_lab(neutral_ref_positive.reshape(-1, 3))
+                lab_p = linear_srgb_to_lab(positive_linear.reshape(-1, 3))
+                if valid_mask is not None:
+                    lab_r, lab_p = lab_r[valid_mask.reshape(-1)], \
+                        lab_p[valid_mask.reshape(-1)]
+                de = delta_e_2000(lab_r, lab_p)
+                g.delta_e2000 = {"mean": round(float(de.mean()), 3),
+                                 "max": round(float(de.max()), 3),
+                                 "p95": round(float(np.quantile(de, 0.95)), 3),
+                                 "n": int(de.size)}
+                if de.mean() > 5.0:
+                    g.failures.append(
+                        f"中性区 ΔE2000 均值 {de.mean():.1f} > 5（色偏不可接受）")
+                elif de.mean() > 3.0:
                     g.warnings.append(
-                        f"中性区 ΔE2000 均值 {de['mean']:.1f} > 5（色偏可见，"
-                        "需重新取点或标定）")
-            elif calibration is None or not calibration.get("level"):
-                g.notes.append(
-                    "无中性参考真值：ΔE2000 未测量（色彩验收不得凭无参考结果宣称通过，"
-                    "v3 P0-G）")
+                        f"中性区 ΔE2000 均值 {de.mean():.1f} > 3（需重新取点/标定）")
+            else:
+                g.notes.append("无中性参考真值：ΔE2000 未测量（色彩验收不得凭此"
+                               "宣称通过，v4 §7.4.5）")
+            # 同帧参考的彩度比率门禁（§7.5）
+            if neutral_ref_positive is not None:
+                ref_s = _chroma_stats(neutral_ref_positive, valid_mask)
+                g.chroma_stats["reference_sat_p90"] = ref_s.get("sat_p90")
+                mine = g.chroma_stats.get("sat_p90", 0.0)
+                theirs = ref_s.get("sat_p90", 0.0)
+                if theirs and mine and (mine / theirs) < saturation_p90_ratio:
+                    g.failures.append(
+                        f"色度塌缩：sat_p90 比率 {mine/theirs:.2f} < "
+                        f"{saturation_p90_ratio}（vs 同帧参考）")
         g.nonfinite_input = int(input_nonfinite)
         if g.nonfinite_input:
-            g.warnings.append(f"输入含 {g.nonfinite_input} 个 NaN/Inf，已替换为 0 并记录")
-        for ch, frac in _iter_over(g.output_clip, "low"):
-            if frac > clip_warn_frac:
-                g.warnings.append(
-                    f"输出暗部剪裁超限：通道 {ch} {frac:.2%} > {clip_warn_frac:.0%}"
-                    f"（阴影细节丢失，建议降低 Dmax 或调整 offset）")
-        for ch, frac in _iter_over(g.output_clip, "high"):
-            if frac > clip_warn_frac:
-                g.warnings.append(
-                    f"输出高光剪裁超限：通道 {ch} {frac:.2%} > {clip_warn_frac:.0%}"
-                    f"（高光细节丢失，建议启用高光压缩或提高 Dmax）")
-        for ch, frac in _iter_over(g.input_clip, "low"):
-            if frac > clip_warn_frac:
-                g.warnings.append(
-                    f"输入暗部剪裁：通道 {ch} {frac:.2%}（透射率趋零，密度信息可能丢失）")
-        for ch, frac in _iter_over(g.input_clip, "high"):
-            if frac > clip_warn_frac:
-                g.warnings.append(
-                    f"输入亮部剪裁：通道 {ch} {frac:.2%}（扫描饱和）")
+            g.warnings.append(f"输入含 {g.nonfinite_input} 个 NaN/Inf，已替换并记录")
         g.warnings.extend(extra_warnings or [])
+
+        # ---- 状态优先级（§7.1）：fail > needs_regions > needs_calibration > warn > ok
+        color_calibration = bool(calibration and calibration.get("level")) \
+            if calibration is not None else True
+        if film_type in ("bw", "b&w", "黑白", "monochrome"):
+            color_calibration = True      # 黑白跳过颜色标定，仍跑剪裁/有限值门禁
         if g.failures:
             g.status = "fail"
-        elif calibration is not None and not calibration.get("level") \
-                and float(calibration.get("confidence", 0)) < 0.5:
-            # v3：自动彩色负片缺有效标定 -> needs_calibration（阻断"成功"语义）
+        elif not regions_ok:
+            g.status = "needs_regions"
+        elif not color_calibration:
+            # v4 §1.2.5：无条件 needs_calibration，confidence 不豁免
             g.status = "needs_calibration"
-            g.warnings.insert(0,
-                "NEEDS-CALIBRATION: 彩色负片自动结果缺少 verified 卷级标定/中性参考"
-                "（experimental，勿作为正式成品；请提供色卡帧或人工取点）")
+            g.warnings.insert(0, "NEEDS-CALIBRATION: 彩色负片缺少 verified 颜色标定"
+                                 "（experimental，不得作为正式成品）")
         elif g.warnings:
             g.status = "warn"
         return g
-
-    # ---- 消费
 
     def to_dict(self) -> dict:
         return {
@@ -139,17 +155,31 @@ class QualityGate:
             "nonfinite_input": self.nonfinite_input,
             "nonfinite_output": self.nonfinite_output,
             "delta_e2000": self.delta_e2000,
+            "chroma_stats": self.chroma_stats,
             "mask_source": self.mask_source,
             "notes": self.notes,
+            "thresholds": self.thresholds,
             "warnings": self.warnings,
             "failures": self.failures,
-            "clip_warn_frac": CLIP_WARN_FRAC,
         }
 
     @property
     def clip_exceeded(self) -> bool:
-        return any(f > CLIP_WARN_FRAC for _, f in _iter_over(self.output_clip, "low")) \
-            or any(f > CLIP_WARN_FRAC for _, f in _iter_over(self.output_clip, "high"))
+        return any(f > CLIP_FAIL_FRAC
+                   for _, f in _iter(self.output_clip, "low")) or \
+            any(f > CLIP_FAIL_FRAC for _, f in _iter(self.output_clip, "high"))
+
+
+def _validate_mask(mask: np.ndarray, *arrays) -> None:
+    """v4 §3.3：形状不符/空/全 False 必须报错（不产生 NaN 比例）。"""
+    if mask.size == 0:
+        raise ValueError("valid_mask 为空")
+    if not mask.any():
+        raise ValueError("valid_mask 全 False：没有有效像素参与统计")
+    for a in arrays:
+        if a is not None and mask.shape != a.shape[:2]:
+            raise ValueError(f"valid_mask 形状 {mask.shape} 与图像 "
+                             f"{a.shape[:2]} 不符")
 
 
 def _clip(img: np.ndarray, mask: np.ndarray | None = None) -> dict:
@@ -163,78 +193,24 @@ def _clip(img: np.ndarray, mask: np.ndarray | None = None) -> dict:
     return {"low": [float(v) for v in lo], "high": [float(v) for v in hi]}
 
 
-def _linear_to_lab(lin: np.ndarray) -> np.ndarray:
-    """linear sRGB(0-1) -> CIE Lab D65（sRGB 标准传递函数与 primaries）。"""
+def _chroma_stats(pos: np.ndarray, mask: np.ndarray | None) -> dict:
+    """§7.5：sRGB saturation 分位 + 线性相对彩度分位。"""
+    px = pos[mask] if mask is not None else pos.reshape(-1, 3)
+    px = px[np.isfinite(px).all(axis=1)]
+    if len(px) == 0:
+        return {}
     from ..color.management import linear_to_srgb
-    s = linear_to_srgb(np.clip(lin, 0.0, 1.0))
-    M = np.array([[0.4124564, 0.3575761, 0.1804375],
-                  [0.2126729, 0.7151522, 0.0721750],
-                  [0.0193339, 0.1191920, 0.9503041]], np.float64)
-    xyz = s @ M.T
-    wp = np.array([0.95047, 1.0, 1.08883])
-    v = xyz / wp
-    eps, kap = 216 / 24389, 24 / 116
-    f = np.where(v > eps, np.cbrt(v), kap + v * (7.787))
-    L = 116 * f[..., 1] - 16
-    a = 500 * (f[..., 0] - f[..., 1])
-    b = 200 * (f[..., 1] - f[..., 2])
-    return np.stack([L, a, b], axis=-1)
+    s = np.clip(linear_to_srgb(np.clip(px, 0.0, 1.0)), 0.0, 1.0)
+    sat = (s.max(axis=1) - s.min(axis=1)) / np.maximum(s.mean(axis=1), 1e-6)
+    mx, mn = px.max(axis=1), px.min(axis=1)
+    chroma = (mx - mn) / np.maximum(px.mean(axis=1), 1e-6)
+    return {"sat_p10": round(float(np.quantile(sat, 0.10)), 4),
+            "sat_p50": round(float(np.quantile(sat, 0.50)), 4),
+            "sat_p90": round(float(np.quantile(sat, 0.90)), 4),
+            "chroma_p50": round(float(np.quantile(chroma, 0.50)), 4),
+            "chroma_p90": round(float(np.quantile(chroma, 0.90)), 4)}
 
 
-def _delta_e2000_stats(ref_lin: np.ndarray, pos_lin: np.ndarray,
-                       mask: np.ndarray | None) -> dict:
-    """ΔE2000（Sharma 2005 公开公式）参考中性块 vs 输出同位置。"""
-    lab_r = _linear_to_lab(np.asarray(ref_lin, np.float64))
-    lab_p = _linear_to_lab(np.asarray(pos_lin, np.float64))
-    if mask is not None:
-        lab_r, lab_p = lab_r[mask], lab_p[mask]
-    else:
-        lab_r, lab_p = lab_r.reshape(-1, 3), lab_p.reshape(-1, 3)
-    de = _de2000(lab_r[:, 0], lab_r[:, 1], lab_r[:, 2],
-                 lab_p[:, 0], lab_p[:, 1], lab_p[:, 2])
-    return {"mean": round(float(de.mean()), 3),
-            "max": round(float(de.max()), 3),
-            "p95": round(float(np.quantile(de, 0.95)), 3),
-            "n": int(de.size)}
-
-
-def _de2000(L1, a1, b1, L2, a2, b2):
-    kL = kC = kH = 1.0
-    C1 = np.hypot(a1, b1); C2 = np.hypot(a2, b2)
-    Cb = (C1 + C2) / 2
-    G = 0.5 * (1 - np.sqrt(Cb**7 / (Cb**7 + 25.0**7))) if np.any(Cb > 0) else 0.5
-    a1p, a2p = (1 + G) * a1, (1 + G) * a2
-    C1p, C2p = np.hypot(a1p, b1), np.hypot(a2p, b2)
-    h1p = np.degrees(np.arctan2(b1, a1p)) % 360
-    h2p = np.degrees(np.arctan2(b2, a2p)) % 360
-    dLp = L2 - L1
-    dCp = C2p - C1p
-    with np.errstate(invalid="ignore"):
-        dhp = np.where(C1p * C2p == 0, 0.0,
-                       np.where(np.abs(h2p - h1p) <= 180, h2p - h1p,
-                                np.where(h2p - h1p > 180, h2p - h1p - 360,
-                                         h2p - h1p + 360)))
-    dHp = 2 * np.sqrt(np.maximum(C1p * C2p, 0)) * np.sin(np.radians(dhp / 2))
-    Lbp = (L1 + L2) / 2
-    Cbp = (C1p + C2p) / 2
-    with np.errstate(invalid="ignore"):
-        hbp = np.where(C1p * C2p == 0, h1p + h2p,
-                       np.where(np.abs(h1p - h2p) <= 180, (h1p + h2p) / 2,
-                                np.where(h1p + h2p < 360, (h1p + h2p + 360) / 2,
-                                         (h1p + h2p - 360) / 2)))
-    T = (1 - 0.17 * np.cos(np.radians(hbp - 30)) + 0.24 * np.cos(np.radians(2 * hbp))
-         + 0.32 * np.cos(np.radians(3 * hbp + 6))
-         - 0.20 * np.cos(np.radians(4 * hbp - 63)))
-    SL = 1 + 0.015 * (Lbp - 50) ** 2 / np.sqrt(20 + (Lbp - 50) ** 2)
-    SC = 1 + 0.045 * Cbp
-    SH = 1 + 0.015 * Cbp * T
-    RT = -2 * np.sqrt(Cbp**7 / (Cbp**7 + 25.0**7)) \
-        * np.sin(np.radians(60 * np.exp(-((hbp - 275) / 25) ** 2)))
-    return np.sqrt((dLp / (kL * SL)) ** 2 + (dCp / (kC * SC)) ** 2
-                   + (dHp / (kH * SH)) ** 2
-                   + RT * (dCp / (kC * SC)) * (dHp / (kH * SH)))
-
-
-def _iter_over(clip: dict, side: str):
+def _iter(clip: dict, side: str):
     for ch, frac in zip(CHANNELS, clip.get(side, [])):
         yield ch, float(frac)
