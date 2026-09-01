@@ -144,6 +144,11 @@ class MainWindow(QMainWindow):
         self.btn_save_regions = QPushButton("保存区域为标注（本图，用户为准）")
         self.btn_save_regions.clicked.connect(self.save_regions)
         f1.addRow(self.btn_save_regions)
+        self.btn_calibration = QPushButton("加载卷级校准…")
+        self.btn_calibration.clicked.connect(self.load_calibration)
+        self.lbl_calibration = QLabel("当前校准：无（彩色负片将 needs_calibration）")
+        f1.addRow(self.btn_calibration)
+        f1.addRow(self.lbl_calibration)
         panel.addWidget(g1)
 
         g2 = QGroupBox("2 胶片区域与片基 Dmin")
@@ -266,6 +271,28 @@ class MainWindow(QMainWindow):
         self.chk_dust.toggled.connect(self._refresh)
 
         self.statusBar().showMessage("就绪：打开 RAW / 16 位 TIFF / DNG")
+
+    def load_calibration(self):
+        """v4 §5.1.2：GUI 卷级校准选择控件（损坏可见错误、状态显示）。"""
+        from ..calibration.rollcalib import RollCalibration
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择卷级校准", "", "校准 (*.calib.json *.json)")
+        if not path:
+            return
+        try:
+            cal = RollCalibration.load(Path(path))
+        except Exception as e:  # noqa: BLE001
+            self._calibration = None
+            self.lbl_calibration.setText("当前校准：无")
+            QMessageBox.critical(self, "校准文件损坏/不兼容",
+                                 f"{Path(path).name}\n{type(e).__name__}: {e}")
+            return
+        self._calibration = cal
+        self.lbl_calibration.setText(
+            f"当前校准：{cal.roll} [{cal.source}] verified={cal.verified} "
+            f"({cal.film_type})")
+        if self._t_unrot is not None:
+            self.run_auto()
 
     def save_regions(self):
         """用户拖框 -> 保存为 verified 标注（v3 用户裁决：手动区域为主，
@@ -495,7 +522,9 @@ class MainWindow(QMainWindow):
             base_roi_oriented=self._view_rect_oriented(RoiKind.BASE),
             prior=prior, neutral_bright_points=nb, neutral_dark_points=nd,
             dust_mask=dust, force_params=force_params,
-            render_intent=getattr(self, "_intent", None))
+            render_intent=getattr(self, "_intent", None),
+            calibration=getattr(self, "_calibration", None),
+            film_type=self.combo_film.currentText())
         self.params = self._pr.report.params
         self.confidence = self._pr.report.confidence
         return self._pr
