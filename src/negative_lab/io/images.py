@@ -114,7 +114,7 @@ def _load_tiff(p: Path, tiff_encoding: str | None) -> LoadResult:
             "input_encoding": cls.encoding.value,
             "input_encoding_detail": cls.detail,
             "input_icc_sha256": cls.icc_sha256 or "none",
-            "working_space": "camera-linear-normalized",
+            "working_space": "srgb-linear-d65-normalized",
             "white_balance_policy": "n/a (file data)"}
     return LoadResult(lin.astype(np.float32), meta, warns)
 
@@ -137,7 +137,7 @@ def _load_pillow(p: Path) -> LoadResult:
                        "shape": lin.shape,
                        "input_encoding": "srgb(display)",
                        "input_icc_sha256": icc_sha256(bytes(icc)) if icc else "none",
-                       "working_space": "camera-linear-normalized",
+                       "working_space": "srgb-linear-d65-normalized",
                        "white_balance_policy": "n/a (file data)"},
                       warns)
 
