@@ -202,10 +202,16 @@ class TiffClassification:
     detail: str
     icc_sha256: str = ""
     gamma_tag: tuple | None = None
+    trc_sha256: str = ""
+    tag_facts: dict | None = None
 
 
 def classify_tiff(path: str | Path) -> TiffClassification:
-    """读 ICC/Gamma 标签判定传递函数；无法判定返回 UNKNOWN（调用方必须拒绝或要显式假设）。"""
+    """读 ICC/Gamma/SampleFormat/Photometric/Software 等标签判定编码。
+
+    无法判定传递函数时返回 UNKNOWN（调用方必须拒绝或索取一次批次级假设，
+    v5 §4.3.3），绝不从像素"猜"线性还是显示编码。
+    """
     import tifffile
 
     p = Path(path)
@@ -213,30 +219,129 @@ def classify_tiff(path: str | Path) -> TiffClassification:
         pg = t.pages[0]
         icc_tag = pg.tags.get(34675)      # ICCProfile
         gamma_tag = pg.tags.get(33277)    # Gamma
+        trc_tag = pg.tags.get(301)        # TransferFunction
         icc = bytes(icc_tag.value) if icc_tag is not None else None
         gam = gamma_tag.value if gamma_tag is not None else None
-
+        trc = bytes(np.asarray(trc_tag.value).tobytes()) if trc_tag is not None else None
+        facts = {
+            "software": _tag_text(pg, 305),
+            "make": _tag_text(pg, 271),
+            "model": _tag_text(pg, 272),
+            "photometric": str(pg.photometric),
+            "sample_format": str(pg.sampleformat),
+            "bits": int(pg.bitspersample),
+            "width": int(pg.imagewidth),
+            "height": int(pg.imagelength),
+            "prediction": str(pg.predictor),
+        }
+    trc_sha = icc_sha256(trc) if trc else ""
     g_tup = tuple(gam) if isinstance(gam, (tuple, list)) else (gam,) if gam else None
     if g_tup:
         vals = np.array(g_tup, dtype=float)
         if np.allclose(vals, 1.0, atol=1e-3):
             return TiffClassification(InputEncoding.LINEAR, "Gamma 标签=1.0",
-                                       icc_sha256(icc) if icc else "", g_tup)
+                                      icc_sha256(icc) if icc else "", g_tup,
+                                      trc_sha, facts)
         if np.allclose(vals, 2.2, atol=0.05) or np.allclose(vals, 2.1992, atol=0.01):
             return TiffClassification(InputEncoding.ADOBE, f"Gamma≈{vals[0]}",
-                                      icc_sha256(icc) if icc else "", g_tup)
+                                      icc_sha256(icc) if icc else "", g_tup,
+                                      trc_sha, facts)
         return TiffClassification(InputEncoding.UNKNOWN, f"Gamma 标签={vals}",
-                                  icc_sha256(icc) if icc else "", g_tup)
+                                  icc_sha256(icc) if icc else "", g_tup,
+                                  trc_sha, facts)
+    if trc_tag is not None:
+        arr = np.asarray(trc_tag.value, dtype=float)
+        if arr.size >= 2:
+            norm = arr / max(float(arr.max()), 1e-9)
+            idx = np.linspace(0.0, 1.0, norm.size)
+            lin = np.allclose(norm, idx, atol=2e-3)
+            srgb = np.allclose(norm, linear_to_srgb(idx), atol=5e-3)
+            if lin:
+                return TiffClassification(InputEncoding.LINEAR,
+                                          "TransferFunction 为线性表",
+                                          icc_sha256(icc) if icc else "", None,
+                                          trc_sha, facts)
+            if srgb:
+                return TiffClassification(InputEncoding.SRGB,
+                                          "TransferFunction 与 sRGB 分段一致",
+                                          icc_sha256(icc) if icc else "", None,
+                                          trc_sha, facts)
+        return TiffClassification(InputEncoding.UNKNOWN,
+                                  "TransferFunction 无法判定",
+                                  icc_sha256(icc) if icc else "", None,
+                                  trc_sha, facts)
     if icc:
         desc = _icc_description(icc).lower()
         h = icc_sha256(icc)
         if "srgb" in desc or h == icc_sha256(srgb_icc_bytes()):
-            return TiffClassification(InputEncoding.SRGB, f"ICC={desc or 'sRGB'}", h)
+            return TiffClassification(InputEncoding.SRGB, f"ICC={desc or 'sRGB'}",
+                                      h, None, trc_sha, facts)
         if "adobe" in desc:
-            return TiffClassification(InputEncoding.ADOBE, f"ICC={desc}", h)
+            return TiffClassification(InputEncoding.ADOBE, f"ICC={desc}",
+                                      h, None, trc_sha, facts)
         return TiffClassification(InputEncoding.UNKNOWN,
-                                  f"ICC 描述无法判定传递函数: {desc or '(无)'}", h)
-    return TiffClassification(InputEncoding.UNKNOWN, "无 ICC 且无 Gamma 标签")
+                                  f"ICC 描述无法判定传递函数: {desc or '(无)'}",
+                                  h, None, trc_sha, facts)
+    return TiffClassification(InputEncoding.UNKNOWN, "无 ICC、无 Gamma、无 TRC 表",
+                              "", None, "", facts)
+
+
+def _tag_text(pg, code: int) -> str:
+    tag = pg.tags.get(code)
+    if tag is None:
+        return ""
+    try:
+        v = tag.value
+    except Exception:  # noqa: BLE001
+        return ""
+    return str(v).strip() if v is not None else ""
+
+
+# ---------------------------------------------------------------- DNG 分类
+
+def classify_dng(path: str | Path) -> dict:
+    """区分 mosaic RAW DNG 与 Linear DNG（v5 §4.2：不得把所有 .dng 当成同一种数据）。"""
+    import tifffile
+
+    out = {"dng_kind": "unknown", "dng_version": "", "has_cfa": False,
+           "color_matrix": None, "forward_matrix": None, "profile_sha256": "",
+           "bits": 0, "width": 0, "height": 0, "samples_per_pixel": 0}
+    try:
+        with tifffile.TiffFile(str(path)) as t:
+            pg = t.pages[0]
+            ver = pg.tags.get(50708)          # DNGVersion
+            if ver is not None:
+                out["dng_version"] = ".".join(str(int(v)) for v in ver.value)
+            cfa = pg.tags.get(321)            # CFAPattern（mosaic 证据）
+            spp = int(pg.tags[338].value) if pg.tags.get(338) else 0
+            out["has_cfa"] = cfa is not None
+            cm = pg.tags.get(50717)           # ColorMatrix1
+            if cm is not None:
+                out["color_matrix"] = np.asarray(cm.value, float).tolist()
+            fm = pg.tags.get(50964)           # ForwardMatrix1
+            if fm is not None:
+                out["forward_matrix"] = np.asarray(fm.value, float).tolist()
+            out["bits"] = int(pg.bitspersample)
+            out["width"] = int(pg.imagewidth)
+            out["height"] = int(pg.imagelength)
+            out["samples_per_pixel"] = int(pg.tags[277].value) \
+                if pg.tags.get(277) else 0
+            prof = pg.tags.get(50878)         # ProfileCalibrationSignature / 数据
+            if prof is not None:
+                try:
+                    out["profile_sha256"] = icc_sha256(
+                        bytes(np.asarray(prof.value).tobytes()))
+                except Exception:  # noqa: BLE001
+                    pass
+    except Exception:  # noqa: BLE001 —— 探针失败不阻断，按 unknown 处理
+        return out
+    linear = (out["samples_per_pixel"] >= 3 or not out["has_cfa"]) \
+        and out["has_cfa"] is False
+    if out["has_cfa"]:
+        out["dng_kind"] = "mosaic"
+    elif linear or out["samples_per_pixel"] >= 3:
+        out["dng_kind"] = "linear"
+    return out
 
 
 def _icc_description(data: bytes) -> str:

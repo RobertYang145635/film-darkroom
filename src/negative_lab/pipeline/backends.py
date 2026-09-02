@@ -1,13 +1,14 @@
-"""技术反相 backend（v4 §4，数学契约见 docs/algorithm-notes.md）。
+"""技术反相 backend（v5 §6.1-§6.3，数学契约见 docs/algorithm-notes.md）。
 
-统一接口：backend(t, params) -> technical positive (0-1)。
+统一接口：`backend(t, params, mask=None, diag=None) -> technical positive`。
+
 - power-reciprocal: A=I + 逐通道斜率（可解释基线，旧兼容名）
 - density-affine: verified 3x3 A + 明确通道斜率（无隐藏重参数化）
-- density-affine-curves: B + 受约束单调通道曲线（路线 C）
+- density-affine-curves: B + 受约束单调通道曲线（通用模型主路线）
 
-v4 实锤修复：red/blue_ratio（s_c）真实生效（旧代码算 k 不用）；
-exposure 从技术链路移除（→ RenderIntent.exposure）；density_affine
-不再做行归一化/斜率重置的隐藏重参数化。
+v5 §8.2 要求"按最终 image_area_roi、逐通道、**clamp 前**统计"输出剪裁，
+因此 backend 接受 `mask`（与 t 同形状的 (H,W) bool）并在 diag 中累计
+pre-clamp 越界计数；调用方分块时传入对应行切片，聚合后即为全图精确值。
 """
 
 from __future__ import annotations
@@ -17,6 +18,9 @@ import numpy as np
 from .params import InvertParams
 
 _EPS = 1e-6
+#: 黑位解析软趾（v4 §12.2 实测结论，v5 沿用）：低于黑点的像素渐近逼近 0
+#: 而非硬剪为 0——保留"多黑"信息，剪裁指标从此只计真硬剪裁。
+SMOOTH_TOE = 0.004
 
 
 def _validate_matrix(A) -> np.ndarray:
@@ -40,8 +44,36 @@ def _slopes(params: InvertParams) -> np.ndarray:
                       np.float64)
 
 
+def _accumulate_diag(diag: dict | None, paper: np.ndarray, mask,
+                     t: np.ndarray, b: np.ndarray) -> None:
+    """clamp 前逐通道越界统计（v5 §8.2）+ t>b 与负密度诊断（§6.1.3）。"""
+    if diag is None:
+        return
+    if mask is None:
+        px = paper
+        above = t > b                       # 透射率超过片基（超基/漏光）
+    else:
+        m = np.asarray(mask, bool)
+        px = paper[m] if paper.shape[:2] == m.shape else paper
+        above = (t > b)[m] if (t > b).shape[:2] == m.shape else (t > b)
+        if px.ndim == 3:
+            px = px.reshape(-1, 3)
+    if px.ndim == 3:
+        px = px.reshape(-1, 3)
+    n = int(px.shape[0])
+    if n == 0:
+        return
+    d = diag.setdefault("preclip", {"low": [0, 0, 0], "high": [0, 0, 0],
+                                    "n": 0, "above_base": 0, "negative_density": 0})
+    for c in range(3):
+        d["low"][c] += int((px[:, c] < 0.0).sum())
+        d["high"][c] += int((px[:, c] > 1.0).sum())
+    d["n"] += n
+    d["above_base"] += int(np.count_nonzero(above))
+
+
 def _core(t: np.ndarray, params: InvertParams, A: np.ndarray,
-          curves=None) -> np.ndarray:
+          curves=None, mask=None, diag: dict | None = None) -> np.ndarray:
     """唯一技术反相核心（docs/algorithm-notes.md §1 符号）。
 
     t: (H,W,3) 线性透射率 -> technical positive (0-1)。
@@ -52,22 +84,22 @@ def _core(t: np.ndarray, params: InvertParams, A: np.ndarray,
     s = _slopes(params)
     v = u * s[None, None, :]                             # 通道响应
     if curves is not None:
-        v = _apply_channel_curves(v, curves)             # 路线 C（单调）
+        v = _apply_channel_curves(v, curves)             # 通用模型曲线（单调）
     wh = np.asarray(params.wb_high, np.float64)
     wl = np.asarray(params.wb_low, np.float64)
     q = -(wh / params.dmax)[None, None, :] * v \
         + (wh * params.offset * wl)[None, None, :]
     paper = (1.0 + params.black) - np.power(10.0, q)
-    # 黑位解析软趾（v4 §4.1 technical_endpoints 映射的一部分）：
-    # 低于黑点的像素渐近逼近 0 而非硬剪为 0——保留"多黑"的信息
-    # （smooth-abs，C∞、单调、above-3toe 恒等；剪裁指标从此只计真硬剪裁）
-    toe = 0.004
-    paper = (paper + np.sqrt(paper * paper + (2.0 * toe) ** 2)) / 2.0
+    # 黑位解析软趾（technical_endpoints 映射的一部分，v4 §12.2 实测结论）：
+    # 低于黑点的像素渐近逼近 0 而非硬剪为 0——保留"多黑"的信息（C∞、单调、
+    # above-3toe 恒等）。因此"clamp 前"统计应在软趾之后、最终 clip 之前。
+    paper = (paper + np.sqrt(paper * paper + (2.0 * SMOOTH_TOE) ** 2)) / 2.0
+    _accumulate_diag(diag, paper, mask, t, b)
     return np.clip(paper, 0.0, 1.0).astype(np.float32)
 
 
 def _apply_channel_curves(v: np.ndarray, curves) -> np.ndarray:
-    """单调逐通道曲线（受限节点，PCHIP 式线性插值）。curves: [None|[(x,y)...]]×3"""
+    """单调逐通道曲线（受限节点，分段线性）。curves: [None|[(x,y)...]]×3"""
     out = v.copy()
     for c, knots in enumerate(curves or (None, None, None)):
         if not knots:
@@ -77,26 +109,30 @@ def _apply_channel_curves(v: np.ndarray, curves) -> np.ndarray:
         order = np.argsort(xs)
         xs, ys = xs[order], ys[order]
         if (np.diff(ys) < -1e-12).any():
-            raise ValueError(f"通道 {c} 曲线非单调（v4 §4.1：f_c 必须单调）")
+            raise ValueError(f"通道 {c} 曲线非单调（v5 §6.3：f_c 必须单调）")
         out[..., c] = np.interp(v[..., c], xs, ys)
     return out
 
 
-def power_reciprocal(t: np.ndarray, params: InvertParams) -> np.ndarray:
+def power_reciprocal(t: np.ndarray, params: InvertParams, mask=None,
+                     diag: dict | None = None) -> np.ndarray:
     """路线 A：A=I 基线。"""
-    return _core(t, params, np.eye(3))
+    return _core(t, params, np.eye(3), mask=mask, diag=diag)
 
 
-def density_affine(t: np.ndarray, params: InvertParams) -> np.ndarray:
+def density_affine(t: np.ndarray, params: InvertParams, mask=None,
+                   diag: dict | None = None) -> np.ndarray:
     """路线 B：verified 3x3 A + 明确 s_c。矩阵就是运行时矩阵（无重参数化）。"""
     A = _validate_matrix(params.density_matrix)
-    return _core(t, params, A)
+    return _core(t, params, A, mask=mask, diag=diag)
 
 
-def density_affine_curves(t: np.ndarray, params: InvertParams) -> np.ndarray:
+def density_affine_curves(t: np.ndarray, params: InvertParams, mask=None,
+                          diag: dict | None = None) -> np.ndarray:
     """路线 C：B + 每通道单调曲线（params.channel_curves）。"""
     A = _validate_matrix(params.density_matrix)
-    return _core(t, params, A, curves=getattr(params, "channel_curves", None))
+    return _core(t, params, A, curves=getattr(params, "channel_curves", None),
+                 mask=mask, diag=diag)
 
 
 BACKENDS = {"power-reciprocal": power_reciprocal,
@@ -113,7 +149,7 @@ def get_backend(name: str):
 def fit_decrosstalk_supervised(measured_z: np.ndarray,
                                target_density: np.ndarray,
                                ridge: float = 1e-3) -> dict:
-    """监督解混拟合（色卡等价物：已知目标密度）。闭式岭回归。
+    """监督解混拟合（研发用：已知目标密度的色卡等价物）。闭式岭回归。
 
     min_A ||Z A^T - T||² + λ||A - I||²。
     样本须跨 ≥3 个独立方向（多色相×多密度）；秩不足 -> 单位阵+警告

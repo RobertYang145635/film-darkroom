@@ -269,6 +269,44 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
     return out
 
 
+def refine_base_roi(t_rgb: np.ndarray, roi, *, min_frac: float = 0.10,
+                    window: float = 0.14) -> tuple[int, int, int, int] | None:
+    """把自动检测的片基条带收窄到"最亮的稳定子带"（v5 §5.3.6）。
+
+    自动检测给出的条带常包含齿孔、边码和暗画框边。这里沿条带轴滑动窗口，
+    选择"中位亮度高且变异系数低"的子窗口作为未曝光片基取样区。
+    用户/标注给出的取样区不做此改写（用户为准）。
+    """
+    a = np.asarray(t_rgb, np.float32)
+    h, w = a.shape[:2]
+    y0, x0, y1, x1 = (int(v) for v in roi)
+    y0, x0 = max(0, y0), max(0, x0)
+    y1, x1 = min(h, y1), min(w, x1)
+    if y1 - y0 < 8 or x1 - x0 < 8:
+        return None
+    seg = a[y0:y1, x0:x1]
+    vertical = seg.shape[0] >= seg.shape[1]      # 高>宽：条带沿行方向
+    n = seg.shape[0] if vertical else seg.shape[1]
+    win = max(8, int(n * window))
+    lum = seg.mean(axis=2)
+    best, best_score = None, -1.0
+    for start in range(0, max(1, n - win + 1), max(1, win // 2)):
+        part = lum[start:start + win] if vertical else lum[:, start:start + win]
+        m = float(np.mean(part))
+        cv = float(np.std(part)) / max(m, 1e-6)
+        score = m * (1.0 - min(cv, 0.6))
+        if score > best_score:
+            best, best_score = start, score
+    if best is None:
+        return None
+    end = min(n, best + win)
+    if (end - best) < max(8, int(n * min_frac)):
+        return None
+    if vertical:
+        return (y0 + best, x0, y0 + end, x1)
+    return (y0, x0 + best, y1, x0 + end)
+
+
 def iou(a: tuple, b: tuple) -> float:
     ay0, ax0, ay1, ax1 = a
     by0, bx0, by1, bx1 = b

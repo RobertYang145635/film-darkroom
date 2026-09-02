@@ -1,4 +1,4 @@
-"""人工标注读写（v4 §8 P0-F 重建：单一保存 API + schema v2 + 数据完整性）。
+"""人工标注读写（v5 §3.2/§5.2 重建：单一保存 API + schema v3 + 数据完整性）。
 
 fixtures/annotations/<roll>__<stem>.json，只存小型 JSON，不复制大图。
 
@@ -10,18 +10,18 @@ fixtures/annotations/<roll>__<stem>.json，只存小型 JSON，不复制大图�
   本模块的 ROI 一律写在 source 空间；rotation_degrees 为应用到 source 得到
   正确观看方向的**顺时针**角度 (0|90|180|270)。
 
-schema v2（v4 §8.6）：三个语义互不相同的 ROI，不得再混用一个 frame_roi
----------------------------------------------------------------------
-  output_crop_roi  最终导出构图（用户构图决定，可含片边/齿孔）
-  image_area_roi   算法与统计区域（必须排除片边、齿孔、明显非画面区域）
-  base_roi         未曝光片基取样（Dmin / flat-field）
-  neutral_refs     中性/颜色参考 [{roi|point, kind: bright|dark}]
-  exclude_mask_rois 排除区域（灰尘、反光、非画面杂物）
-  source_sha256    源图哈希；源图变化时标注失效（§8.10）
-  schema_version   落盘 schema 版本（v2 = 2）
+schema v3（v5 §3.2）：三类互不相同的数据，片基取样区可以有多个
+----------------------------------------------------------------
+  output_crop_roi    最终导出构图（用户构图决定，可含片边/齿孔）
+  image_area_roi     算法与统计区域（必须排除片边、齿孔、明显非画面区域）
+  base_sample_rois   一个或多个未曝光片基取样区（不得含齿孔/边码/画面内容）
+  neutral_refs       中性/颜色参考 [{roi|point, kind: bright|dark}]（可选）
+  exclude_mask_rois  排除区域（灰尘、反光、非画面杂物）
+  source_sha256      源图哈希；源图变化时标注失效
+  schema_version     落盘 schema 版本（v3 = 3）
 
-draft / verified（v4 §8.4-5）
-----------------------------
+draft / verified
+---------------
   status 是唯一真相源："draft" | "verified"；布尔 verified 由 status 派生。
   只有 verified_by == "user" 才算用户签字。agent 自动检测结果（含历史
   verified_by="agent-inspected"）**永远不构成签字**：
@@ -30,17 +30,18 @@ draft / verified（v4 §8.4-5）
     - 保存：已知 agent 来源降级为 draft；来源缺失/不明的 verified 声明
       不静默改写，直接由 validate() 拒绝并抛 ValueError。
 
-保存契约（v4 §1.3.1-3）
-----------------------
+保存契约
+--------
   唯一公共保存 API：``save_annotation(rel, ann)``。保存前无条件
   ``ann.validate()``，无效数据抛 ValueError（绝不允许写成 verified），
   再通过"同目录临时文件 + os.replace"原子替换；替换失败保留原文件。
 
 旧 schema 兼容
 --------------
-  schema_version 缺失或 < 2、只有 frame_roi 的旧文件可以加载：frame_roi
-  迁移为 image_area_roi 草稿、output_crop_roi 保持 None、
-  needs_reconfirm=True、status 降级 draft（§8.6：用途必须由用户重新确认）。
+  schema_version 缺失或 < 3 的旧文件可以加载：
+    - v1/v2 的单值 base_roi -> base_sample_rois=[base_roi]；
+    - 旧 frame_roi -> image_area_roi 草稿、output_crop_roi 保持 None、
+      needs_reconfirm=True、status 降级 draft（用途必须由用户重新确认）。
 """
 
 from __future__ import annotations
@@ -61,8 +62,8 @@ ANNOTATIONS_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "annotation
 VALID_ROT = (0, 90, 180, 270)
 VALID_COORDINATE_SPACES = ("source", "oriented")
 
-SCHEMA_VERSION = 2
-LEGACY_SCHEMA_VERSIONS = (1,)
+SCHEMA_VERSION = 3
+LEGACY_SCHEMA_VERSIONS = (1, 2)
 STATUS_DRAFT = "draft"
 STATUS_VERIFIED = "verified"
 VALID_STATUS = (STATUS_DRAFT, STATUS_VERIFIED)
@@ -74,6 +75,7 @@ AGENT_VERIFIERS = ("agent-inspected", "agent", "auto", "script")
 LAST_LOAD_ERRORS: list[str] = []
 
 _ROI_FIELDS = ("output_crop_roi", "image_area_roi", "base_roi", "frame_roi")
+_ROI_LIST_FIELDS = ("base_sample_rois", "exclude_mask_rois")
 
 
 def _is_number(v) -> bool:
@@ -115,7 +117,8 @@ class Annotation:
     needs_reconfirm: bool = False               # 旧 frame_roi 迁移待用户确认
     output_crop_roi: tuple | None = None        # 最终导出构图
     image_area_roi: tuple | None = None         # 算法/统计区域
-    base_roi: tuple | None = None               # 未曝光片基条带
+    base_sample_rois: list = field(default_factory=list)   # 未曝光片基取样区（多个）
+    base_roi: tuple | None = None               # 已废弃：单值片基区（v2）
     neutral_refs: list = field(default_factory=list)     # [{roi|point, kind}]
     exclude_mask_rois: list = field(default_factory=list)
     source_sha256: str = ""
@@ -130,16 +133,22 @@ class Annotation:
 
     # ------------------------------------------------------------------ 迁移
     def migrate(self, *, legacy: bool) -> "Annotation":
-        """就地迁移：旧别名 -> v2 字段；旧 schema 强制 draft + 需重新确认。"""
+        """就地迁移：旧别名 -> v3 字段；旧 schema 强制 draft + 需重新确认。"""
         if self.image_area_roi is None and self.frame_roi is not None:
             # frame_roi 用途含混，只能作为"画面分析区"草稿（§8.6）
             self.image_area_roi = tuple(self.frame_roi)
             self.needs_reconfirm = True
+        if not self.base_sample_rois and self.base_roi is not None:
+            self.base_sample_rois = [tuple(self.base_roi)]
+        if not self.base_roi and self.base_sample_rois:
+            self.base_roi = tuple(self.base_sample_rois[0])   # 兼容读侧
         if not self.neutral_refs and self.neutral_rois:
             self.neutral_refs = list(self.neutral_rois)
         if not self.exclude_mask_rois and self.mask_rois:
             self.exclude_mask_rois = [tuple(r) for r in self.mask_rois]
         self.neutral_refs = [_neutral_ref_dict(r) for r in self.neutral_refs]
+        self.base_sample_rois = [tuple(r) for r in self.base_sample_rois
+                                 if r is not None]
         self.exclude_mask_rois = [tuple(r) for r in self.exclude_mask_rois
                                   if r is not None]
         if legacy:
@@ -173,7 +182,8 @@ class Annotation:
         for k in _ROI_FIELDS:
             if d[k] is not None:
                 d[k] = list(d[k])
-        d["exclude_mask_rois"] = [list(r) for r in d["exclude_mask_rois"]]
+        for k in _ROI_LIST_FIELDS:
+            d[k] = [list(r) for r in (d.get(k) or [])]
         d["neutral_refs"] = [_neutral_ref_dict(r, as_json=True)
                              for r in d["neutral_refs"]]
         d.pop("neutral_rois", None)     # 旧别名不再落盘（已迁移进 neutral_refs）
@@ -196,6 +206,8 @@ class Annotation:
         for k in _ROI_FIELDS:
             if getattr(ann, k) is not None:
                 setattr(ann, k, tuple(getattr(ann, k)))
+        for k in _ROI_LIST_FIELDS:
+            setattr(ann, k, [tuple(r) for r in (getattr(ann, k) or [])])
         ann.migrate(legacy=legacy)
         ann.reconcile_status(downgrade_unknown_provenance=True)
         return ann
@@ -214,8 +226,8 @@ class Annotation:
             errs.append(f"coordinate_space must be one of "
                         f"{VALID_COORDINATE_SPACES}, got {self.coordinate_space!r}")
         if isinstance(self.schema_version, bool) \
-                or self.schema_version not in (1, SCHEMA_VERSION):
-            errs.append(f"schema_version must be 1 or {SCHEMA_VERSION}, "
+                or self.schema_version not in (1, 2, SCHEMA_VERSION):
+            errs.append(f"schema_version must be 1, 2 or {SCHEMA_VERSION}, "
                         f"got {self.schema_version!r}")
         if self.status not in VALID_STATUS:
             errs.append(f"status must be one of {VALID_STATUS}, "
@@ -224,6 +236,14 @@ class Annotation:
             e = _check_roi(name, getattr(self, name))
             if e:
                 errs.append(e)
+        if not isinstance(self.base_sample_rois, (list, tuple)):
+            errs.append(f"base_sample_rois must be a list, got "
+                        f"{self.base_sample_rois!r}")
+        else:
+            for i, r in enumerate(self.base_sample_rois):
+                e = _check_roi(f"base_sample_rois[{i}]", r)
+                if e:
+                    errs.append(e)
         for i, r in enumerate(self.exclude_mask_rois):
             e = _check_roi(f"exclude_mask_rois[{i}]", r)
             if e:
@@ -244,9 +264,16 @@ class Annotation:
                 errs.append(f"only verified_by='{USER_VERIFIER}' is a user sign-off; "
                             f"{self.verified_by!r} stays draft "
                             f"(v4 8.4-5: agent output is not user approval)")
+            # v5 §5.2：verified = 用户确认过三类独立 ROI
             if self.image_area_roi is None:
                 errs.append("verified status requires image_area_roi "
                             "(the algorithm/statistics region)")
+            if self.output_crop_roi is None:
+                errs.append("verified status requires output_crop_roi "
+                            "(the final composition region, v5 3.2)")
+            if not self.base_sample_rois:
+                errs.append("verified status requires at least one "
+                            "base_sample_rois entry (v5 3.2)")
             if not self.verified_date:
                 errs.append("verified status requires verified_date")
         elif self.verified:

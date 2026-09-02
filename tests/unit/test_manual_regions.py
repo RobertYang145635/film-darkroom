@@ -1,4 +1,4 @@
-"""v3 用户裁决：手动区域为主（保存/跳过检测/批处理策略）。"""
+"""v5 §3.2/§5.2：三类独立区域的用户为准语义 + 批处理不再因缺区域阻断。"""
 
 from __future__ import annotations
 
@@ -15,18 +15,23 @@ def test_save_load_roundtrip(tmp_path, monkeypatch):
     import negative_lab.calibration.annotations as A
     monkeypatch.setattr(A, "ANNOTATIONS_DIR", tmp_path)
     ann = Annotation(file="roll/a.NEF", roll="roll", rotation_degrees=90,
-                     frame_roi=(10, 20, 300, 400), base_roi=(0, 0, 50, 500),
+                     output_crop_roi=(10, 20, 300, 400),
+                     image_area_roi=(20, 30, 290, 390),
+                     base_sample_rois=[(0, 0, 50, 500), (250, 0, 300, 500)],
                      verified=True, verified_by="user")
     save_annotation("roll/a.NEF", ann)
     got = load_annotation("roll/a.NEF")
     assert got.rotation_degrees == 90
-    assert tuple(got.frame_roi) == (10, 20, 300, 400)
+    assert tuple(got.output_crop_roi) == (10, 20, 300, 400)
+    assert tuple(got.image_area_roi) == (20, 30, 290, 390)
+    assert [tuple(r) for r in got.base_sample_rois] == \
+        [(0, 0, 50, 500), (250, 0, 300, 500)]
     assert got.verified and got.verified_by == "user"
     assert got.verified_date          # 自动补日期
 
 
 def test_manual_regions_skip_detection(monkeypatch):
-    """手动 frame+base 齐全 -> 绝不调用 detect_regions（用户为准）。"""
+    """三类区域齐全 -> 绝不调用 detect_regions（用户为准）。"""
     import negative_lab.pipeline.service as svc
 
     def boom(*a, **k):
@@ -35,20 +40,22 @@ def test_manual_regions_skip_detection(monkeypatch):
     s = make_synthetic_negative(seed=61)
     t = s["negative"]
     h, w = t.shape[:2]
-    pr = process_image(t, frame_roi_source=(30, 30, h - 30, w - 100),
-                       base_roi_source=(0, w - 90, h, w))
-    assert pr.gate.status in ("ok", "warn", "needs_calibration")
-    assert "手动区域已指定" in " ".join(pr.report.warnings)
+    pr = process_image(t, output_crop_source=(30, 30, h - 30, w - 100),
+                       image_area_source=(30, 30, h - 30, w - 100),
+                       base_sample_source=[(0, w - 90, h, w)])
+    assert pr.gate.status in ("ok", "warn", "needs_review")
+    assert "三类区域已按用户/标注确认" in " ".join(pr.report.warnings)
 
 
-def test_batch_require_regions(tmp_path):
+def test_batch_processes_frames_without_verified_regions(tmp_path):
+    """v5 §3.3：缺少人工确认区域不再是阻断状态，走自动/回退并标记复核。"""
     from negative_lab.pipeline.batch import BatchJob
     s = make_synthetic_negative(seed=62)
     src = tmp_path / "x.tif"
     tifffile.imwrite(src, (np.clip(s["negative"], 0, 1) * 65535
                            ).astype(np.uint16), photometric="rgb")
-    job = BatchJob([src], tmp_path / "out", tiff_encoding="linear",
-                   regions_policy="require")
+    job = BatchJob([src], tmp_path / "out", tiff_encoding="linear")
     rep = job.run()
-    assert rep["items"][0]["status"] == "needs_regions"
-    assert rep["items"][0]["outputs"] == []
+    item = rep["items"][0]
+    assert item["status"] in ("ok", "warn", "needs_review"), item
+    assert item["outputs"], "缺人工区域不得阻止导出"

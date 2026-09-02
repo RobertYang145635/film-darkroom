@@ -1,4 +1,5 @@
-"""v4 §3.1/§3.2：backend 与全入口接线契约测试（生产入口，非孤立 helper）。"""
+"""v4 §3.1/§3.2 backend 与全入口接线契约（v5 保留仍有效的部分，
+入口接线改为校验卷级分析与采集指纹是否送达）。"""
 
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from negative_lab.pipeline.backends import fit_decrosstalk_supervised
 from negative_lab.pipeline.density import invert, invert_chunked
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.render import RenderIntent, apply_render
-from negative_lab.pipeline.service import process_image
+from negative_lab.pipeline.service import candidate_positive, process_image
 from negative_lab.testing.spectral import make_spectral_negative
 
 C = [[0.92, 0.09, 0.05], [0.06, 0.90, 0.07], [0.04, 0.08, 0.94]]
@@ -106,66 +107,82 @@ class TestEntryWiring:
                                ).astype(np.uint16), photometric="rgb")
         return src
 
-    def test_calibration_reaches_process_image_from_batch(self, tmp_path, xt,
-                                                          monkeypatch):
+    def test_roll_analysis_reaches_process_image_from_batch(self, tmp_path, xt,
+                                                            monkeypatch):
+        """v5 §6.2：批处理入口必须把卷级分析送进唯一服务。"""
         s, t = xt
         src = self._write_tif(tmp_path, s)
-        cal = RollCalibration(roll="roll", film_type="C-41",
-                              source="chart-calibration", verified=True,
-                              dmax=2.2, confidence={"neutral": 1.0})
+        from negative_lab.library.models import RollAnalysis
+        ra = RollAnalysis(roll_id="roll", base_statistics={"dmin": [0.6, 0.4, 0.3]},
+                          capture_fingerprint="fp", source_frames=["a"],
+                          confidence=0.8, base_source="roll")
         captured = {}
         orig = svc.process_image
 
         def spy(*a, **kw):
-            captured["calibration"] = kw.get("calibration")
-            captured["film_type"] = kw.get("film_type")
+            captured["roll_analysis"] = kw.get("roll_analysis")
+            captured["capture_fingerprint"] = kw.get("capture_fingerprint")
             return orig(*a, **kw)
         monkeypatch.setattr(svc, "process_image", spy)
-        from negative_lab.pipeline.batch import BatchJob
         import negative_lab.pipeline.batch as batch_mod
-        monkeypatch.setattr(batch_mod, "process_image", spy, raising=False)
+        monkeypatch.setattr(batch_mod, "process_image", spy)
+        from negative_lab.pipeline.batch import BatchJob
         job = BatchJob([src], tmp_path / "out", tiff_encoding="linear",
-                       calibration=cal, film_type="C-41")
+                       roll_analysis=ra)
         job.run()
-        assert captured.get("calibration") is cal
-        assert captured.get("film_type") == "C-41"
+        assert captured.get("roll_analysis") is ra
+        assert captured.get("capture_fingerprint") is not None
 
     def test_render_intent_changes_rendered_not_technical(self, xt):
+        """v5 §7.2：微调只改渲染正片，技术正片逐比特不变。"""
         s, t = xt
         bx0, bx1 = s["truth"]["base_cols"]
         base_roi = (0, bx0, t.shape[0], bx1)
         area = (0, 0, t.shape[0], bx0)
-        r_neutral = process_image(t, output_crop_source=area,
-                                  image_area_source=area,
-                                  base_roi_source=base_roi)
-        r_style = process_image(t, output_crop_source=area,
-                                image_area_source=area,
-                                base_roi_source=base_roi,
-                                render_intent=RenderIntent(exposure=1.5,
-                                                           saturation=1.4))
-        # 技术正片逐像素相同
-        assert np.array_equal(r_neutral.result.positive_linear,
+        kw = dict(output_crop_source=area, image_area_source=area,
+                  base_roi_source=base_roi)
+        r_identity = process_image(t, render_intent=RenderIntent(), **kw)
+        r_style = process_image(t, render_intent=RenderIntent(exposure=1.5,
+                                                              saturation=40.0), **kw)
+        assert np.array_equal(r_identity.result.positive_linear,
                               r_style.result.positive_linear)
-        # 渲染结果不同；中性 intent 与技术正片逐像素等价（v4 §2/§6 验收）
-        assert not np.array_equal(r_neutral.rendered_positive_linear,
+        assert not np.array_equal(r_identity.rendered_positive_linear,
                                   r_style.rendered_positive_linear)
-        assert np.array_equal(r_neutral.rendered_positive_linear,
-                              r_neutral.result.positive_linear)
-        # sidecar 记录实际 intent
+        # 恒等 intent 与技术正片逐像素等价（预览与导出一致的前提）
+        assert np.array_equal(r_identity.rendered_positive_linear,
+                              r_identity.result.positive_linear)
         sc = r_style.sidecar(source_sha256="a" * 64)
         assert sc["render_intent"]["exposure"] == 1.5
-        assert sc["schema_version"] == 3
+        assert sc["render_intent"]["saturation"] == 40.0
+        assert sc["schema_version"] == 4
 
-    def test_color_negative_without_calibration_never_ok(self, xt):
-        """§3.2：C-41 彩色负片无 verified 校准 -> 不可能是 ok。"""
+    def test_three_candidates_share_technical_positive(self, xt):
+        """v5 §6.5：三候选同一物理底座，只有 RenderIntent 不同。"""
+        from negative_lab.pipeline.candidates import build_candidates
+        s, t = xt
+        bx0, bx1 = s["truth"]["base_cols"]
+        area = (0, 0, t.shape[0], bx0)
+        pr = process_image(t, output_crop_source=area, image_area_source=area,
+                           base_roi_source=(0, bx0, t.shape[0], bx1))
+        cs = build_candidates(pr)
+        tech = pr.result.positive_linear
+        rendered = {c.name: candidate_positive(pr, c.name) for c in cs}
+        for c in cs:
+            assert np.array_equal(c.technical_positive_linear, tech)
+        assert rendered["preserve"].shape == tech.shape
+        assert np.isfinite(rendered["warm"]).all()
+
+    def test_color_negative_without_chart_is_not_blocked(self, xt):
+        """v5 §8.1：彩色负片缺色卡/缺标定不得阻断，只可能 needs_review。"""
         s, t = xt
         bx0, bx1 = s["truth"]["base_cols"]
         pr = process_image(t, output_crop_source=(0, 0, t.shape[0], bx0),
                            image_area_source=(0, 0, t.shape[0], bx0),
                            base_roi_source=(0, bx0, t.shape[0], bx1),
-                           film_type="C-41")
-        assert pr.gate.status in ("needs_calibration", "fail", "warn")
-        assert pr.gate.status != "ok"
+                           film_type="unknown")
+        assert pr.gate.status in ("ok", "warn", "needs_review")
+        assert pr.gate.blocks_export is False
+        assert pr.rendered_positive_linear is not None
 
     def test_cli_calibration_flag_parses(self, tmp_path, xt):
         """§5.1.3：--calibration 路径被加载并传入管线（契约级）。"""

@@ -1,5 +1,97 @@
 # 整改进度（负片软件整改_AI执行规格.md §5 固定格式）
 
+## 2026-09-01 v5 P0（当前生效基线：负片裁切与去色罩_AI执行规格_v5.md）
+
+基线提交 `e795bbb`；工作区在改造前为干净树（仅新增 v5 规格文档）。
+v4 及更早记录保留在下方，作为历史问题与技术资料；与本节冲突以 v5 为准。
+
+### P0-0 冻结范围与红灯（PASS）
+
+- README/CHANGELOG 声明 v5 覆盖旧规格；§0.2 用户决策逐条落地。
+- 阻断项清单（改造前实测）：`quality_gate` 无条件 `needs_calibration`；
+  GUI 暴露 Dmin/Dmax/wb/指数/校准/除尘控件；`RoiKind.FRAME` 混用两种语义；
+  `auto.py` 文案含"提供色卡"；批处理 `regions_policy=require` 阻断无标注帧；
+  旧发布门禁把黑白/ECN-2-TIFF 当缺失样片阻断。
+- 红灯测试 `tests/unit/test_v5_contracts.py`（22 项，先红后绿）。
+- before 证据：`outputs/quality/2026-09-01-214540/before/`（6 样片，v4 代码
+  实测 4 张 needs_calibration、2 张 fail）。
+
+### P0-1 数据模型与迁移（PASS）
+
+- 新增 `library/models.py` 六对象 + 分组操作 + 状态机（阻断仅剩
+  decode_error/processing_error）；`GeometryRegions.normalized/from_normalized`
+  支持整卷同步（逐帧钳制验证）。
+- sidecar v4（`io/sidecar.py`）+ v1-v3 只读迁移（不伪造事实）。
+- 标注 schema v3：`base_sample_rois[]` 多区；旧 verified 记录降级 draft。
+
+### P0-2 输入归一化与采集指纹（PASS，DNG/扫描仪缺真实样片）
+
+- `classify_dng`（mosaic/Linear）、`classify_tiff`（ICC/Gamma/TRC 表 + 标签
+  事实）、批次级编码假设（GUI 弹窗一次、CLI `--tiff-encoding`、会话复用）。
+- `library/fingerprint.py`：指纹不含文件名/卷名；`completeness` 驱动
+  needs_review 提示；`fingerprints_compatible` 冲突检测。
+- manifest 重建（schema 3）：241 文件 / ok=169，ECN-2 以两个逻辑卷
+  （ECN2_5207 标定 / ECN2_5219 留出）入库，`capture_type=
+  camera_raw_export_tiff` 如实标记；支持矩阵重生成：C-41 与 ECN-2 verified，
+  扫描仪 TIFF/DNG missing-fixture，黑白 out-of-scope。
+- 未验证：真实扫描仪 TIFF、DNG（mosaic/Linear 代码路径已实现无样片）。
+
+### P0-3 三 ROI 裁切页（PASS）
+
+- `RoiKind.{OUTPUT_CROP, IMAGE_AREA, BASE}`；八向手柄 + 越界钳制 +
+  多片基区增删；`ROI_STYLE` 颜色+标签+线型三重区分；
+  `refine_base_roi` 把自动条带收窄到最亮稳定子带。
+- 整卷同步用归一化相对位置；页面仅保留裁切控件（图标 + tooltip）。
+
+### P0-4 卷级片基与技术底座（PASS，两处实测教训修正）
+
+- 多取样区稳健估计；**污染判定改密度域**（相对透射率容差在橙罩 B 通道
+  误判 47-93% 正常颗粒）；中心 q75 + 最亮 25% 兜底；
+  **空间趋势只在过滤后片基像素上拟合**（暗帧界混入曾致 1298 整卷误判
+  漂移，trend -0.216 -> -0.042）；卷级两遍处理；无片基帧继承卷级模型；
+  整卷全失败回退通用先验（全卷共用一个曝光尺度，§6.2.5）。
+- flat-field 只保留相对梯度（旧实现窄条带二阶外推把 Dmin 抬高 1.44 倍）。
+- 剪裁口径移到软趾后、最终 clamp 前，按 image_area mask 逐通道（§8.2 字面）；
+  真实帧实测 0/0/0。
+
+### P0-5 通用模型与三候选（PASS）
+
+- `model_assets.py`：无监督密度解混训练（82 帧、相关性 4.14→1.52、
+  留出卷 5.11→2.81、seed 冻结、训练清单哈希）；加载校验（哈希/单调/
+  条件数），失败回退确定性密度模型。
+- `candidates.py`：preserve/neutral/warm 共享技术正片；估计器
+  SoG p=1/2/6 + 白点 + Gray-Edge；高饱和/单色/夜景降置信；
+  分歧/低置信回退 preserve；色温色调硬上限并记录触发。
+
+### P0-6 转换页与基础微调（PASS）
+
+- 两级页面（裁切/转换）；三段候选选择；按住看原片 + 并排对比；
+  Lightroom 式面板：temp/tint/exposure/contrast/highlights/shadows/
+  whites/blacks/vibrance/saturation，单项重置/全部重置/复制粘贴/
+  勾选式同步；单调性由非负斜率累积保证；默认恒等逐比特不变技术正片。
+
+### P0-7 整卷工作流与导出（PASS）
+
+- 混合文件夹导入会话 JSON；手动分卷；选中帧/整卷同步；
+  `roll_export.py` 事务批量导出 + roll-report；CLI import/invert/batch/roll；
+  e2e 冒烟 x2 通过（sidecar v4、三类 ROI、指纹、候选、幂等）；
+  GUI 冒烟通过（两页、三 ROI、微调不改技术正片、3 帧整卷导出、
+  输出剪裁 0/0/0、源哈希不变）。
+
+### P0-8 逐卷视觉门禁（等待用户签字）
+
+- `fixtures/acceptance/manifest.json`：169 帧 / 5 卷，parity_required=132，
+  robustness_only=37（CN400 无 NLP 对照），rois_user_confirmed=0。
+- 联系表 + decisions.json 模板：`outputs/quality/v5-p0-acceptance/rolls/`。
+- 视觉抽查（vision 模型）：反相/裁切正确、三候选方向合理、无技术失败；
+  与 NLP 相比存在轻微色偏——逐张结论必须由用户填写，执行 agent 不得代签。
+
+### 当前已知缺口（不阻塞交付，如实声明）
+
+- 扫描仪 TIFF / DNG / 第二设备：无真实样片，相关支持声明保持未验证；
+- 全部 169 帧的 ROI 未经用户逐帧确认（自动检测 + 历史草稿）；
+- 联系表为预览分辨率（最长边 1200），最终验收以 GUI 全分辨率导出为准。
+
 ## 2026-09-01 v4 复核降级（不覆盖旧记录）
 
 依据《负片去色罩算法重构_AI执行规格_v4.md》§1.2/§1.3 实锤与 §14 指令：

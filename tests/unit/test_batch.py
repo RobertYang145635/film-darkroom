@@ -1,4 +1,4 @@
-"""§8.1.6：批处理单个文件失败不影响其余；取消后不留下半成品。"""
+﻿"""§8.1.6：批处理单个文件失败不影响其余；取消后不留下半成品。"""
 
 import json
 from pathlib import Path
@@ -37,8 +37,8 @@ def test_single_failure_does_not_stop_batch(tmp_path, batch_inputs):
     rep = job.run()
     st = {Path(i["file"]).name: i["status"] for i in rep["items"]}
     assert st["corrupt.tif"] == "failed"
-    assert st["roll-a.tif"] in ("ok", "warn", "needs_calibration")
-    assert st["roll-b.tif"] in ("ok", "warn", "needs_calibration")
+    assert st["roll-a.tif"] in ("ok", "warn", "needs_review")
+    assert st["roll-b.tif"] in ("ok", "warn", "needs_review")
     # 成功项有输出，失败项没有
     for i in rep["items"]:
         if i["status"] == "failed":
@@ -71,12 +71,12 @@ def test_cancel_midway_no_temp_files(tmp_path, batch_inputs):
 
     def cb(it):
         seen.append(it.status)
-        if it.status in ("ok", "warn", "needs_calibration"):
+        if it.status in ("ok", "warn", "needs_review"):
             job.cancel()   # 第一张完成后取消
 
     rep = job.run(on_update=cb)
     statuses = [i["status"] for i in rep["items"]]
-    assert statuses[0] in ("ok", "warn", "needs_calibration")
+    assert statuses[0] in ("ok", "warn", "needs_review")
     assert "cancelled" in statuses
     assert not list(out.glob("*.tmp-*"))          # 无半成品
     assert not list(out.glob("corrupt*"))          # 失败项无输出
@@ -93,7 +93,7 @@ def test_retry_failed_items(tmp_path, batch_inputs, monkeypatch):
     _write_synth(d, "fixed.tif", 73)
     retry = BatchJob([d / "fixed.tif"], out, tiff_encoding="linear")
     rep = retry.run()
-    assert rep["items"][0]["status"] in ("ok", "warn", "needs_calibration")
+    assert rep["items"][0]["status"] in ("ok", "warn", "needs_review")
 
 
 def test_profile_prior_is_initial_value_only(tmp_path, batch_inputs):

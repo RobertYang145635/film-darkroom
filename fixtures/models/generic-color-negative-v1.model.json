@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "asset_version": "generic-color-negative-v1",
+  "enabled": true,
+  "sha256": "146742e915a1a238ee78f428283f199906938ca3607302397dfc372fb2cd1357",
+  "payload": {
+    "density_matrix": [
+      [
+        0.7082784847913708,
+        -0.28163097657360775,
+        -0.010090538635021526
+      ],
+      [
+        -0.3512522995092318,
+        0.602293988670826,
+        -0.046453711819942366
+      ],
+      [
+        -0.04596878003088527,
+        -0.16967985915117387,
+        0.7843513608179408
+      ]
+    ],
+    "channel_curves": [
+      null,
+      null,
+      null
+    ],
+    "red_ratio": null,
+    "blue_ratio": null,
+    "reference_exponent": null,
+    "dmax": null
+  },
+  "meta": {
+    "kind": "trained",
+    "created_utc": "2026-09-02T08:36:31Z",
+    "training_manifest_sha256": "bc7f420431e558ee2a0b2c86e1e68c28ebf8047df316fce57201c5f80bdb07b1",
+    "hyperparameters": {
+      "seed": 20260901,
+      "ridge": 0.35,
+      "step": 6
+    },
+    "confidence": 0.6332989059367556,
+    "correlation_before": 4.1397,
+    "correlation_after": 1.518,
+    "n_samples": 328000,
+    "warnings": []
+  }
+}

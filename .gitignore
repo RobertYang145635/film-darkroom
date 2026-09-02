@@ -26,3 +26,8 @@ outputs/
 dist/
 build/
 outputs/
+
+# 本地临时日志/诊断（不入库）
+tmp_*.log
+tmp_*.txt
+.playwright-mcp/

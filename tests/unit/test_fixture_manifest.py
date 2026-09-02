@@ -21,14 +21,38 @@ def doc():
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
 
 
-def test_schema_v2_fields(doc):
-    assert doc["schema_version"] == 2
+def test_schema_v3_fields(doc):
+    assert doc["schema_version"] == 3      # v5：ECN-2 TIFF 以独立逻辑卷入库
     for e in doc["images"]:
         for k in ("file", "roll", "split", "sha256", "decode_status",
-                  "decode_params", "camera", "bit_depth", "icc_profile"):
+                  "decode_params", "camera", "bit_depth", "icc_profile",
+                  "input_kind", "capture_type"):
             assert k in e, f"缺字段 {k}: {e['file']}"
         assert e["decode_status"] in ("ok", "unsupported", "corrupt",
                                       "missing_dependency", "unknown")
+
+
+def test_p0_inputs_present(doc):
+    """v5 §0.2.4/§0.2.5：C-41 与 ECN-2 必须有可解码样片（真实 fixture）。"""
+    ok = [e for e in doc["images"] if e["decode_status"] == "ok"]
+    by_type = {}
+    for e in ok:
+        by_type.setdefault(e["film_type"], []).append(e)
+    assert by_type.get("c41_color"), "缺 C-41 真实样片"
+    assert by_type.get("ecn2_color"), "缺 ECN-2 真实样片"
+    tiffs = [e for e in ok if e["file"].lower().endswith((".tif", ".tiff"))]
+    assert tiffs, "缺 16 位 TIFF 输入样片"
+    # ECN-2 TIFF 如实标记来源：相机 RAW 导出，不冒充扫描仪
+    assert all(e["capture_type"] == "camera_raw_export_tiff" for e in tiffs)
+
+
+def test_split_isolated_by_roll(doc):
+    """v5 §9.3：训练/验证/留出按卷隔离。"""
+    by_roll: dict[str, set] = {}
+    for e in doc["images"]:
+        by_roll.setdefault(e["roll"], set()).add(e["split"])
+    mixed = {r: s for r, s in by_roll.items() if len(s) > 1}
+    assert not mixed, mixed
 
 
 def test_probe_matches_manifest_spotcheck(doc):

@@ -44,13 +44,25 @@ def test_exposure_render_monotonic(base_case):
     assert np.array_equal(tech, invert(neg, p).positive_linear)
 
 
-def test_grade_render_monotonic_decreasing(base_case):
-    """paper grade（旧 gamma 语义）越大输出越暗，只在渲染层。"""
+def test_contrast_increases_spread_and_stays_monotonic(base_case):
+    """v5 §7.2：对比度绕受保护支点扩展影调；旧 grade 字段已删除。"""
     neg, truth = base_case
     p = InvertParams(dmin=truth["dmin"], dmax=truth["dmax"])
-    vals = [_mean_render(neg, p, grade=g)
-            for g in (0.6, 0.8, 1.0, 1.4, 1.8)]
-    assert all(b < a + 1e-6 for a, b in zip(vals, vals[1:])), vals
+    tech = invert(neg, p).positive_linear
+    assert "grade" not in RenderIntent.FIELD_NAMES
+    lum_w = np.array([0.2126, 0.7152, 0.0722], np.float32)
+    in_lum = (tech @ lum_w).ravel()
+    spreads = []
+    for c in (-60.0, -20.0, 0.0, 40.0, 80.0):
+        y = apply_render(tech, RenderIntent(contrast=c))
+        out_lum = (y @ lum_w).ravel()
+        spreads.append(float(out_lum.std()))
+        # 顺序保持（单调映射的像素级表现）
+        order_in = np.argsort(in_lum, kind="stable")
+        order_out = np.argsort(out_lum, kind="stable")
+        assert np.array_equal(order_in[:200], order_out[:200]), \
+            f"contrast={c} 破坏了亮度次序"
+    assert all(b > a - 1e-6 for a, b in zip(spreads, spreads[1:])), spreads
 
 
 def test_offset_monotonic_decreasing(base_case):

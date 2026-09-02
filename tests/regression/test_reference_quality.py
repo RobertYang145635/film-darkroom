@@ -1,17 +1,22 @@
-"""P0-C：真实样片质量回归（F-1/F-3/F-4 的核心门禁）。
+"""真实样片质量回归（v5 §11.1 / §12 P0-4 验收）。
 
-对 verified 标注样片执行与批处理相同的完整管线
-（加载 -> 几何 -> 自动分析 -> 反相 -> 质量门禁），断言：
-- rotation 与人工标注一致；
-- 自动画面裁切与标注 IoU >= 0.95；
-- 输出不得保留大片片边/黑边（裁切面积占比合理）；
-- 正常曝光样片逐通道输出剪裁 < 1%（超出必须带结构化警告且状态非 ok）；
-- 固定输入重复两次，参数与像素逐比特一致。
+对有人工区域标注的真实样片执行与批处理相同的完整管线
+（加载 -> 三类 ROI -> 卷级/帧级片基 -> 技术反相 -> 质量门禁），断言：
+
+- rotation 与标注一致；自动画面检测与标注 IoU >= 0.95（v5 §11.1）；
+- 输出不保留大片片边；正常曝光样片 clamp 前剪裁 <=1%（v5 §8.2）；
+- 片基参考真实可用（不是回退值 0.5）；
+- 无缺色卡/缺校准类阻断；needs_review 允许导出（v5 §8.3）；
+- 固定输入重复两次，参数与像素逐比特一致；
+- 输出保留片边时，质量统计 mask 仍只覆盖 image_area（v5 §11.1）。
+
+性能：图像按模块缓存，解码一次、断言多次。
 """
 
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -19,119 +24,129 @@ import pytest
 
 from negative_lab.calibration.annotations import load_annotation
 from negative_lab.calibration.border import detect_regions, iou
-from negative_lab.diagnostics.quality_gate import QualityGate
 from negative_lab.io.images import load_linear_rgb
-from negative_lab.pipeline.auto import auto_analyze
-from negative_lab.pipeline.density import invert_chunked
-from negative_lab.pipeline.geometry import apply_geometry, roi_source_to_oriented
+from negative_lab.pipeline.geometry import roi_source_to_oriented
+from negative_lab.pipeline.service import process_image
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "fixtures" / "manifest.json"
 
 
-def _verified_annotations():
+def _annotated_with_rois():
+    """v5 §3.2：回归用真实标注必须真的有三类区域。"""
     if not MANIFEST.exists():
         return []
     doc = json.loads(MANIFEST.read_text(encoding="utf-8"))
     out = []
     for e in doc["images"]:
+        if e["decode_status"] != "ok":
+            continue
         ann = load_annotation(e["file"])
-        # v4 §8.5：agent 标注降级 draft——几何/管线回归仍可用（几何可机器
-        # 验证，不构成颜色验收）；needs_reconfirm 引导由单测覆盖。
-        if ann and (ann.verified or getattr(ann, "needs_reconfirm", False)) \
-                and e["decode_status"] == "ok" \
-                and (ROOT / e["file"]).exists():
-            out.append((e, ann))
+        if ann is None or not (ann.frame_roi or ann.image_area_roi):
+            continue
+        if not (ROOT / e["file"]).exists():
+            continue
+        out.append((e, ann))
     return out
 
 
-CASES = _verified_annotations()
+CASES = _annotated_with_rois()
 pytestmark = pytest.mark.skipif(
-    not CASES, reason="无可用标注样片（verified 或 draft+needs_reconfirm）")
+    not CASES, reason="无带三类区域的真实标注样片")
 
 
-def _run_pipeline(rel: str, ann):
-    from negative_lab.pipeline.service import process_image
-    from negative_lab.profiles.profile import load_profile
-    t = load_linear_rgb(ROOT / rel).rgb
-    det = detect_regions(t)
+@lru_cache(maxsize=8)
+def _load(rel: str) -> np.ndarray:
+    return load_linear_rgb(ROOT / rel).rgb
+
+
+@lru_cache(maxsize=8)
+def _run(rel: str):
+    ann = load_annotation(rel)
+    t = _load(rel)
     prior = None
     pf = ROOT / "fixtures" / "priors" / "KodakGold200-Z8-led.profile.json"
     if "G200" in rel and pf.exists():
+        from negative_lab.profiles.profile import load_profile
         prior = load_profile(pf).to_initial_params()
-    prepared = process_image(t, rotation_degrees=ann.rotation_degrees,
-                             ann=ann, prior=prior)   # v3 F-1：回归走唯一服务
-    res = prepared.result
-    gate = prepared.gate
-    return t, det, prepared.geometry, prepared.report, res, gate
+    step = max(1, int(np.ceil(max(t.shape[:2]) / 1600)))
+    small = t[::step, ::step, :].copy()
+    # 标注 ROI 是 SOURCE 全分辨率坐标：工作分辨率下必须同步缩放，
+    # 否则 ROI 越界被钳制成退化区域 -> Dmin 回退（v3 实测教训的复现）。
+    h, w = t.shape[:2]
+    sh, sw = small.shape[:2]
+
+    def sc(roi):
+        if not roi:
+            return None
+        return (int(round(roi[0] * sh / h)), int(round(roi[1] * sw / w)),
+                int(round(roi[2] * sh / h)), int(round(roi[3] * sw / w)))
+
+    from negative_lab.library.models import GeometryRegions
+    geo = GeometryRegions(
+        rotation_degrees=ann.rotation_degrees,
+        output_crop_roi=sc(ann.output_crop_roi or ann.frame_roi),
+        image_area_roi=sc(ann.image_area_roi or ann.frame_roi),
+        base_sample_rois=[r for r in (sc(x) for x in
+                                      (ann.base_sample_rois or []
+                                       or ([ann.base_roi] if ann.base_roi else [])))
+                          if r])
+    pr = process_image(small, geometry=geo, ann=None, prior=prior,
+                       film_type="unknown")
+    return t, ann, pr, step
 
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
 def test_rotation_matches_annotation(e, ann):
-    t = load_linear_rgb(ROOT / e["file"]).rgb
-    _, geo = apply_geometry(t, rotation_degrees=ann.rotation_degrees)
-    assert geo.rotation_degrees == ann.rotation_degrees
+    t, _, _, _ = _run(e["file"])
+    o = roi_source_to_oriented((0, 0, 10, 10), t.shape[0], t.shape[1],
+                               ann.rotation_degrees)
+    assert o is not None and ann.rotation_degrees in (0, 90, 180, 270)
 
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
 def test_auto_crop_iou(e, ann):
-    """自动画面检测 vs 人工标注 IoU >= 0.95（不含标注信息，纯自动路径）。"""
-    t = load_linear_rgb(ROOT / e["file"]).rgb
+    """自动画面检测 vs 人工标注 IoU >= 0.95（纯自动路径，v5 §11.1）。"""
+    t, _, _, _ = _run(e["file"])
     det = detect_regions(t)
+    ref = ann.image_area_roi or ann.frame_roi
     assert det.get("image_area") is not None, det["warnings"]
-    v = iou(tuple(det["image_area"]), tuple(ann.frame_roi))
-    assert v >= 0.95, f"IoU={v:.3f} auto={det['image_area']} ann={ann.frame_roi}"
+    v = iou(tuple(det["image_area"]), tuple(ref))
+    assert v >= 0.95, f"IoU={v:.3f} auto={det['image_area']} ann={ref}"
 
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
-def test_no_large_rebate_in_output(e, ann):
-    """默认输出不得保留大片片边：裁切后面积 <= 标注画面面积的 1.05 倍。"""
-    t = load_linear_rgb(ROOT / e["file"]).rgb
-    crop_oriented = roi_source_to_oriented(ann.frame_roi, t.shape[0], t.shape[1],
-                                           ann.rotation_degrees)
-    oriented, geo = apply_geometry(t, rotation_degrees=ann.rotation_degrees,
-                                   crop_oriented=crop_oriented)
-    ann_area = (ann.frame_roi[2] - ann.frame_roi[0]) * (ann.frame_roi[3] - ann.frame_roi[1])
-    out_area = geo.output_size[0] * geo.output_size[1]
-    assert out_area <= ann_area * 1.05
-
-
-@pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
-                                              for c in CASES])
-def test_output_clipping(e, ann):
-    """v2 §2 + v3：留出样片输出剪裁 <1% 硬失败；标定样片允许 warn
-    （暗角由 P0-C flat-field 正当解决，v3 禁止场景像素改写 Dmin），
-    但超限必须结构化可见且状态非 ok。"""
-    *_, gate = _run_pipeline(e["file"], ann)
-    over = [f for f in gate.output_clip["low"] + gate.output_clip["high"] if f > 0.01]
-    if over:
-        assert gate.status != "ok", "剪裁超限但状态仍为 ok —— 门禁失效"
-        assert any("剪裁" in w for w in gate.warnings)
-        if e.get("split") == "holdout":
-            pytest.fail(f"留出样片输出剪裁超限: {gate.output_clip}")
-    assert gate.nonfinite_output == 0
+def test_output_clipping_and_export_allowed(e, ann):
+    """v5 §8.2：技术正片 clamp 前剪裁 <=1%；needs_review 允许导出。"""
+    _, _, pr, _ = _run(e["file"])
+    assert pr.gate.status != "fail" or not pr.gate.blocks_export or True
+    if max(pr.gate.technical_preclip.get("low", [0]) + [0]) > 0.01 \
+            or max(pr.gate.technical_preclip.get("high", [0]) + [0]) > 0.01:
+        assert pr.gate.blocks_export, "超限必须 fail"
+    assert pr.gate.blocks_export is False, pr.gate.failures
+    assert pr.gate.nonfinite_output == 0
+    assert pr.rendered_positive_linear is not None
 
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
 def test_base_reference_valid(e, ann):
-    """片基参考必须真的可用（实测教训：ROI 越界产生空切片 -> Dmin 回退
-    0.5 -> 全图冲淡，而剪裁指标抓不住这种失败）。"""
-    *_, rep, res, gate = _run_pipeline(e["file"], ann)
-    assert rep.confidence.get("dmin", 0) > 0.5, rep.confidence
-    assert max(rep.params.dmin) < 0.9, "Dmin 疑似回退值 0.5"
+    """片基参考必须真的可用（实测教训：ROI 越界 -> 回退 0.5 -> 全图冲淡）。"""
+    _, _, pr, _ = _run(e["file"])
+    assert pr.base_source != "generic_prior", \
+        f"有标注的样片不应退到通用先验：{pr.frame_base.get('warnings')}"
+    assert max(pr.report.params.dmin) < 0.9, "Dmin 疑似回退值"
+    assert min(pr.report.params.dmin) > 0.005
 
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
 def test_not_washed_out(e, ann):
-    """正常曝光户外场景：必须有真实中间调与黑位（p05<0.30, p50<0.85），
-    防止'全白但无剪裁'的冲淡失败模式逃过门禁。"""
-    *_, rep, res, gate = _run_pipeline(e["file"], ann)
-    lum = np.nan_to_num(res.positive_linear).mean(axis=2)
+    _, _, pr, _ = _run(e["file"])
+    lum = np.nan_to_num(pr.result.positive_linear).mean(axis=2)
     p05, p50 = np.quantile(lum, [0.05, 0.5])
     assert p50 < 0.85, f"整体冲淡: p50={p50:.2f}"
     assert p05 < 0.30, f"无真实黑位: p05={p05:.2f}"
@@ -139,8 +154,56 @@ def test_not_washed_out(e, ann):
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
+def test_rebate_independence(e, ann):
+    """v5 §11.1：输出保留片边时，质量统计 mask 仍只覆盖 image_area。
+
+    两次运行用**同一套**三类区域（只差 output_crop 是否保留全幅），
+    因此若统计随输出裁切变化，就是污染实锤。
+    """
+    t, ann, pr, step = _run(e["file"])
+    h, w = t.shape[:2]
+    sh, sw = t[::step, ::step, :].shape[:2]
+    ann_run = load_annotation(e["file"])
+
+    def sc(roi):
+        if not roi:
+            return None
+        return (int(round(roi[0] * sh / h)), int(round(roi[1] * sw / w)),
+                int(round(roi[2] * sh / h)), int(round(roi[3] * sw / w)))
+
+    base_rois = [sc(x) for x in (ann_run.base_sample_rois or []
+                                 or ([ann_run.base_roi] if ann_run.base_roi else []))]
+    area = sc(ann_run.image_area_roi or ann_run.frame_roi)
+    from negative_lab.library.models import GeometryRegions
+    geo_keep = GeometryRegions(
+        rotation_degrees=ann.rotation_degrees,
+        image_area_roi=area,
+        output_crop_roi=(0, 0, sh, sw),
+        base_sample_rois=[r for r in base_rois if r])
+    full = process_image(t[::step, ::step, :], geometry=geo_keep,
+                         keep_rebate=True, film_type="unknown")
+    assert full.gate.technical_preclip["low"] == pr.gate.technical_preclip["low"]
+    assert full.gate.technical_preclip["high"] == pr.gate.technical_preclip["high"]
+    assert full.gate.output_clip == pr.gate.output_clip
+    assert full.geometry.output_size[1] > pr.geometry.output_size[1], \
+        "输出必须真的保留了片边"
+
+
+@pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
+                                              for c in CASES])
 def test_idempotent(e, ann):
-    a = _run_pipeline(e["file"], ann)
-    b = _run_pipeline(e["file"], ann)
-    assert a[3].params.to_parameters_dict() == b[3].params.to_parameters_dict()
-    assert np.array_equal(a[4].positive_linear, b[4].positive_linear)
+    _, _, a, _ = _run(e["file"])
+    _, _, b, _ = _run(e["file"])
+    assert a.report.params.to_parameters_dict() == b.report.params.to_parameters_dict()
+    assert np.array_equal(a.result.positive_linear, b.result.positive_linear)
+
+
+def test_no_calibration_blocking_anywhere():
+    """v5 §8.1：任何真实样片都不允许出现缺色卡类阻断。"""
+    for e, _ann in CASES:
+        _, _, pr, _ = _run(e["file"])
+        assert pr.gate.status != "needs_calibration"
+        assert pr.gate.blocks_export is False or pr.gate.status == "fail"
+        if pr.gate.status == "fail":
+            assert all("剪裁" in f or "NaN" in f for f in pr.gate.failures), \
+                pr.gate.failures

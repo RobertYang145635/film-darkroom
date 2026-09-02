@@ -1,6 +1,7 @@
-"""CLI 端到端冒烟（v3 P0-I：临时目录、幂等、按本次 run 断言、ASCII 控制台安全）。
+"""CLI 端到端冒烟（v5 §15：临时目录、幂等、按本次 run 断言、ASCII 安全）。
 
 连续运行两次都必须通过；不读写 outputs/ 固定目录。
+sidecar schema v4；三候选与采集指纹必须出现在 sidecar 中。
 """
 
 from __future__ import annotations
@@ -18,24 +19,26 @@ import tifffile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from negative_lab.testing.synthetic import make_synthetic_negative  # noqa: E402
+from negative_lab.testing.spectral import make_spectral_negative  # noqa: E402
 
 
 def one_run(run_dir: Path) -> None:
-    s = make_synthetic_negative(seed=999)
+    s = make_spectral_negative(seed=999)
     neg = s["negative"]
     src = run_dir / "synthetic-src.tif"
     tifffile.imwrite(src, (neg * 65535 + 0.5).astype(np.uint16), photometric="rgb")
     out = run_dir / "out"
-    bw = neg.shape[1] // 8
-    # v4 §10.1：bytes 捕获 + 子进程强制 UTF-8，严格解码——任何解码异常/乱码
-    # 都必须失败（v4 §1.3.7 实锤：text+utf8 曾吞掉 GBK 解码错误假绿）
+    # 三类独立 ROI（v5 §3.2）：输出保留片边，分析区只含画面，片基在右侧条带
+    h, w = neg.shape[:2]
+    bc = s["truth"]["base_cols"]
+    cmd = [sys.executable, "-m", "negative_lab.cli", "invert", str(src),
+           "-o", str(out), "--tiff-encoding", "linear",
+           "--output-crop", "0", "0", str(h), str(w),
+           "--image-area", "8", "8", str(h - 8), str(bc[0] - 8),
+           "--base-sample", "0", str(bc[0] + 4), str(h), str(w - 4),
+           "--keep-rebate"]
     env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
-    r = subprocess.run(
-        [sys.executable, "-m", "negative_lab.cli", "invert", str(src),
-         "-o", str(out), "--tiff-encoding", "linear", "--base-roi",
-         str(neg.shape[1] - bw), "0", str(bw), str(neg.shape[0])],
-        capture_output=True, cwd=ROOT, env=env)
+    r = subprocess.run(cmd, capture_output=True, cwd=ROOT, env=env)
     stdout = r.stdout.decode("utf-8", errors="strict")
     stderr = r.stderr.decode("utf-8", errors="strict")
     print(stdout)
@@ -50,14 +53,29 @@ def one_run(run_dir: Path) -> None:
     assert len(files) == 3, [f.name for f in files]
     side = [f for f in files if f.suffix == ".json"][0]
     d = json.loads(side.read_text(encoding="utf-8"))
-    assert d["schema_version"] == 3 and len(d["source_sha256"]) == 64
-    assert d["geometry"]["roi_source_space"]["coordinate_space"] == "source"
-    assert d["quality"]["status"] in ("ok", "warn", "needs_calibration")
-    assert d["output"]["icc_sha256"]
-    truth = s["truth"]
-    err = np.max(np.abs(np.array(d["technical_parameters"]["dmin"])
-                        - np.array(truth["dmin"])))
+    assert d["schema_version"] == 4 and len(d["source_sha256"]) == 64
+    rss = d["geometry"]["roi_source_space"]
+    assert rss["coordinate_space"] == "source"
+    assert rss["output_crop_roi"] and rss["image_area_roi"] and \
+        rss["base_sample_rois"], "v5 §3.2 三类 ROI 必须全部记录"
+    assert d["candidates"] is not None
+    assert {c["name"] for c in (d["candidates"]["preserve"],
+                                d["candidates"]["neutral"],
+                                d["candidates"]["warm"])} == \
+        {"preserve", "neutral", "warm"}
+    assert d["capture_fingerprint"]["value"]
+    assert d["base"]["base_source"] == "frame"
+    assert d["color"]["output_icc_sha256"], "sidecar 必须记录输出 ICC"
+    gate = d["diagnostics"]["technical"]["gate"]
+    assert gate["status"] in ("ok", "warn", "needs_review"), gate["status"]
+    assert gate["blocks_export"] is False, "needs_review 必须允许导出（v5 §8.3）"
+    truth = s["truth"]["base"]
+    err = np.max(np.abs(np.array(d["base"]["dmin"]) - np.array(truth)))
     assert err < 0.02, f"sidecar Dmin off {err}"
+    # 输出保留片边 -> 输出尺寸 = 整帧（keep_rebate）
+    with tifffile.TiffFile(str(out / "synthetic-src-positive.tif")) as tf:
+        assert tf.pages[0].asarray().shape[:2] == (h, w), \
+            "keep_rebate 时输出应保留整帧（分析区独立于输出裁切）"
     assert src.read_bytes() != files[0].read_bytes()
 
 
@@ -66,7 +84,7 @@ def main() -> int:
             tempfile.TemporaryDirectory(prefix="nl-e2e-") as t2:
         one_run(Path(t1))
         one_run(Path(t2))   # 幂等：同一脚本连续两次都必须通过
-    print("E2E OK x2 (idempotent, tempdir, sidecar v3, strict UTF-8)")
+    print("E2E OK x2 (idempotent, tempdir, sidecar v4, strict UTF-8)")
     return 0
 
 

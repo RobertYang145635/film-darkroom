@@ -37,20 +37,25 @@ class TestService:
     def test_geometry_and_sidecar(self, synth):
         t = synth["negative"]
         pr = process_image(t, rotation_degrees=0)
-        assert pr.gate.status in ("ok", "warn", "needs_calibration")
+        assert pr.gate.status in ("ok", "warn", "needs_review")
         geo = pr.geometry
         assert geo.source_size == t.shape[:2]
         assert geo.crop_oriented is not None          # 默认裁到画面
         y0, x0, y1, x1 = geo.crop_oriented
         assert pr.t.shape == (y1 - y0, x1 - x0, 3)
         sc = pr.sidecar(source_sha256="x" * 64, source_path="a.tif")
-        assert sc["schema_version"] == 3   # v4 §2/§6.7：技术/风格分列、可追溯
-        assert "technical_parameters" in sc and "render_intent" in sc
-        assert sc["backend"] == pr.report.params.backend_name
+        assert sc["schema_version"] == 4   # v5 §3.4：sidecar 提升到 v4
+        assert "technical" in sc and "render_intent" in sc
+        assert sc["technical"]["backend"] == pr.report.params.backend_name
         assert sc["geometry"]["roi_source_space"]["coordinate_space"] == "source"
-        assert sc["geometry"]["roi_source_space"]["coordinate_space"] == "source"
+        rss = sc["geometry"]["roi_source_space"]
+        for key in ("output_crop_roi", "image_area_roi", "base_sample_rois"):
+            assert key in rss, f"v5 §3.2 三类 ROI 必须独立记录：缺 {key}"
+        assert isinstance(rss["base_sample_rois"], list)
         assert "preview" not in json_dumps(sc)
-        assert sc["quality"]["status"] == pr.gate.status
+        assert sc["diagnostics"]["technical"]["gate"]["status"] == pr.gate.status
+        assert sc["base"]["base_source"] == pr.base_source
+        assert sc["capture_fingerprint"]["editable"] is False
         # 往返：由 sidecar 重建输出尺寸
         assert tuple(sc["geometry"]["output_size"]) == pr.t.shape[:2]
 

@@ -89,13 +89,15 @@ def _load_tiff(p: Path, tiff_encoding: str | None) -> LoadResult:
     if cls.encoding == InputEncoding.UNKNOWN:
         if tiff_encoding is None:
             raise ReadError(
-                f"路径：{p}\n原因：TIFF 无 ICC 且无 Gamma 标签，传递函数未知"
+                f"路径：{p}\n原因：TIFF 传递函数无法从 metadata 确定"
                 f"（{cls.detail}）；盲目按线性处理会产生错误密度\n"
-                f"建议：确认来源工具的编码，并用 tiff_encoding="
-                f"linear|srgb|adobe 显式声明")
+                f"建议：确认该导入批次的来源工具编码，并作一次批次级选择 "
+                f"tiff_encoding=linear|srgb|adobe（v5 §4.3.3，"
+                f"不是设备配置，不要求扫描仪型号）")
         cls = TiffClassification(InputEncoding(tiff_encoding),
-                                 f"用户显式假设（文件本身：{cls.detail}）",
-                                 cls.icc_sha256)
+                                 f"用户批次级假设（文件本身：{cls.detail}）",
+                                 cls.icc_sha256, cls.gamma_tag, cls.trc_sha256,
+                                 cls.tag_facts)
     arr = tifffile.imread(str(p))
     if arr.ndim == 2:
         arr = np.stack([arr] * 3, axis=-1)
@@ -110,10 +112,20 @@ def _load_tiff(p: Path, tiff_encoding: str | None) -> LoadResult:
     warns = []
     if cls.encoding != InputEncoding.LINEAR:
         warns.append(f"TIFF 按 {cls.encoding.value} 编码线性化（{cls.detail}）")
-    meta = {"path": str(p), "bits": bits, "shape": lin.shape,
+    facts = cls.tag_facts or {}
+    meta = {"path": str(p), "kind": "tiff", "bits": bits, "shape": lin.shape,
+            "width": int(lin.shape[1]), "height": int(lin.shape[0]),
             "input_encoding": cls.encoding.value,
             "input_encoding_detail": cls.detail,
             "input_icc_sha256": cls.icc_sha256 or "none",
+            "input_trc_sha256": cls.trc_sha256 or "none",
+            "sample_format": facts.get("sample_format", "unknown"),
+            "photometric": facts.get("photometric", "unknown"),
+            "software": facts.get("software", ""),
+            "camera": facts.get("model", "") or facts.get("make", ""),
+            "tiff_tag_facts": {k: facts.get(k) for k in
+                               ("photometric", "sample_format", "bits",
+                                "prediction", "software")},
             "working_space": "srgb-linear-d65-normalized",
             "white_balance_policy": "n/a (file data)"}
     return LoadResult(lin.astype(np.float32), meta, warns)
@@ -133,10 +145,13 @@ def _load_pillow(p: Path) -> LoadResult:
     if icc and icc_sha256(bytes(icc)) != icc_sha256(srgb_icc_bytes()):
         warns.append("源文件带非 sRGB ICC，当前按 sRGB 解读——正式流程请走 TIFF 路线")
     return LoadResult(lin.astype(np.float32),
-                      {"path": str(p), "bits": bits, "mode": mode,
+                      {"path": str(p), "kind": "raster", "bits": bits, "mode": mode,
                        "shape": lin.shape,
+                       "width": int(lin.shape[1]), "height": int(lin.shape[0]),
+                       "software": "",
                        "input_encoding": "srgb(display)",
                        "input_icc_sha256": icc_sha256(bytes(icc)) if icc else "none",
+                       "input_trc_sha256": "none",
                        "working_space": "srgb-linear-d65-normalized",
                        "white_balance_policy": "n/a (file data)"},
                       warns)
@@ -149,6 +164,10 @@ def _load_raw(p: Path) -> LoadResult:
         raise ReadError(
             f"路径：{p}\n原因：RAW/DNG 解码依赖 rawpy(LibRaw) 未安装\n"
             f"建议：uv pip install rawpy，或导出 16 位 TIFF/DNG") from e
+    dng_facts: dict = {}
+    if p.suffix.lower() == ".dng":
+        from ..color.management import classify_dng
+        dng_facts = classify_dng(p)
     try:
         t, meta = decode_raw(p)
     except Exception as e:  # noqa: BLE001
@@ -157,12 +176,86 @@ def _load_raw(p: Path) -> LoadResult:
             raise ReadError(
                 f"路径：{p}\n原因：LibRaw 不支持该 RAW 变体（如 Nikon Z8 高效 NEF/"
                 f"AV1 压缩，docs/blockers.md B-1）\n"
-                f"建议：用 NX Studio 导出 16 位线性 TIFF 后处理；"
+                f"建议：用相机厂商工具导出 16 位线性 TIFF 后处理；"
                 f"不会用内嵌 JPEG 冒充 RAW 解码（整改 §1.5）") from e
         raise ReadError(f"路径：{p}\n原因：{name}: {e}") from e
+    if dng_facts:
+        # v5 §4.2：mosaic DNG 走 RAW 解码；Linear DNG 按其矩阵/白点/位深/传递函数处理
+        meta["kind"] = "dng"
+        meta["dng_kind"] = dng_facts.get("dng_kind", "unknown")
+        meta["dng_version"] = dng_facts.get("dng_version", "")
+        meta["color_matrix"] = dng_facts.get("color_matrix")
+        meta["forward_matrix"] = dng_facts.get("forward_matrix")
+        meta["profile_sha256"] = dng_facts.get("profile_sha256", "")
+        meta["dng_facts"] = dng_facts
+        if meta["dng_kind"] == "linear":
+            meta["input_encoding_detail"] = (
+                "Linear DNG：已去马赛克的 RGB 数据，按 ForwardMatrix/ColorMatrix "
+                "与位深处理，不走 mosaic 解马赛克路径")
     return LoadResult(t, meta,
-                      ["RAW 已按显式参数解码为线性相机 RGB（gamma=1、LINEAR 矩阵、"
-                       "LibRaw 默认 as-shot 乘数；逐通道增益被 Dmin 归一化抵消）"])
+                      ["RAW 已按显式参数解码为线性 sRGB-D65 RGB（gamma=1、"
+                       "相机矩阵、LibRaw 默认 as-shot 乘数；逐通道增益被 "
+                       "Dmin 归一化抵消）"])
+
+
+# ---------------------------------------------------------------- 缩略图
+
+
+def load_thumbnail(path: str | Path, max_dim: int = 128,
+                   tiff_encoding: str | None = None):
+    """低分辨率缩略图（只读；后台线程调用，失败抛异常由调用方吞掉）。
+
+    RAW/DNG 用 half_size 快速解码；TIFF 用行步进抽样避免整帧常驻内存；
+    返回 (max_dim, max_dim) 以内的 QImage（sRGB 显示编码）。
+    """
+    from PySide6.QtGui import QImage
+
+    p = Path(path)
+    ext = p.suffix.lower()
+    if ext in RAW_EXTS:
+        import rawpy
+
+        with rawpy.imread(str(p)) as r:
+            params = rawpy.Params(half_size=True, output_bps=8,
+                                  no_auto_bright=True, user_flip=-1)
+            arr = r.postprocess(params)
+    elif ext in (".tif", ".tiff"):
+        import tifffile
+
+        with tifffile.TiffFile(str(p)) as t:
+            pg = t.pages[0]
+            h, w = pg.imagelength, pg.imagewidth
+            step = max(1, int(np.ceil(max(h, w) / float(max_dim * 2))))
+            arr = pg.asarray()[::step, ::step]
+        if arr.ndim == 2:
+            arr = np.stack([arr] * 3, axis=-1)
+        elif arr.ndim == 3 and arr.shape[0] in (1, 3, 4) and arr.shape[-1] not in (1, 3, 4):
+            arr = np.transpose(arr, (1, 2, 0))
+        if arr.shape[-1] == 4:
+            arr = arr[..., :3]
+        norm, _bits = _normalize_bitdepth(arr)
+        cls = classify_tiff(p)
+        enc = cls.encoding
+        if enc == InputEncoding.UNKNOWN:
+            enc = InputEncoding(tiff_encoding or "srgb")
+        lin = decode_linear(np.clip(norm, 0.0, 1.0), enc)
+        arr = (np.clip(linear_to_srgb_local(lin), 0, 1) * 255 + 0.5).astype(np.uint8)
+    else:
+        from PIL import Image
+
+        with Image.open(str(p)) as im:
+            im.thumbnail((max_dim, max_dim))
+            arr = np.asarray(im.convert("RGB"))
+    arr = np.ascontiguousarray(arr[..., :3].astype(np.uint8))
+    h, w, _ = arr.shape
+    img = QImage(arr.data, w, h, 3 * w, QImage.Format_RGB888)
+    return img.copy()
+
+
+def linear_to_srgb_local(x):
+    from ..color.management import linear_to_srgb
+
+    return linear_to_srgb(x)
 
 
 # ---------------------------------------------------------------- 导出

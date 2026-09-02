@@ -45,15 +45,22 @@ def test_no_base_strip_low_confidence():
     assert np.isfinite(res["dmin"]).all()
 
 
-def test_auto_without_neutral_warns_and_outputs():
-    """§4.6.1 + 整改升级链：无用户取点时走统计中性或兜底，但警告必须可见。"""
+def test_auto_without_neutral_still_outputs_and_never_asks_for_chart():
+    """v5 §8.1：没有中性取点、没有色卡也必须给出可用结果。
+
+    旧 v4 行为（警告里要求"取点/提供色卡"）已被删除，这里做回归锁。
+    """
     s = make_synthetic_negative(seed=54)
     rep = auto_analyze(s["negative"], base_roi=s["truth"]["base_roi"])
-    assert any("统计中性" in w or "无中性参考" in w for w in rep.warnings), rep.warnings
-    assert rep.confidence.get("neutral_statistical", rep.confidence.get("neutral", 0)) <= 0.4
+    joined = " ".join(rep.warnings)
+    for banned in ("色卡", "请取点", "没有中性点", "需要标定", "calibration"):
+        assert banned not in joined, f"普通路径仍出现阻断文案：{banned}"
+    assert rep.confidence.get("neutral") is None      # 不适用，不是失败
+    assert rep.confidence["dmin"] > 0.0
     from negative_lab.pipeline.density import invert
     out = invert(s["negative"], rep.params).positive_linear
     assert np.isfinite(out).all()
+    assert 0.02 < float(out.mean()) < 0.98
 
 
 def test_auto_full_pipeline_accuracy():

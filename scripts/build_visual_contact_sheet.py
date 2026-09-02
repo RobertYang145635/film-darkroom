@@ -1,16 +1,30 @@
-"""整改前后视觉联系表（整改 P0-C 人工视觉门禁）。
+"""逐卷视觉联系表（v5 §10.2 / §12 P0-8.1）。
 
-每张样片并排：整改前基线（无裁切/无旋转/无统计中性）| 整改后自动结果 |
-NLP 对照（如有）。统一方向与画面范围（verified 标注优先）。
-输出 outputs/visual/<sample>_sheet.jpg 与汇总 docs/visual-acceptance.md 表格。
+每张并列展示**相同画面裁切**：
+
+```
+原始负片 | 我们的 preserve | 我们的 neutral | 我们的 warm
+我们的当前默认 + 微调 | NLP 默认参考 | 用户满意参考（若有）
+```
+
+输出：
+    outputs/quality/<run-id>/rolls/<roll>/contact-sheet.jpg
+    outputs/quality/<run-id>/rolls/<roll>/decisions.json   （用户填写）
+    outputs/quality/<run-id>/rolls/<roll>/metrics.json     （自动指标）
+
+纪律：manifest 中所有 required=true 帧必须出现，不得只挑好看的（§10.2）；
+最终视觉结论只有用户有权填写（§10.2 末段）。
 
 运行：.venv\\Scripts\\python.exe scripts/build_visual_contact_sheet.py
+       [--roll ROLL] [--max-dim 1200] [--run-id ID]
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -18,133 +32,246 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from negative_lab.calibration.annotations import load_annotation  # noqa: E402
-from negative_lab.io.images import load_linear_rgb  # noqa: E402
-from negative_lab.pipeline.auto import auto_analyze  # noqa: E402
-from negative_lab.pipeline.density import invert_chunked  # noqa: E402
-from negative_lab.pipeline.params import InvertParams  # noqa: E402
-from negative_lab.pipeline.workflow import prepare_and_analyze  # noqa: E402
 from PIL import Image, ImageDraw  # noqa: E402
 
-OUT = ROOT / "outputs" / "visual"
-TARGET_H = 700
+from negative_lab.io.images import ReadError, load_linear_rgb  # noqa: E402
+from negative_lab.io.sidecar import git_commit  # noqa: E402
+from negative_lab.library.fingerprint import capture_fingerprint  # noqa: E402
+from negative_lab.library.models import GeometryRegions  # noqa: E402
+from negative_lab.pipeline.service import (candidate_positive,  # noqa: E402
+                                           process_roll)
+
+ACCEPTANCE = ROOT / "fixtures" / "acceptance" / "manifest.json"
+TILE_H = 300
+LABELS = ["原始负片", "preserve", "neutral", "warm", "默认+微调",
+          "NLP 默认参考", "用户满意参考"]
 
 
-def to_img(arr01: np.ndarray) -> Image.Image:
-    x = np.clip(arr01, 0, 1)
+def _to_img(a01: np.ndarray) -> Image.Image:
+    x = np.clip(a01, 0, 1)
     return Image.fromarray((x * 255 + 0.5).astype(np.uint8)).convert("RGB")
 
 
-def norm_negative(arr: np.ndarray) -> np.ndarray:
-    x = np.clip(arr, 0, None)
+def _norm_negative(a: np.ndarray) -> np.ndarray:
+    x = np.clip(a, 0, None)
     return x / max(float(x.max()), 1e-6)
 
 
-def process(rel: str) -> tuple[Image.Image, Image.Image, Image.Image | None, dict]:
-    ann = load_annotation(rel)
-    src = ROOT / rel
-    t = load_linear_rgb(src).rgb
-    rot = ann.rotation_degrees if ann else 0
-    # 整改前基线：整帧（含片边/片基）、不旋转、无统计中性（wb 全 1）、
-    # 旧 offset 策略近似 = offset 0（黑位压死）
-    from negative_lab.pipeline.geometry import rotate_cw
-    t_rot_full = rotate_cw(t, rot)
-    before_rep = auto_analyze(t_rot_full[::6, ::6, :].copy())
-    p_before = InvertParams(dmin=before_rep.params.dmin,
-                            dmax=before_rep.params.dmax, offset=0.0)
-    res_before = invert_chunked(t_rot_full, p_before)
-    # 整改后：共享工作流（标注裁切 + 统计中性 + 标定卷 Dmax 先验）
-    from negative_lab.profiles.profile import load_profile
-    prior = None
-    pf = ROOT / "fixtures" / "priors" / "KodakGold200-Z8-led.profile.json"
-    if "G200" in rel and pf.exists():
-        prior = load_profile(pf).to_initial_params()
-    prepared = prepare_and_analyze(t, rotation_degrees=rot, ann=ann, prior=prior)
-    res_after = invert_chunked(prepared.t, prepared.report.params)
-    # NLP 对照
-    nlp = None
-    if ann and ann.reference_file and (ROOT / ann.reference_file).exists():
-        nlp = to_img(np.asarray(Image.open(str(ROOT / ann.reference_file))
-                                .convert("RGB"), np.float32) / 255.0)
-    return (to_img(norm_negative(t_rot_full)), to_img(res_before.preview_srgb),
-            to_img(res_after.preview_srgb), nlp,
-            {"params_before": p_before.to_parameters_dict(),
-             "params_after": prepared.report.params.to_parameters_dict(),
-             "confidence": prepared.report.confidence,
-             "warnings": prepared.report.warnings[:6]})
+def _fit(im: Image.Image, h: int = TILE_H) -> Image.Image:
+    w = max(1, int(im.width * h / im.height))
+    return im.resize((w, h))
 
 
-def sheet(name: str, tiles: list[tuple[str, Image.Image | None]]) -> Image.Image:
+def _row(tiles: list[tuple[str, Image.Image | None]], idx: int,
+         caption: str) -> Image.Image:
     ims = []
     for label, im in tiles:
         if im is None:
-            continue
-        w = int(im.width * TARGET_H / im.height)
-        ims.append((label, im.resize((w, TARGET_H))))
-    W = sum(i.width for _, i in ims) + 8 * len(ims)
-    out = Image.new("RGB", (W, TARGET_H + 26), (18, 18, 18))
+            im = Image.new("RGB", (120, TILE_H), (40, 40, 40))
+            label = f"{label}（缺）"
+        ims.append((label, _fit(im)))
+    W = sum(i.width for _, i in ims) + 8 * (len(ims) + 1)
+    H = TILE_H + 40
+    out = Image.new("RGB", (max(W, 900), H), (18, 18, 18))
     d = ImageDraw.Draw(out)
+    d.text((4, 2), f"[{idx}] {caption}", fill=(255, 230, 140))
     x = 4
     for label, im in ims:
-        out.paste(im, (x, 24))
-        d.text((x + 2, 6), label, fill=(255, 255, 120))
+        d.text((x + 2, 20), label, fill=(180, 220, 255))
+        out.paste(im, (x, 38))
         x += im.width + 8
-    out.save(OUT / f"{name}_sheet.jpg", quality=88)
     return out
 
 
+def _stack(rows: list[Image.Image], out_path: Path) -> None:
+    W = max(r.width for r in rows)
+    H = sum(r.height for r in rows) + 6 * len(rows)
+    sheet = Image.new("RGB", (W, H), (12, 12, 12))
+    y = 0
+    for r in rows:
+        sheet.paste(r, (0, y))
+        y += r.height + 6
+    sheet.save(out_path, quality=84)
+
+
+def _geometry(frame: dict) -> GeometryRegions:
+    r = frame["rois"]
+    return GeometryRegions(
+        rotation_degrees=0,
+        output_crop_roi=tuple(r["output_crop_roi"]) if r["output_crop_roi"] else None,
+        image_area_roi=tuple(r["image_area_roi"]) if r["image_area_roi"] else None,
+        base_sample_rois=[tuple(x) for x in r["base_sample_rois"]])
+
+
+def _roll_analysis(frames: list[dict], stats: list[dict], fp: str) -> RollAnalysis:
+    return analyze_roll(stats, fingerprint=fp)
+
+
+def process_roll_sheet(roll: str, frames: list[dict], out_dir: Path,
+                       *, max_dim: int) -> dict:
+    """整卷走**生产服务** `process_roll`（§0.3.4：联系表不得有第二条管线）。"""
+    from negative_lab.calibration.annotations import load_annotation
+    from negative_lab.library.models import FrameRecord
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    metrics, metrics_rows, decisions = [], [], []
+    records, images, ctxs = [], [], []
+    for fr in frames:
+        p = ROOT / fr["file"]
+        try:
+            loaded = load_linear_rgb(p)
+        except ReadError as e:
+            metrics.append({"id": fr["id"], "status": "decode_error",
+                            "error": str(e).splitlines()[-1]})
+            continue
+        arr = loaded.rgb
+        step = max(1, int(np.ceil(max(arr.shape[:2]) / float(max_dim))))
+        small = arr[::step, ::step, :].copy()
+        fp = capture_fingerprint(loaded.meta, source_path=fr["file"])
+        geo = _downscale_geometry(_geometry(fr), arr.shape[:2], small.shape[:2])
+        if not geo.is_complete():
+            geo = GeometryRegions(rotation_degrees=geo.rotation_degrees)
+        rec = FrameRecord(source_path=fr["file"], source_sha256=fr["source_sha256"],
+                          input_facts=dict(loaded.meta),
+                          capture_fingerprint=fp.value, geometry=geo)
+        records.append(rec)
+        images.append(small)
+        ctxs.append({"fp": fp, "step": step})
+    ra, results = process_roll(list(zip(records, images)), film_type="unknown")
+    for fr, rec, small, pr, ctx in zip(frames, records, images, results, ctxs):
+        cs = pr.candidates
+        renders = {c.name: candidate_positive(pr, c.name) for c in cs} \
+            if cs else {}
+        default_render = renders.get(cs.default_name) if cs else \
+            pr.rendered_positive_linear
+        neg = _to_img(_norm_negative(small))
+        nlp = None
+        if fr.get("nlp_reference") and (ROOT / fr["nlp_reference"]).exists():
+            nlp = Image.open(str(ROOT / fr["nlp_reference"])).convert("RGB")
+        metrics_rows.append(_row(
+            [("原始负片", neg),
+             ("preserve", _to_img(_srgb(renders["preserve"])) if "preserve" in renders else None),
+             ("neutral", _to_img(_srgb(renders["neutral"])) if "neutral" in renders else None),
+             ("warm", _to_img(_srgb(renders["warm"])) if "warm" in renders else None),
+             (f"默认 {pr.chosen_candidate}", _to_img(_srgb(default_render))
+              if default_render is not None else None),
+             ("NLP 默认参考", nlp),
+             ("用户满意参考", None)],
+            len(metrics_rows) + 1,
+            f"{Path(fr['file']).name}  片基={pr.base_source}  "
+            f"门禁={pr.gate.status}"))
+        metrics.append({
+            "id": fr["id"], "file": fr["file"], "roll": roll,
+            "status": "ok", "gate": pr.gate.status,
+            "blocks_export": pr.gate.blocks_export,
+            "base_source": pr.base_source, "base_confidence": pr.base_confidence,
+            "default_candidate": pr.chosen_candidate,
+            "candidate_confidence": {c.name: c.confidence for c in cs} if cs else {},
+            "neutral_fallback": cs.neutral.fallback_to if cs else None,
+            "correction_capped": {c.name: c.correction_capped for c in cs} if cs else {},
+            "technical_preclip": pr.gate.technical_preclip,
+            "input_clip": pr.gate.input_clip,
+            "chroma_stats": pr.gate.chroma_stats,
+            "review_reasons": pr.gate.review_reasons,
+            "roi_provenance": pr.roi_provenance,
+            "render_intent": pr.render_intent.to_dict(),
+            "working_step": ctx["step"],
+        })
+        decisions.append({
+            "id": fr["id"], "file": fr["file"],
+            "parity_required": fr["parity_required"],
+            "required": fr["required"],
+            "accepted": None, "chosen_candidate": None,
+            "relative_to_nlp": None, "issue_tags": [], "note": "",
+        })
+    sheet = out_dir / "contact-sheet.jpg"
+    _stack(metrics_rows, sheet)
+    (out_dir / "decisions.json").write_text(json.dumps({
+        "roll": roll, "spec": "v5 §10.2",
+        "signed_by": None, "signed_date": None,
+        "note": "只有用户有权填写最终视觉结论；执行 agent 不得代签。",
+        "frames": decisions}, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out_dir / "metrics.json").write_text(json.dumps({
+        "roll": roll, "roll_analysis": ra.to_dict(), "frames": metrics,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"roll": roll, "sheet": sheet.as_posix(),
+            "frames": len(metrics),
+            "failed": sum(1 for m in metrics if m.get("status") != "ok"),
+            "needs_review": sum(1 for m in metrics
+                                if m.get("gate") == "needs_review"),
+            "blocked": sum(1 for m in metrics if m.get("blocks_export")),
+            "roll_base_source": ra.base_source,
+            "roll_split_suggested": ra.split_suggested}
+
+
+def _srgb(pos: np.ndarray) -> np.ndarray:
+    from negative_lab.pipeline.density import encode_srgb
+    return encode_srgb(pos)
+
+
+def _downscale_geometry(geo: GeometryRegions, src_shape, dst_shape) -> GeometryRegions:
+    sy = dst_shape[0] / src_shape[0]
+    sx = dst_shape[1] / src_shape[1]
+
+    def sc(roi):
+        if not roi:
+            return None
+        out = (int(round(roi[0] * sy)), int(round(roi[1] * sx)),
+               int(round(roi[2] * sy)), int(round(roi[3] * sx)))
+        return out if out[2] - out[0] >= 16 and out[3] - out[1] >= 16 else None
+
+    return GeometryRegions(
+        rotation_degrees=geo.rotation_degrees,
+        fine_rotation_degrees=geo.fine_rotation_degrees,
+        mirror_horizontal=geo.mirror_horizontal,
+        output_crop_roi=sc(geo.output_crop_roi),
+        image_area_roi=sc(geo.image_area_roi),
+        base_sample_rois=[r for r in (sc(x) for x in geo.base_sample_rois) if r])
+
+
 def main() -> int:
-    OUT.mkdir(parents=True, exist_ok=True)
-    manifest = json.loads((ROOT / "fixtures" / "manifest.json").read_text(encoding="utf-8"))
-    targets = [e for e in manifest["images"]
-               if e["decode_status"] == "ok" and load_annotation(e["file"])
-               and load_annotation(e["file"]).verified]
-    if not targets:
-        print("无 verified 标注样片")
-        return 1
-    rows = []
-    for e in targets:
-        name = Path(e["file"]).stem + "_" + e["roll"]
-        print("processing", e["file"], flush=True)
-        neg, before, after, nlp, info = process(e["file"])
-        sheet(name, [("原负片(旋转后,含片边)", neg),
-                     ("整改前基线(整帧/黑位压死)", before),
-                     ("整改后自动(裁切+统计中性)", after),
-                     ("NLP对照(非真值)", nlp)])
-        rows.append((name, e["file"], info))
-        print("  ->", OUT / f"{name}_sheet.jpg")
-    # 汇总文档
-    lines = ["# 视觉验收记录（P0-C 人工门禁）", "",
-             "**状态：等待用户确认。** 没有用户确认不得进入 P3 发布（整改 §P0-C）。",
-             "",
-             "联系表位于 `outputs/visual/*_sheet.jpg`，四格依次为：",
-             "原负片（旋转后）| 整改前基线 | 整改后自动结果 | NLP 对照（仅对照非真值）。",
-             "",
-             "## 用户确认清单（每张七项）",
-             "",
-             "| 样片 | 方向 | 裁切 | 高光 | 肤色 | 中性灰 | 阴影 | 整体色偏 | 结论 |",
-             "|---|---|---|---|---|---|---|---|---|"]
-    for name, f, info in rows:
-        lines.append(f"| {name} | 180°已应用 | 画面区已裁切 | [ ] | [ ] | [ ] | [ ] | [ ] | **待确认** |")
-    lines += ["",
-              "## 整改前失败基线（质量审查报告 F-1 对应）",
-              "",
-              "- G200-1 整改前：倒置、保留大片片边/片基、整体偏青蓝、黑位压死",
-              f"  （低端剪裁 R 9.5%/G 10.0%/B 16.2%）。整改后同一管线低端剪裁 <1%。",
-              f"- 整改后自动参数（G200-1）：dmax={rows[0][2]['params_after']['dmax']:.2f}, "
-              f"wb_high={np.round(rows[0][2]['params_after']['wb_high'], 3).tolist()}, "
-              f"ratios R/B={rows[0][2]['params_after']['red_ratio']:.3f}/"
-              f"{rows[0][2]['params_after']['blue_ratio']:.3f}",
-              f"- 置信度：{rows[0][2]['confidence']}",
-              "",
-              "## 已知限制",
-              "",
-              "- 统计中性为受限 gray-world 估计（非色卡），肤色需人工核对；",
-              "- NLP 格仅作风格对照，其裁切区域与本软件不完全一致；",
-              "- 黑白/ECN-2/真实 TIFF 路线缺样片（docs/support-matrix.md）。"]
-    (ROOT / "docs" / "visual-acceptance.md").write_text("\n".join(lines) + "\n",
-                                                        encoding="utf-8")
-    print("写入 docs/visual-acceptance.md")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--roll", default=None, help="只处理指定卷")
+    ap.add_argument("--max-dim", type=int, default=1200,
+                    help="联系表工作分辨率（最长边）；全分辨率验收以 GUI 导出为准")
+    ap.add_argument("--run-id", default=None)
+    ap.add_argument("--limit", type=int, default=None, help="每卷最多处理帧数（调试）")
+    args = ap.parse_args()
+
+    if not ACCEPTANCE.exists():
+        print("先运行 scripts/build_acceptance_manifest.py", file=sys.stderr)
+        return 2
+    doc = json.loads(ACCEPTANCE.read_text(encoding="utf-8"))
+    run_id = args.run_id or time.strftime("%Y-%m-%d-%H%M%S")
+    out_root = ROOT / "outputs" / "quality" / run_id
+    (out_root / "rolls").mkdir(parents=True, exist_ok=True)
+    by_roll: dict[str, list[dict]] = {}
+    for f in doc["frames"]:
+        if args.roll and f["roll"] != args.roll:
+            continue
+        by_roll.setdefault(f["roll"], []).append(f)
+    summaries = []
+    for roll in sorted(by_roll):
+        frames = by_roll[roll]
+        if args.limit:
+            frames = frames[:args.limit]
+        print(f"== {roll}: {len(frames)} 帧", flush=True)
+        t0 = time.perf_counter()
+        try:
+            s = process_roll_sheet(roll, frames, out_root / "rolls" / roll,
+                                   max_dim=args.max_dim)
+        except Exception as e:  # noqa: BLE001
+            print(f"  FAIL {type(e).__name__}: {e}", file=sys.stderr)
+            s = {"roll": roll, "error": f"{type(e).__name__}: {e}"}
+        s["seconds"] = round(time.perf_counter() - t0, 1)
+        summaries.append(s)
+        print("  " + json.dumps(s, ensure_ascii=False), flush=True)
+    (out_root / "contact-sheet-summary.json").write_text(json.dumps({
+        "run_id": run_id, "git_commit": git_commit(),
+        "max_dim": args.max_dim,
+        "note": "联系表为预览分辨率（最长边 max_dim）；逐张视觉结论由用户填写。",
+        "rolls": summaries}, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"输出目录：{out_root}")
     return 0
 
 

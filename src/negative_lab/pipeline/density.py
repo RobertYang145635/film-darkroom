@@ -153,11 +153,13 @@ def encode_srgb(linear: np.ndarray) -> np.ndarray:
     return out.astype(np.float32)
 
 
-def invert(t_rgb: np.ndarray, p: InvertParams) -> InvertResult:
-    """技术反相生产入口（v4 §4.3.3：经唯一 backend 注册表，无旁路公式）。
+def invert(t_rgb: np.ndarray, p: InvertParams,
+           mask: np.ndarray | None = None) -> InvertResult:
+    """技术反相生产入口（v5 §6.1：经唯一 backend 注册表，无旁路公式）。
 
-    仅技术阶段（docs/algorithm-notes.md 契约）；风格（gamma/exposure/
-    highlight/saturation）在 render.apply_render，不在本函数。
+    仅技术阶段（docs/algorithm-notes.md 契约）；色温/色调/曝光/对比/
+    高光/阴影/黑白/饱和度在 render.apply_render，不在本函数。
+    mask：(H,W) bool，限定 v5 §8.2 的 clamp 前剪裁统计范围（有效画面）。
     """
     from .backends import get_backend
 
@@ -173,66 +175,112 @@ def invert(t_rgb: np.ndarray, p: InvertParams) -> InvertResult:
     if n_bad:
         warnings.append(f"输入含 {n_bad} 个 NaN/Inf，已替换为 0.0 并记录")
 
+    diag: dict = {}
     core = get_backend(p.backend_name)      # 未知 backend 在此失败（可读错误）
-    positive = core(t, p)
+    positive = core(t, p, mask=mask, diag=diag)
 
-    # 诊断（§4.5.7）：输入/输出剪裁比例、非有限值
-    diag: dict = {
+    # 诊断（§4.5.7 / v5 §8.2）：输入/输出剪裁比例、非有限值
+    diag.update({
         "backend": p.backend_name,
         "input_nonfinite": n_bad,
-        "input_clip": channel_clip_ratios(t),
-        "output_clip": channel_clip_ratios(positive),
+        "input_clip": channel_clip_ratios(t, mask),
+        "output_clip": channel_clip_ratios(positive, mask),
         "output_nonfinite": int((~np.isfinite(positive)).sum()),
-    }
+    })
     preview = encode_srgb(positive)
     return InvertResult(positive_linear=positive, preview_srgb=preview,
                         diagnostics=diag, warnings=warnings)
 
 
-def channel_clip_ratios(img: np.ndarray, tol: float = 1e-6) -> dict:
+def channel_clip_ratios(img: np.ndarray, mask: np.ndarray | None = None,
+                        tol: float = 1e-6) -> dict:
     """每通道 [0,1] 之外的剪裁比例（规格 §8.4 剪裁指标）。"""
-    lo = (img <= tol).mean(axis=(0, 1))
-    hi = (img >= 1.0 - tol).mean(axis=(0, 1))
+    px = img[mask] if mask is not None else img.reshape(-1, img.shape[-1])
+    lo = (px <= tol).mean(axis=0)
+    hi = (px >= 1.0 - tol).mean(axis=0)
     return {
         "low": [float(v) for v in lo],
         "high": [float(v) for v in hi],
     }
 
 
+def preclip_ratios(diag: dict) -> dict:
+    """backend 累计的 clamp 前逐通道越界比例（v5 §8.2 门禁口径）。"""
+    d = (diag or {}).get("preclip") or {}
+    n = int(d.get("n") or 0)
+    if not n:
+        return {"low": [0.0, 0.0, 0.0], "high": [0.0, 0.0, 0.0], "n": 0}
+    return {"low": [int(v) / n for v in d["low"]],
+            "high": [int(v) / n for v in d["high"]],
+            "n": n,
+            "above_base": int(d.get("above_base", 0)) / (3 * n)}
+
+
 def invert_chunked(t_rgb: np.ndarray, p: InvertParams,
-                   max_chunk_pixels: int = 4_000_000) -> InvertResult:
+                   max_chunk_pixels: int = 4_000_000,
+                   mask: np.ndarray | None = None) -> InvertResult:
     """按行分块反相（规格 §9：大图避免一次复制多份完整数组）。
 
     模型逐像素，分块与整帧结果逐比特一致（无空间操作）。
+    mask 随行切片，保证 v5 §8.2 的剪裁统计与整帧一次算完全相同。
     返回与 invert() 相同结构；preview_srgb 为整帧 [0,1]。
     """
     h = t_rgb.shape[0]
     row_px = max(1, t_rgb.shape[1] * t_rgb.shape[2])
     rows = max(1, max_chunk_pixels // row_px)
     if h <= rows:
-        return invert(t_rgb, p)
+        return invert(t_rgb, p, mask=mask)
 
     positive = np.empty(t_rgb.shape, np.float32)
     preview = np.empty(t_rgb.shape, np.float32)
     warnings: list[str] = []
     diag: dict | None = None
+    agg_preclip = {"low": [0, 0, 0], "high": [0, 0, 0], "n": 0,
+                   "above_base": 0, "negative_density": 0}
+    in_low = [0, 0, 0]
+    in_high = [0, 0, 0]
+    out_low = [0, 0, 0]
+    out_high = [0, 0, 0]
+    n_in = n_out = 0
     for y0 in range(0, h, rows):
-        res = invert(t_rgb[y0:y0 + rows], p)
+        chunk_mask = None if mask is None else mask[y0:y0 + rows]
+        res = invert(t_rgb[y0:y0 + rows], p, mask=chunk_mask)
         positive[y0:y0 + rows] = res.positive_linear
         preview[y0:y0 + rows] = res.preview_srgb
         for w in res.warnings:
             if w not in warnings:
                 warnings.append(w)
+        d = res.diagnostics
+        pc = d.get("preclip") or {}
+        for c in range(3):
+            agg_preclip["low"][c] += int(pc.get("low", [0, 0, 0])[c])
+            agg_preclip["high"][c] += int(pc.get("high", [0, 0, 0])[c])
+        agg_preclip["n"] += int(pc.get("n", 0))
+        agg_preclip["above_base"] += int(pc.get("above_base", 0))
+        ic = d.get("input_clip") or {"low": [0, 0, 0], "high": [0, 0, 0]}
+        oc = d.get("output_clip") or {"low": [0, 0, 0], "high": [0, 0, 0]}
+        n_chunk = int((pc.get("n") or res.positive_linear.reshape(-1, 3).shape[0]))
+        for c in range(3):
+            in_low[c] += ic["low"][c] * n_chunk
+            in_high[c] += ic["high"][c] * n_chunk
+            out_low[c] += oc["low"][c] * n_chunk
+            out_high[c] += oc["high"][c] * n_chunk
+        n_in += n_chunk
+        n_out += n_chunk
         if diag is None:
-            diag = {k: v for k, v in res.diagnostics.items()}
+            diag = {k: v for k, v in d.items() if k != "preclip"}
         else:
-            n = diag.get("input_nonfinite", 0) + res.diagnostics["input_nonfinite"]
-            diag["input_nonfinite"] = n
+            diag["input_nonfinite"] = (diag.get("input_nonfinite", 0)
+                                       + d["input_nonfinite"])
             diag["output_nonfinite"] = (diag.get("output_nonfinite", 0)
-                                        + res.diagnostics["output_nonfinite"])
-    # 全图剪裁比例用抽样估计（分块后整帧统计会再复制数组）
-    sample = positive[:: max(1, h // 64)]
-    diag["input_clip"] = channel_clip_ratios(t_rgb[:: max(1, h // 64)])
-    diag["output_clip"] = channel_clip_ratios(sample)
+                                        + d["output_nonfinite"])
+    diag = diag or {}
+    diag["preclip"] = agg_preclip
+    denom = max(n_in, 1)
+    diag["input_clip"] = {"low": [v / denom for v in in_low],
+                          "high": [v / denom for v in in_high]}
+    denom_o = max(n_out, 1)
+    diag["output_clip"] = {"low": [v / denom_o for v in out_low],
+                           "high": [v / denom_o for v in out_high]}
     return InvertResult(positive_linear=positive, preview_srgb=preview,
-                        diagnostics=diag or {}, warnings=warnings)
+                        diagnostics=diag, warnings=warnings)

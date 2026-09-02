@@ -1,10 +1,12 @@
-"""批处理队列（规格 §2.2.1、§5.2、§8.1.6）。
+"""批处理队列（v5 §2.1、§12 P0-7）。
 
-- 每张图独立自动分析；配置文件只作初始先验，不强行覆盖单张结果。
-- 单张失败不影响其余；失败项可单独重试；取消不留半成品
-  （导出走原子写入，取消检查点在文件边界与导出前）。
-- 队列状态：pending/running/ok/warn/failed/cancelled。
+- 每张图独立分析；配置文件只作初始先验，不强行覆盖单张结果；
+- 单张失败不影响其余；失败项可单独重试；取消不留半成品；
+- 队列状态：pending/running/ok/warn/needs_review/failed/cancelled；
+- **没有色卡、没有 verified 校准、未知胶片型号都不再是状态**（v5 §8.1）；
 - 结束生成 batch-report.json + 可读摘要。
+
+所有帧都通过 `pipeline.service.process_image` 这一唯一入口（§0.3.4）。
 """
 
 from __future__ import annotations
@@ -18,16 +20,16 @@ from pathlib import Path
 import numpy as np
 
 from .. import __version__
-from ..io.atomic import ensure_not_source
-from ..io.images import load_linear_rgb, save_jpeg8, save_tiff16
-from ..pipeline.auto import auto_analyze
-from ..pipeline.density import invert_chunked
-from ..profiles.profile import FilmProfile
+from ..io.images import load_linear_rgb
+from ..library.fingerprint import capture_fingerprint
+from ..library.models import GeometryRegions
+from ..pipeline.render import RenderIntent
+from .service import process_image          # 唯一管线入口（可被测试替换）
 
-# ASCII 状态词（整改 I-7/P0-D：默认 GBK 控制台不得崩溃）
+# ASCII 状态词（默认 GBK 控制台不得崩溃）
 STATUS_ICON = {"pending": "PENDING", "running": "RUNNING", "ok": "OK",
-               "warn": "WARN", "failed": "FAILED", "cancelled": "CANCELLED",
-               "needs_calibration": "NEEDS-CAL"}
+               "warn": "WARN", "needs_review": "NEEDS-REVIEW",
+               "failed": "FAILED", "cancelled": "CANCELLED"}
 
 
 @dataclass
@@ -41,6 +43,8 @@ class BatchItem:
     diagnostics: dict | None = None
     quality: dict | None = None          # QualityGate.to_dict()
     geometry: dict | None = None         # GeometryRecord.to_dict()
+    base_source: str | None = None
+    candidate: str | None = None
     error: str | None = None
     seconds: float = 0.0
 
@@ -51,6 +55,8 @@ class BatchItem:
             "outputs": self.outputs,
             "parameters": self.parameters,
             "confidence": self.confidence,
+            "base_source": self.base_source,
+            "candidate": self.candidate,
             "warnings": self.warnings,
             "diagnostics": self.diagnostics,
             "quality": self.quality,
@@ -62,15 +68,17 @@ class BatchItem:
 
 class BatchJob:
     def __init__(self, files: list[Path], outdir: Path,
-                 prior: FilmProfile | None = None,
+                 *, prior=None,
                  jpeg_quality: int = 95,
                  export_jpeg: bool = True,
                  export_tiff: bool = True,
-                 dust_auto: bool = False,
                  tiff_encoding: str | None = None,
                  keep_rebate: bool = False,
-                 regions_policy: str = "auto",
-                 calibration=None,
+                 geometry: GeometryRegions | None = None,
+                 render_intent: RenderIntent | None = None,
+                 candidate: str | None = None,
+                 roll_analysis=None,
+                 batch_assumption: dict | None = None,
                  film_type: str = "unknown"):
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
@@ -78,14 +86,14 @@ class BatchJob:
         self.jpeg_quality = jpeg_quality
         self.export_jpeg = export_jpeg
         self.export_tiff = export_tiff
-        self.dust_auto = dust_auto   # §7：自动检测是保守候选，默认关闭
-        # 无 ICC/Gamma 标签 TIFF 的显式传递函数假设（None=拒绝，整改 P0-B）
+        # 无 ICC/Gamma 标签 TIFF 的批次级编码假设（v5 §4.3.3）
         self.tiff_encoding = tiff_encoding
-        # 整改 P0-C：默认裁切到画面区域（排除片边/齿孔/片基）；keep_rebate=True 保留
+        self.batch_assumption = batch_assumption
         self.keep_rebate = keep_rebate
-        # v3 用户裁决：require = 只处理有 verified 手动区域的图，其余 needs_regions
-        self.regions_policy = regions_policy
-        self.calibration = calibration
+        self.geometry = geometry
+        self.render_intent = render_intent
+        self.candidate = candidate
+        self.roll_analysis = roll_analysis
         self.film_type = film_type
         self._cancel = threading.Event()
         self.started_utc = ""
@@ -105,7 +113,6 @@ class BatchJob:
     # ---- 执行
 
     def run(self, on_update=None) -> dict:
-        """顺序处理（单线程；GUI 侧放 QThread）。返回报告 dict。"""
         self.outdir.mkdir(parents=True, exist_ok=True)
         self.started_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         for it in self.items:
@@ -127,7 +134,6 @@ class BatchJob:
             if on_update:
                 on_update(it)
         rep = self.report()
-        # 成功收尾必须写报告（整改 I-5/I-8：GUI 完成标签只能显示真实存在的报告）
         try:
             self.write_report()
         except OSError:
@@ -137,34 +143,30 @@ class BatchJob:
     def _process_one(self, it: BatchItem) -> None:
         src = it.path
         loaded = load_linear_rgb(src, tiff_encoding=self.tiff_encoding)
-        # ---- 统一服务（整改 v2 P0-D：与 GUI/CLI 同一管线，禁止入口自行实现）
         from ..calibration.annotations import load_annotation
-        from .service import process_image
+        from ..io.sidecar import build_sidecar_v4
+
         ann = None
         try:
             ann = load_annotation(src.resolve().relative_to(
                 Path(__file__).resolve().parents[3]).as_posix())
-        except ValueError:
+        except (ValueError, OSError):
             pass
-        if self.regions_policy == "require" and not (
-                ann is not None and ann.verified
-                and ann.frame_roi and ann.base_roi):
-            it.status = "needs_regions"
-            it.error = "无 verified 手动区域（GUI 框选保存后重试；不自动猜）"
-            return
+        fp = capture_fingerprint(loaded.meta, source_path=str(src),
+                                 batch_assumption=self.batch_assumption)
         pr = process_image(
-            loaded.rgb,
-            rotation_degrees=ann.rotation_degrees if ann else 0,
-            ann=ann, keep_rebate=self.keep_rebate,
+            loaded.rgb, geometry=self.geometry, ann=ann,
+            keep_rebate=self.keep_rebate,
             prior=self.prior.to_initial_params() if self.prior else None,
-            dust_auto=self.dust_auto,
-            calibration=self.calibration,
+            roll_analysis=self.roll_analysis,
+            render_intent=self.render_intent, candidate=self.candidate,
+            capture_fingerprint=fp,
             film_type=(self.prior.film_type if self.prior else self.film_type))
         if self.cancelled:
             it.status = "cancelled"
             return
-        # ---- fail 在写文件之前阻断（整改 I-3：不产出任何输出）
-        if pr.gate.status == "fail":
+        # ---- fail 在写文件之前阻断（不产出任何输出）
+        if pr.gate.blocks_export:
             it.status = "failed"
             it.error = "; ".join(pr.gate.failures)
             it.quality = pr.gate.to_dict()
@@ -176,17 +178,17 @@ class BatchJob:
         it.geometry = pr.geometry.to_dict()
         it.quality = pr.gate.to_dict()
         it.warnings = pr.gate.warnings
+        it.base_source = pr.base_source
+        it.candidate = pr.chosen_candidate
 
         from ..color.management import icc_sha256, srgb_icc_bytes
         loaded.meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
-        payload = pr.sidecar(
-            source_sha256=loaded.meta.get("sha256", ""),
+        payload = build_sidecar_v4(
+            pr, source_sha256=loaded.meta.get("sha256", ""),
             source_path=src.as_posix(),
             film_type=(self.prior.film_type if self.prior else "unknown"),
-            profile_id=(self.prior.profile_id if self.prior else "none"),
-            input_meta=loaded.meta)
-        # 事务导出（v3 P0-H staging/回滚 + v4 §2：默认写 rendered，
-        # 中性 RenderIntent 时与技术正片逐像素等价；格式开关 §9.2）
+            input_meta=loaded.meta, fingerprint_fields=fp.fields,
+            batch_assumption=self.batch_assumption)
         from ..io.export import ExportError, export_triplet
         try:
             written = export_triplet(self.outdir, src.stem,
@@ -199,23 +201,12 @@ class BatchJob:
             it.error = str(e)
             return
         it.outputs = [p.as_posix() for p in written]
-        low_conf = any(v < 0.5 for k, v in pr.report.confidence.items()
-                       if k in ("dmin", "dmax"))
-        if pr.gate.status == "needs_calibration":
-            it.status = "needs_calibration"   # v3：可导出但明确非标定状态
-        elif pr.gate.warnings or low_conf:
+        if pr.gate.review_reasons:
+            it.status = "needs_review"      # 允许导出，但必须逐张复核
+        elif pr.gate.warnings:
             it.status = "warn"
         else:
             it.status = "ok"
-
-    @staticmethod
-    def _unique(p: Path) -> Path:
-        i = 1
-        out = p
-        while out.exists():
-            out = p.with_name(f"{p.stem}-{i}{p.suffix}")
-            i += 1
-        return out
 
     # ---- 报告
 
@@ -224,7 +215,7 @@ class BatchJob:
         for it in self.items:
             counts[it.status] = counts.get(it.status, 0) + 1
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "software_version": __version__,
             "started_utc": self.started_utc,
             "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -238,11 +229,11 @@ class BatchJob:
         out = self.outdir / "batch-report.json"
         out.write_text(json.dumps(self.report(), ensure_ascii=False, indent=2),
                        encoding="utf-8")
+        doc = self.report()
         lines = [f"批处理报告  {out}",
                  f"总计 {len(self.items)} 张：",
-                 "  " + "  ".join(f"{STATUS_ICON.get(k,k)}{k}={v}"
-                                  for k, v in sorted(
-                                      self.report()['summary'].items()))]
+                 "  " + "  ".join(f"{STATUS_ICON.get(k, k)}={v}"
+                                  for k, v in sorted(doc["summary"].items()))]
         for it in self.items:
             if it.status == "failed":
                 lines.append(f"  失败 {it.path.name}: {it.error}")

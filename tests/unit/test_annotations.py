@@ -38,8 +38,11 @@ def ann_dir(tmp_path, monkeypatch):
 
 
 def _v2(**kw) -> Annotation:
+    """v5 §3.2：verified 必须给出三类独立区域（片基区可以有多个）。"""
     base = dict(file=REL, roll="1298_G200", rotation_degrees=180,
+                output_crop_roi=(80, 80, 520, 950),
                 image_area_roi=(100, 100, 500, 900),
+                base_sample_rois=[(0, 0, 50, 1000)],
                 base_roi=(0, 0, 50, 1000),
                 source_sha256="a" * 64)
     base.update(kw)
@@ -359,8 +362,10 @@ def test_agent_inspected_is_draft_on_load(ann_dir):
 
 
 def test_user_signed_is_verified_on_load(ann_dir):
-    doc = {"file": REL, "roll": "1298_G200", "schema_version": 2,
-           "image_area_roi": [0, 0, 100, 100], "base_roi": [0, 0, 10, 10],
+    doc = {"file": REL, "roll": "1298_G200", "schema_version": A.SCHEMA_VERSION,
+           "output_crop_roi": [0, 0, 110, 110],
+           "image_area_roi": [0, 0, 100, 100],
+           "base_sample_rois": [[0, 0, 10, 10]],
            "verified": True, "verified_by": "user",
            "verified_date": "2026-09-01"}
     p = ann_path_for(REL)
@@ -370,6 +375,20 @@ def test_user_signed_is_verified_on_load(ann_dir):
     assert got.status == "verified"
     assert got.verified is True
     assert [a.file for a in load_all_verified()] == [REL]
+
+
+def test_legacy_v2_user_signed_downgrades_to_draft(ann_dir):
+    """v5 §3.2：旧 schema 只有单一 frame/base 语义，用途必须重新确认。"""
+    doc = {"file": REL, "roll": "1298_G200", "schema_version": 2,
+           "image_area_roi": [0, 0, 100, 100], "base_roi": [0, 0, 10, 10],
+           "verified": True, "verified_by": "user",
+           "verified_date": "2026-09-01"}
+    p = ann_path_for(REL)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(doc), encoding="utf-8")
+    got = load_annotation(REL)
+    assert got.status == "draft" and got.needs_reconfirm is True
+    assert load_all_verified() == []
 
 
 def test_save_downgrades_agent_inspected_to_draft(ann_dir):
@@ -399,9 +418,10 @@ def test_schema_version_and_sha_persisted(ann_dir):
               exclude_mask_rois=[(0, 0, 20, 20)])
     save_annotation(REL, ann)
     doc = json.loads(ann_path_for(REL).read_text(encoding="utf-8"))
-    assert doc["schema_version"] == A.SCHEMA_VERSION == 2
+    assert doc["schema_version"] == A.SCHEMA_VERSION == 3
     assert doc["source_sha256"] == "a" * 64
-    for k in ("output_crop_roi", "image_area_roi", "base_roi", "neutral_refs",
+    for k in ("output_crop_roi", "image_area_roi", "base_roi",
+              "base_sample_rois", "neutral_refs",
               "exclude_mask_rois", "status", "needs_reconfirm", "verified_by",
               "verified_date"):
         assert k in doc, f"缺字段 {k}"
@@ -409,14 +429,24 @@ def test_schema_version_and_sha_persisted(ann_dir):
     assert got.source_sha256 == "a" * 64
     assert got.neutral_refs == [{"roi": (10, 10, 40, 40), "kind": "bright"}]
     assert got.exclude_mask_rois == [(0, 0, 20, 20)]
+    assert [tuple(r) for r in got.base_sample_rois] == [(0, 0, 50, 1000)]
 
 
 def test_frame_roi_promotes_to_image_area_on_save(ann_dir):
-    """GUI 仍只框一个画面框：保存时必须落成显式 image_area_roi，
-    否则 verified 记录缺 image_area_roi 会被 validate 拒绝。"""
+    """v5 §3.2：旧单一画面框只能迁移为 image_area_roi 草稿。
+
+    试图把缺少输出裁切/片基区的记录写成 verified 必须被拒绝——
+    三类区域是三种独立数据，不允许再用一个矩形冒充。
+    """
     ann = Annotation(file=REL, roll="1298_G200", rotation_degrees=90,
                      frame_roi=(10, 20, 300, 400), base_roi=(0, 0, 50, 500),
                      verified=True, verified_by="user")
+    with pytest.raises(ValueError, match="output_crop_roi"):
+        save_annotation(REL, ann)
+    assert not ann_path_for(REL).exists(), "被拒绝的写入不得落盘"
+    # 补齐三类区域后才能成为用户确认标注
+    ann.output_crop_roi = (10, 20, 300, 400)
+    ann.base_sample_rois = [(0, 0, 50, 500)]
     save_annotation(REL, ann)
     doc = json.loads(ann_path_for(REL).read_text(encoding="utf-8"))
     assert tuple(doc["image_area_roi"]) == (10, 20, 300, 400)
