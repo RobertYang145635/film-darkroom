@@ -170,27 +170,26 @@ class TestCropPageGeometry:
 
         win = MainWindow()
         titles = [win.page_title(i) for i in range(win.page_count())]
-        assert titles == ["裁切", "转换"], f"一级页面必须是裁切/转换：{titles}"
+        assert titles == ['工作区'], f'v6 单工作区：{titles}'
         assert app is not None
 
     def test_main_window_hides_non_p0_technical_controls(self):
-        """v5 §12 P0-6.4：Dmin/Dmax/矩阵/指数/校准/除尘不得出现在主界面。"""
-        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-        from PySide6.QtWidgets import QApplication
+        """v6 重做：技术信息折叠进右栏 TechSection，主视野不出现参数名。"""
+        os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
+        from PySide6.QtWidgets import QApplication, QLabel
 
         QApplication.instance() or QApplication([])
         from negative_lab.ui.main_window import MainWindow
 
         win = MainWindow()
-        from PySide6.QtWidgets import QLabel
-
         banned = re.compile(
-            r"(Dmin|dmin|Dmax|dmax|wb_low|wb_high|reference_exponent|red_ratio|"
-            r"blue_ratio|density_matrix|backend|除尘|画笔|蒙版|卷级校准|配置文件)")
+            r'(Dmin|dmin|Dmax|dmax|wb_low|wb_high|reference_exponent|red_ratio|'
+            r'blue_ratio|density_matrix|backend|除尘|画笔|蒙版|卷级校准|配置文件)')
         visible = [lbl.text() for lbl in win.findChildren(QLabel)
                    if lbl.isVisibleTo(win) and banned.search(lbl.text())]
-        assert not visible, f"主界面仍暴露非 P0 技术参数控件：{visible}"
-
+        assert not visible, f'主界面仍暴露非 P0 技术参数控件：{visible}'
+        # 技术信息节存在且默认折叠
+        assert win.right.sec_tech.btn_head.isChecked() is False
 
 # ------------------------------------------- 3. 输出裁切与分析区真正独立
 class TestRoiIndependence:

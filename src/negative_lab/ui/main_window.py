@@ -37,10 +37,9 @@ from ..pipeline.service import candidate_positive, process_image
 
 _DRAFTS_DIR = Path(__file__).resolve().parents[3] / "outputs" / "drafts"
 from . import icons, theme
-from .convert_panel import ConvertPanel
-from .crop_panel import CropPanel
 from .library_panel import FilmStrip, LibraryPanel
 from .preview_view import PreviewView, RoiKind
+from .right_panel import RightPanel
 from .workers import BusyState as _Busy
 
 MAX_PREVIEW_DIM = 1100          # 交互预览（快）；导出走全分辨率
@@ -103,285 +102,162 @@ class MainWindow(QMainWindow):
                                 theme.SPACING["sm"], 0)
         root.setSpacing(theme.SPACING["sm"])
 
-        # ---- 顶部栏：导入/确认 | 模式分段 | 导出（44px）
+        # ---- 顶部栏 44px：全局动作 | 帧状态摘要
         head = QHBoxLayout()
-        head.setSpacing(theme.SPACING["sm"])
-        self.btn_import = QPushButton("导入文件夹…")
-        self.btn_import_file = QPushButton("导入文件…")
-        self.btn_suggest = QPushButton("按目录建议分组")
-        self.btn_confirm_rois = QPushButton("确认并保存标注")
-        self.btn_confirm_rois.setToolTip("把当前三类区域保存为用户确认标注")
+        head.setSpacing(theme.SPACING['sm'])
+        self.btn_import = QPushButton('导入文件夹…')
+        self.btn_import_file = QPushButton('导入文件…')
+        self.btn_suggest = QPushButton('按目录建议分组')
+        self.btn_export = QPushButton('整卷导出…')
+        self.btn_export.setProperty('accent', True)
         for b in (self.btn_import, self.btn_import_file, self.btn_suggest,
-                  self.btn_confirm_rois):
+                  self.btn_export):
             head.addWidget(b)
+        head.addSpacing(theme.SPACING['md'])
+        self.btn_confirm_rois = QPushButton('确认并保存标注')
+        self.btn_confirm_rois.setToolTip(
+            '把当前三类区域保存为用户签字标注（verified_by=user）')
+        head.addWidget(self.btn_confirm_rois)
         head.addStretch(1)
-        self.btn_mode_crop = QToolButton()
-        self.btn_mode_crop.setText("裁切")
-        self.btn_mode_crop.setCheckable(True)
-        self.btn_mode_crop.setChecked(True)
-        self.btn_mode_crop.setToolTip("模式：三类 ROI 与几何（右栏显示区域工具）")
-        self.btn_mode_convert = QToolButton()
-        self.btn_mode_convert.setText("转换")
-        self.btn_mode_convert.setCheckable(True)
-        self.btn_mode_convert.setToolTip("模式：候选与基础微调（右栏显示调整面板）")
-        for b in (self.btn_mode_crop, self.btn_mode_convert):
-            b.setMinimumHeight(theme.SIZES["primary_target"])
-            head.addWidget(b)
-        self._mode_group = QButtonGroup(self)
-        self._mode_group.setExclusive(True)
-        self._mode_group.addButton(self.btn_mode_crop, 0)
-        self._mode_group.addButton(self.btn_mode_convert, 1)
-        self.btn_export = QPushButton("整卷导出…")
-        self.btn_export.setProperty("accent", True)
-        head.addWidget(self.btn_export)
+        self.btn_hold_orig = QPushButton('按住看原片')
+        self.btn_hold_orig.setProperty('flat', True)
+        self.btn_hold_orig.setToolTip(
+            '按住临时显示原负片（before），松开回到处理后的正片（after）')
+        head.addWidget(self.btn_hold_orig)
         root.addLayout(head)
 
-        # ---- 主体三列：左栏图库 | 中央常驻大图 | 右栏模式检查器
+        # ---- 主体三列：左栏(卷) | 中央正片 | 右栏(节面板)  + 底部胶片条
         from PySide6.QtWidgets import QSplitter
 
         self.library = LibraryPanel()
-        self.library.setMinimumWidth(theme.SIZES["sidebar_w"] - 40)
-        self.library.setMaximumWidth(theme.SIZES["sidebar_w"] + 80)
+        self.library.setMinimumWidth(theme.SIZES['left_w'] - 50)
+        self.library.setMaximumWidth(theme.SIZES['left_w'] + 80)
 
-        # 中央：查看区 + 查看工具条 + 胶片条（垂直堆叠），永不因模式切换消失
         center = QWidget()
         center_lay = QVBoxLayout(center)
         center_lay.setContentsMargins(0, 0, 0, 0)
-        center_lay.setSpacing(theme.SPACING["xs"])
-
+        center_lay.setSpacing(theme.SPACING['xs'])
         self.view = PreviewView()
         self.view.setStyleSheet(
             f"background: {theme.COLORS['viewer']}; border: none;")
         center_lay.addWidget(self.view, 1)
-
-        # 查看工具条（随模式切换显隐，图像本身不动）
-        self.viewbar = QWidget()
-        viewbar_lay = QHBoxLayout(self.viewbar)
-        viewbar_lay.setContentsMargins(0, 0, 0, 0)
-        viewbar_lay.setSpacing(theme.SPACING["xs"])
-        center_lay.addWidget(self.viewbar)
-
-        # 胶片条（Lightroom 标志性导航）
         self.filmstrip = FilmStrip()
         self.filmstrip.frame_selected.connect(self.load_frame)
         center_lay.addWidget(self.filmstrip)
 
-        # 右栏检查器（模式共享容器）
-        self.crop_panel = CropPanel()
-        self.convert_panel = ConvertPanel()
-        self.right_stack = QStackedWidget()
-        self.right_stack.addWidget(self.crop_panel)      # 0 = 裁切
-        self.right_stack.addWidget(self.convert_panel)   # 1 = 转换
-        self.right_stack.setMinimumWidth(theme.SIZES["inspector_w"] - 40)
-        self.right_stack.setMaximumWidth(theme.SIZES["inspector_w"] + 80)
+        self.right = RightPanel()
 
         splitter = QSplitter(Qt.Horizontal)
         splitter.setChildrenCollapsible(False)
         splitter.addWidget(self.library)
         splitter.addWidget(center)
-        splitter.addWidget(self.right_stack)
+        splitter.addWidget(self.right)
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setStretchFactor(2, 0)
         splitter.setHandleWidth(1)
-        splitter.setSizes([theme.SIZES["sidebar_w"], 10000,
-                           theme.SIZES["inspector_w"]])
+        splitter.setSizes([theme.SIZES['left_w'], 10000,
+                           theme.SIZES['right_w']])
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
         body.addWidget(splitter)
         root.addLayout(body, 1)
 
-        # ---- 状态行：当前帧状态 | 轻提示（单行，不重叠）
+        # ---- 状态行 24px
         row = QHBoxLayout()
-        row.setSpacing(theme.SPACING["sm"])
-        self.status = QLabel("就绪：导入包含 RAW / 16 位 TIFF / DNG 的文件夹")
-        self.status.setProperty("caption", True)
+        row.setSpacing(theme.SPACING['sm'])
+        self.status = QLabel('就绪：导入包含 RAW / 16 位 TIFF / DNG 的文件夹')
+        self.status.setProperty('caption', True)
         row.addWidget(self.status, 0)
-        self.lbl_banner = QLabel("")
-        self.lbl_banner.setProperty("caption", True)
+        self.lbl_banner = QLabel('')
+        self.lbl_banner.setProperty('caption', True)
         self.lbl_banner.setVisible(False)
         row.addWidget(self.lbl_banner, 1)
         root.addLayout(row)
-        self._viewer_background = theme.COLORS["viewer"]
+        self._viewer_background = theme.COLORS['viewer']
+        self._orig_held = False
+        self._compare_on = False
 
-        # ---- 信号
+        # ---- 顶部动作
         self.btn_import.clicked.connect(self._pick_folder)
         self.btn_import_file.clicked.connect(self._pick_files)
         self.btn_suggest.clicked.connect(self._suggest_groups)
         self.btn_confirm_rois.clicked.connect(self.save_regions_as_annotation)
-        self.btn_mode_crop.clicked.connect(lambda: self._set_mode(0))
-        self.btn_mode_convert.clicked.connect(lambda: self._set_mode(1))
         self.btn_export.clicked.connect(self.export_roll)
         self.library.frame_selected.connect(self.load_frame)
         self.library.grouping_changed.connect(self._on_grouping_changed)
         self.library.request_split.connect(self._on_split)
-        self.filmstrip.set_frames([])
 
-        cp = self.crop_panel
-        cp.rotate_requested.connect(self._rotate)
-        cp.mirror_requested.connect(self._mirror)
-        cp.auto_crop_requested.connect(self._auto_crop)
-        cp.redetect_requested.connect(self._auto_crop)
-        cp.fit_requested.connect(self.view.fit)
-        cp.zoom100_requested.connect(self.view.zoom_100)
-        cp.sync_requested.connect(self._sync_geometry)
-        cp.reset_kind_requested.connect(self._reset_kind)
-        cp.reset_all_requested.connect(self._reset_all_geometry)
-        cp.delete_active_requested.connect(self._delete_active_roi)
-        cp.draw_mode_requested.connect(self.view.set_draw_mode)
-        # 几何面板的细微旋转/构图模式变化 -> 即时合成
-        cp.geometry_changed.connect(self._compose_view)
+        # ---- 右栏
+        rp = self.right
+        rp.crop_activate.connect(self._set_crop_active)
+        rp.rotate_requested.connect(self._rotate)
+        rp.mirror_requested.connect(self._mirror)
+        rp.auto_crop_requested.connect(self._auto_crop)
+        rp.fine_changed.connect(self._set_fine_rotation)
+        rp.reset_geometry.connect(self._reset_all_geometry)
+        rp.show_base_toggled.connect(
+            lambda on: self.view.set_kind_visible(RoiKind.BASE, on))
+        rp.show_image_area_toggled.connect(
+            lambda on: self.view.set_kind_visible(RoiKind.IMAGE_AREA, on))
+        rp.candidate_chosen.connect(self._choose_candidate)
+        rp.tone_changed.connect(self._intent_changed)
+        rp.tone_committed.connect(self._intent_committed)
+        rp.sync_tone_requested.connect(self._sync_intent)
+        self.btn_hold_orig.pressed.connect(lambda: self._hold_original(True))
+        self.btn_hold_orig.released.connect(lambda: self._hold_original(False))
 
+        # ---- 画布
         self.view.roi_created.connect(self._on_roi_edited)
         self.view.roi_changed.connect(self._on_roi_edited)
         self.view.roi_deleted.connect(self._on_roi_deleted)
-        # 拖动过程中即时反馈：保存草稿（静默）+ 重画遮罩，零管线调用
         self.view.roi_live_changed.connect(self._on_roi_live_changed)
-        self.view.roi_selected.connect(
-            lambda k, i: self.crop_panel.set_active_roi(k, i))
-        self.view.replace_hint.connect(
-            lambda t: self._set_banner(t, "info"))
+        self.view.roi_selected.connect(self._on_roi_selected)
+        self.view.replace_hint.connect(lambda t: self._set_banner(t, 'info'))
         self.view.draw_rejected.connect(
-            lambda t: self._set_banner(t, "warning"))
+            lambda t: self._set_banner(t, 'warning'))
 
-        cv = self.convert_panel
-        cv.candidate_chosen.connect(self._choose_candidate)
-        cv.panel.changed.connect(self._intent_changed)
-        cv.panel.committed.connect(self._intent_committed)
-        cv.panel.sync_requested.connect(self._sync_intent)
-        cv.image_sink(self._show_preview_image)
-        cv.compare_toggled.connect(lambda _on: cv.repaint())
+    # ------------------------------------------------------- 裁切叠加工具
+    def page_count(self) -> int:
+        return 1
 
-        self._build_toolbars()
+    def page_title(self, index: int = 0) -> str:
+        return '工作区'
 
-    # ------------------------------------------------------------- 工具条
-    def _build_toolbars(self):
-        """中央查看区下方的工具条：随模式切换显隐（图像不动）。"""
-        from PySide6.QtWidgets import QFrame
+    def current_page(self) -> int:
+        return 0          # 单工作区：裁切叠加/转换共用同一视图
 
-        t = theme
-        # 裁切工具条
-        self.bar_crop = QWidget()
-        lay = QHBoxLayout(self.bar_crop)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(t.SPACING["xs"])
-        self.btn_crop = self._tool_button(icons.crop(), "绘制：输出裁切")
-        self.btn_area = self._tool_button(icons.target(), "绘制：有效画面")
-        self.btn_base = self._tool_button(icons.plus(), "绘制：片基取样")
-        for b, kind in ((self.btn_crop, RoiKind.OUTPUT_CROP),
-                        (self.btn_area, RoiKind.IMAGE_AREA),
-                        (self.btn_base, RoiKind.BASE)):
-            b.setCheckable(True)
-            b.clicked.connect(lambda _c=False, k=kind: self._toggle_draw(k))
-            lay.addWidget(b)
-        self.btn_del_roi = self._tool_button(icons.trash(), "删除当前选中对象")
-        self.btn_del_roi.clicked.connect(self._delete_active_roi)
-        lay.addWidget(self.btn_del_roi)
-        self._vsep(lay)
-        for sig, icon, tip in ((self.crop_panel.rotate_requested,
-                                icons.rotate_ccw(), "逆时针 90 度"),
-                               (self.crop_panel.rotate_requested,
-                                icons.rotate_cw(), "顺时针 90 度")):
-            pass
-        self.btn_ccw = self._tool_button(icons.rotate_ccw(), "逆时针旋转 90 度")
-        self.btn_ccw.clicked.connect(lambda: self._rotate(-90))
-        self.btn_cw = self._tool_button(icons.rotate_cw(), "顺时针旋转 90 度")
-        self.btn_cw.clicked.connect(lambda: self._rotate(90))
-        self.btn_mirror = self._tool_button(icons.mirror_h(), "水平镜像")
-        self.btn_mirror.clicked.connect(self._mirror)
-        for b in (self.btn_ccw, self.btn_cw, self.btn_mirror):
-            lay.addWidget(b)
-        self._vsep(lay)
-        self.btn_fit = self._tool_button(icons.zoom_fit(), "适合窗口")
-        self.btn_fit.clicked.connect(self.view.fit)
-        self.btn_100 = self._tool_button(icons.zoom_100(), "100% 检查")
-        self.btn_100.clicked.connect(self.view.zoom_100)
-        lay.addWidget(self.btn_fit)
-        lay.addWidget(self.btn_100)
-        self._vsep(lay)
-        self.btn_autocrop = self._tool_button(icons.target(), "重新检测三类区域")
-        self.btn_autocrop.clicked.connect(self._auto_crop)
-        lay.addWidget(self.btn_autocrop)
-        lay.addStretch(1)
+    def _set_crop_active(self, on: bool):
+        """激活/退出裁切叠加（右栏小工具节按钮；Esc/完成退出）。
 
-        # 转换工具条
-        self.bar_convert = QWidget()
-        lay2 = QHBoxLayout(self.bar_convert)
-        lay2.setContentsMargins(0, 0, 0, 0)
-        lay2.setSpacing(t.SPACING["xs"])
-        self.btn_original = self._tool_button(icons.compare(), "按住看原片（负片）")
-        self.btn_original.pressed.connect(lambda: self._hold_original(True))
-        self.btn_original.released.connect(lambda: self._hold_original(False))
-        lay2.addWidget(self.btn_original)
-        self.btn_compare = self._tool_button(icons.compare(), "并排前后对比")
-        self.btn_compare.setCheckable(True)
-        self.btn_compare.toggled.connect(self._toggle_compare)
-        lay2.addWidget(self.btn_compare)
-        self.btn_fit2 = self._tool_button(icons.zoom_fit(), "适合窗口")
-        self.btn_fit2.clicked.connect(self.view.fit)
-        self.btn_1002 = self._tool_button(icons.zoom_100(), "100% 检查")
-        self.btn_1002.clicked.connect(self.view.zoom_100)
-        lay2.addWidget(self.btn_fit2)
-        lay2.addWidget(self.btn_1002)
-        lay2.addStretch(1)
-        lbl_hint = QLabel("自动结果仅为起点，可继续微调")
-        lbl_hint.setProperty("caption", True)
-        lay2.addWidget(lbl_hint)
-
-        self.viewbar.layout().addWidget(self.bar_crop)
-        self.viewbar.layout().addWidget(self.bar_convert)
-        self.bar_convert.setVisible(False)
-
-    def _tool_button(self, icon, tooltip: str) -> QToolButton:
-        b = QToolButton()
-        b.setIcon(icon)
-        b.setToolTip(tooltip)
-        b.setMinimumSize(theme.SIZES["min_target"], theme.SIZES["min_target"])
-        return b
-
-    @staticmethod
-    def _vsep(lay):
-        line = QWidget()
-        line.setFixedWidth(1)
-        line.setStyleSheet(f"background: {theme.COLORS['separator']};")
-        lay.addWidget(line)
+        激活：输出裁切框出现 + 框外压暗（即时遮罩）；输出裁切不存在时
+        自动进入"画新框"状态。退出：恢复整幅正片（框外不再压暗）。
+        """
+        self.right.set_crop_active(on)
+        if on:
+            self.view.set_rois_visible(True)
+            if self.view.roi(RoiKind.OUTPUT_CROP) is None:
+                self._toggle_draw(RoiKind.OUTPUT_CROP)
+            self.view._crop_dim = 0.55
+        else:
+            self.view.set_draw_mode(None)
+            self.view._crop_dim = 0.0
+        self.view._overlay.update()
 
     def _toggle_draw(self, kind: RoiKind):
         self.view.set_draw_mode(
             None if self.view.draw_mode() is kind else kind)
-        self._sync_draw_buttons()
 
-    def _sync_draw_buttons(self):
-        cur = self.view.draw_mode()
-        for b, kind in ((self.btn_crop, RoiKind.OUTPUT_CROP),
-                        (self.btn_area, RoiKind.IMAGE_AREA),
-                        (self.btn_base, RoiKind.BASE)):
-            b.blockSignals(True)
-            b.setChecked(cur is kind)
-            b.blockSignals(False)
-        self.crop_panel.set_draw_mode(cur)
-
-    # ---------------------------------------------------------------- 模式
-    def page_count(self) -> int:
-        return 2
-
-    def page_title(self, index: int) -> str:
-        return ("裁切", "转换")[index] if 0 <= index < 2 else ""
-
-    def current_page(self) -> int:
-        return self.right_stack.currentIndex()
-
-    def _set_mode(self, i: int):
-        self.right_stack.setCurrentIndex(i)
-        (self.btn_mode_crop, self.btn_mode_convert)[i].setChecked(True)
-        self.bar_crop.setVisible(i == 0)
-        self.bar_convert.setVisible(i == 1)
-        # ROI 叠加层只在裁切模式显示（转换图上叠裁切框没有意义）
-        self.view.set_rois_visible(i == 0)
+    def _set_fine_rotation(self, deg: float):
+        if self.current is None:
+            return
+        self.current.geometry.fine_rotation_degrees = float(deg)
+        self._update_draft_from_view()
         self._compose_view(fit=True)
 
     def _hold_original(self, on: bool):
         """按住看原片（负片）；松开回到合成正片。"""
+        self._orig_held = bool(on)
         if self._small is None:
             return
         if on:
@@ -389,22 +265,6 @@ class MainWindow(QMainWindow):
         else:
             self._compose_view()
 
-    def _toggle_compare(self, on: bool):
-        self.convert_panel.btn_compare.blockSignals(True)
-        self.convert_panel.btn_compare.setChecked(on)
-        self.convert_panel.btn_compare.blockSignals(False)
-        self._compose_view(fit=on)
-
-    def _show_preview_image(self, arr01):
-        """转换面板的显示回调：中央常驻 viewer 直接显示渲染结果。
-
-        裁切模式下 viewer 显示原负片+ROI；转换模式显示渲染正片。
-        同一个 QGraphicsView，切换的是内容而不是控件（Lightroom 语义）。
-        """
-        self.view.set_image(arr01)
-        self.view.fit()
-
-    # ---------------------------------------------------------------- 导入
     def _pick_folder(self):
         d = QFileDialog.getExistingDirectory(self, "导入包含负片的文件夹")
         if d:
@@ -583,6 +443,9 @@ class MainWindow(QMainWindow):
             self._save_draft_annotation(rec, quiet=True)
         self._draft_touched = rec.geometry.is_complete()
         self._sync_filmstrip(rec)
+        # 先把草稿 ROI 放上画布（_show_frame），再合成显示（_compose_view）
+        # ——顺序反了或缺了都会让"框消失"（2026-09-02 实测教训）
+        self._show_frame()
         # Lightroom 语义：进来看到的就是**处理后的正片**（原负片用
         # "按住看原片"查看），不是负片+框
         self._compose_view(fit=True)
@@ -773,7 +636,7 @@ class MainWindow(QMainWindow):
         small = self._small
         fp = self._fingerprint
         roll = self.roll_analysis
-        keep = self.crop_panel.keep_rebate()
+        keep = self.right.keep_rebate()
         intent_snapshot = self._intent.copy()
         cand_snapshot = self._candidate
 
@@ -848,13 +711,13 @@ class MainWindow(QMainWindow):
         rec = self.current
         if rec is None or self._small is None or self._positive_full is None:
             return
-        if self.btn_original.isDown() or self.convert_panel.btn_original.isDown():
+        if self._orig_held or self.btn_hold_orig.isDown():
             self.view.set_image(self._small)
             if fit:
                 self.view.fit()
             return
         rendered = self._rendered_full()
-        if self.convert_panel.btn_compare.isChecked() and \
+        if False and \
                 self.current_page() == 1:
             # 并排对比：左半原负片、右半渲染正片（同一构图）
             neg = np.clip(self._small, 0, None)
@@ -920,8 +783,8 @@ class MainWindow(QMainWindow):
         put(RoiKind.IMAGE_AREA, rss.image_area_roi)
         put(RoiKind.BASE, rss.base_sample_rois, multiple=True)
         view.set_draw_mode(draw_kind)
-        self.crop_panel.set_fine_rotation(rec.geometry.fine_rotation_degrees)
-        self.crop_panel.set_keep_rebate(self.crop_panel.keep_rebate())
+        self.right.set_fine_rotation(rec.geometry.fine_rotation_degrees)
+        self.right.set_keep_rebate(self.right.keep_rebate())
         self._set_status(_frame_status_text(rec, self.pr))
 
     # ------------------------------------------------------- 编辑事件
@@ -932,18 +795,21 @@ class MainWindow(QMainWindow):
           （转换模式重推渲染图；裁切模式靠框外压暗遮罩），**不重跑管线**；
         - 片基取样区：影响 Dmin 技术底座 -> 后台重跑管线（唯一慢路径）。
         """
-        self._update_draft_from_view()
+        self._update_draft_from_view(rerun=(kind is RoiKind.BASE))
         if kind is RoiKind.BASE:
             self._set_banner("片基取样已更新：正在按新片基重新计算去色罩…",
                              "info")
         else:
             self._compose_view()
-        self.crop_panel.roi_edited.emit(kind, index)
+        # roi_edited 对外信号已无订阅者（快/慢路径在 MainWindow 内闭环）
 
     def _on_roi_live_changed(self):
         """拖动中（~30fps）：草稿静默更新 + 遮罩即时跟随，零管线调用。"""
         self._update_draft_from_view_silent()
         self.view._overlay.update()
+
+    def _on_roi_selected(self, kind, index=0):
+        self.right.sec_crop.set_active(True)
 
     def _on_roi_deleted(self, kind, index=0):
         label = KIND_LABELS.get(kind, str(kind))
@@ -954,7 +820,8 @@ class MainWindow(QMainWindow):
         else:
             self._set_banner(f"已删除{label} {index + 1}", "info")
 
-    def _update_draft_from_view(self):
+    def _update_draft_from_view(self, *, rerun: bool = False):
+        """草稿 <- 画布。rerun=True 才重跑管线（只有片基变化需要）。"""
         rec = self.current
         if rec is None or self.t_source is None:
             return
@@ -964,7 +831,8 @@ class MainWindow(QMainWindow):
             rec.status = FrameStatus.NEEDS_CROP_REVIEW.value
         self._save_draft_annotation(rec, quiet=True)
         self._set_status(_frame_status_text(rec, self.pr))
-        self._refresh_preview()
+        if rerun:
+            self._refresh_preview()
 
     def _save_draft_annotation(self, rec: FrameRecord, *, quiet: bool = False):
         """编辑后把草稿写入 **outputs/drafts/**（绝不写真实标注目录）。
@@ -1089,11 +957,11 @@ class MainWindow(QMainWindow):
     def _set_banner(self, text: str, level: str = "info"):
         """底部状态行右侧的轻量 inline 提示（§5.6.7），非模态、单行。"""
         self._banner_text = text if level != "info" else ""
-        color = {"info": theme.COLORS["text_secondary"],
+        color = {"info": theme.COLORS["text_dim"],
                  "warning": theme.COLORS["warning"],
                  "danger": theme.COLORS["danger"],
                  "success": theme.COLORS["success"]}.get(level,
-                                                         theme.COLORS["text_secondary"])
+                                                         theme.COLORS["text_dim"])
         self.lbl_banner.setText(text)
         self.lbl_banner.setStyleSheet(f"color: {color};")
         self.lbl_banner.setVisible(bool(text))
@@ -1180,7 +1048,7 @@ class MainWindow(QMainWindow):
     def _refresh_convert_view(self, *, push: bool = False):
         """候选/意图变化后的缓存同步；图像显示统一走 _compose_view。"""
         if self.pr is not None and self.pr.candidates is not None:
-            self.convert_panel.set_candidates(self.pr.candidates, self._candidate)
+            self.right.set_candidates(self.pr.candidates, self._candidate)
 
     # ------------------------------------------------------- 保存区域
     def save_regions_as_annotation(self):

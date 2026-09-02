@@ -97,6 +97,7 @@ class PreviewView(QGraphicsView):
         self._scene.addItem(self._overlay)
         self._rois: dict[RoiKind, list[QRectF]] = {k: [] for k in RoiKind}
         self._rois_visible = True
+        self._kind_visible: dict[RoiKind, bool] = {}
         self._crop_dim = 0.55          # 裁切框外压暗（Lightroom 式即时遮罩）
         self._active: tuple[RoiKind, int] | None = None
         self._draw_kind: RoiKind | None = None
@@ -364,8 +365,8 @@ class PreviewView(QGraphicsView):
             img = QImage(rgba.data, w, h, 4 * w, QImage.Format_RGBA8888).copy()
             painter.drawPixmap(0, 0, QPixmap.fromImage(img))
         for kind in self.roi_kind_order():
-            if not self._rois_visible:
-                break
+            if not self._rois_visible or not self.kind_visible(kind):
+                continue
             style = ROI_STYLE[kind]
             for idx, r in enumerate(self.rois(kind)):
                 active = self._active == (kind, idx)
@@ -423,9 +424,17 @@ class PreviewView(QGraphicsView):
         self._overlay.update()
 
     def set_rois_visible(self, on: bool):
-        """转换模式隐藏 ROI 叠加层（渲染图上不显示裁切框）。"""
+        """全部 ROI 叠加显隐。"""
         self._rois_visible = bool(on)
         self._overlay.update()
+
+    def set_kind_visible(self, kind: "RoiKind", on: bool):
+        """按类型显隐（右栏"显示片基取样区/有效画面区"勾选）。"""
+        self._kind_visible[kind] = bool(on)
+        self._overlay.update()
+
+    def kind_visible(self, kind: "RoiKind") -> bool:
+        return self._kind_visible.get(kind, True)
 
     def rois_visible(self) -> bool:
         return self._rois_visible
