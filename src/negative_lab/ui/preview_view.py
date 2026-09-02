@@ -94,6 +94,7 @@ class PreviewView(QGraphicsView):
         self._overlay = _OverlayItem(self)
         self._scene.addItem(self._overlay)
         self._rois: dict[RoiKind, list[QRectF]] = {k: [] for k in RoiKind}
+        self._rois_visible = True
         self._active: tuple[RoiKind, int] | None = None
         self._draw_kind: RoiKind | None = None
         self._draw_origin: QPointF | None = None
@@ -344,6 +345,8 @@ class PreviewView(QGraphicsView):
             img = QImage(rgba.data, w, h, 4 * w, QImage.Format_RGBA8888).copy()
             painter.drawPixmap(0, 0, QPixmap.fromImage(img))
         for kind in self.roi_kind_order():
+            if not self._rois_visible:
+                break
             style = ROI_STYLE[kind]
             for idx, r in enumerate(self.rois(kind)):
                 active = self._active == (kind, idx)
@@ -399,6 +402,14 @@ class PreviewView(QGraphicsView):
             self._pick_mode = None
         self.viewport().setCursor(Qt.CrossCursor if kind else Qt.ArrowCursor)
         self._overlay.update()
+
+    def set_rois_visible(self, on: bool):
+        """转换模式隐藏 ROI 叠加层（渲染图上不显示裁切框）。"""
+        self._rois_visible = bool(on)
+        self._overlay.update()
+
+    def rois_visible(self) -> bool:
+        return self._rois_visible
 
     def draw_mode(self) -> RoiKind | None:
         return self._draw_kind

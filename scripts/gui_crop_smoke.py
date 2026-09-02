@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -33,6 +34,20 @@ from negative_lab.ui.preview_view import RoiKind  # noqa: E402
 
 EVIDENCE = ROOT / "outputs" / "v6_ui"
 DEFAULT_FOLDER = ROOT / "20260709_SAMPLE-ID(1)" / "1298_G200" / "翻拍"
+
+
+def _wait_idle(app, win, timeout=180):
+    import time as _t
+
+    t0 = _t.time()
+    while _t.time() - t0 < timeout:
+        app.processEvents()
+        if not win._busy._locks and threading.active_count() <= 2:
+            _t.sleep(0.3)
+            app.processEvents()
+            return True
+        _t.sleep(0.05)
+    return False
 
 
 def _drag(view, p0, p1):
@@ -70,14 +85,17 @@ def main() -> int:
     win = MainWindow()
     win.show()
     win.load_folder(folder)
+    _wait_idle(app, win)
+    assert win.session is not None, "导入未完成"
     paths = [f.source_path for f in win.session.files[:1]]
     assert paths, "导入后没有可用文件"
     win.session.create_roll("冒烟卷", paths)
     win.library.set_session(win.session)
     win.library.select_roll(win.session.roll_groups[-1].id)
     win.load_frame(paths[0])
+    _wait_idle(app, win)
     assert win.pr is not None, "预览服务未产出结果"
-    view = win.crop_page.view
+    view = win.view
 
     # ---- 用户直接拖出三类 ROI（不是自动检测，不是默认矩形）
     # 冒烟要验证"从空白画布创建"：断开预览重种（自动检测会在编辑后重新
@@ -86,7 +104,7 @@ def main() -> int:
     win._reset_all_geometry()
     _prev = win._refresh_preview
     win._refresh_preview = lambda *a, **k: None
-    win.crop_page.clear_banner()
+    win.clear_banner()
     view.set_draw_mode(RoiKind.OUTPUT_CROP)
     _drag(view, (0.05, 0.06), (0.95, 0.55))
     view.set_draw_mode(RoiKind.IMAGE_AREA)
@@ -108,7 +126,7 @@ def main() -> int:
     # ---- 保存为用户确认标注 + 重开校验一致
     win.save_regions_as_annotation()
     assert "已保存为用户确认标注" in win._banner_text or \
-        "确认标注" in win.crop_page.banner.text(), win._banner_text
+        "确认标注" in win._banner_text, win._banner_text
     from negative_lab.calibration.annotations import load_annotation
     ann = load_annotation(rec.source_path)
     assert ann is not None and ann.is_user_verified()
@@ -123,6 +141,7 @@ def main() -> int:
 
     # 重开：重新加载同一帧，三类 ROI 恢复
     win.load_frame(rec.source_path)
+    _wait_idle(app, win)
     reopened = {
         "output_crop_roi": _to_source(win.current.geometry.output_crop_roi),
         "image_area_roi": _to_source(win.current.geometry.image_area_roi),
@@ -154,7 +173,7 @@ def main() -> int:
         "reopened_geometry": reopened,
         "max_roundtrip_drift_px": drift,
         "screenshots": shots,
-        "banner": win.crop_page.banner.text(),
+        "banner": win._banner_text,
         "note": "本冒烟只验裁切页与 ROI 标定；不执行整卷颜色导出（v6 §10.1）",
     }
     (EVIDENCE / "ui_interaction.json").write_text(

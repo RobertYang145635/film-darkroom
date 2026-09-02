@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
 
 from ..library.models import FrameStatus
 
-THUMB = 128
+THUMB = 128           # 胶片条用
+LIST_THUMB = 44       # 左栏单列列表用（240px 栏宽下可读）
+STRIP_THUMB = 72
 
 
 class _ThumbSignals(QObject):
@@ -277,23 +279,29 @@ class LibraryPanel(QWidget):
 
 
 class _IconGrid(QListWidget):
-    """缩略图网格（多选 + 双击选中；信息在缩略图本身，不做大卡片）。"""
+    """当前卷的帧列表（Lightroom 左栏式：单列紧凑行，缩略图+文件名）。
+
+    240px 宽的栏里放 128px IconMode 网格会挤成一坨（2026-09-02 用户实测），
+    因此改用 ListMode 单列 + 48px 缩略图 + 单行省略文件名。
+    """
 
     frame_activated = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setViewMode(QListWidget.IconMode)
-        self.setIconSize(QSize(THUMB, THUMB))
+        self.setViewMode(QListWidget.ListMode)
+        self.setIconSize(QSize(LIST_THUMB, LIST_THUMB))
         self.setResizeMode(QListWidget.Adjust)
         self.setMovement(QListView.Static)
         self.setSelectionMode(QListWidget.ExtendedSelection)
-        self.setSpacing(4)
-        self.setWordWrap(False)              # 文件名单行省略（§5.6.3）
-        self.setTextElideMode(Qt.ElideRight)
+        self.setSpacing(1)
+        self.setWordWrap(False)
+        self.setTextElideMode(Qt.ElideMiddle)
         self.setUniformItemSizes(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.itemDoubleClicked.connect(
+            lambda it: self.frame_activated.emit(it.data(Qt.UserRole)))
+        self.itemClicked.connect(
             lambda it: self.frame_activated.emit(it.data(Qt.UserRole)))
         self.itemSelectionChanged.connect(self._on_sel)
 
@@ -307,3 +315,45 @@ class _IconGrid(QListWidget):
         items = self.selectedItems()
         if len(items) == 1:
             self.frame_activated.emit(items[0].data(Qt.UserRole))
+
+
+class FilmStrip(QListWidget):
+    """底部胶片条（Lightroom 标志性）：当前卷全部帧横向缩略图。
+
+    点选即切换当前帧；缩略图与左栏同源（MainWindow 提供缓存）。
+    """
+
+    frame_selected = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setViewMode(QListWidget.IconMode)
+        self.setIconSize(QSize(72, 72))
+        self.setFlow(QListView.LeftToRight)
+        self.setWrapping(False)
+        self.setResizeMode(QListWidget.Adjust)
+        self.setMovement(QListView.Static)
+        self.setSelectionMode(QListWidget.SingleSelection)
+        self.setSpacing(4)
+        self.setFixedHeight(104)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.itemClicked.connect(
+            lambda it: self.frame_selected.emit(it.data(Qt.UserRole)))
+
+    def set_frames(self, frames: list, pixmap_of=None):
+        """frames: FrameRecord 列表；pixmap_of(rec) -> QPixmap|None（可缺）。"""
+        self.clear()
+        for f in frames:
+            pm = pixmap_of(f) if pixmap_of else None
+            icon = QIcon(pm) if pm is not None else QIcon()
+            it = QListWidgetItem(icon, Path(f.source_path).stem)
+            it.setData(Qt.UserRole, f.source_path)
+            it.setToolTip(f"{f.source_path}\n状态：{f.status}")
+            self.addItem(it)
+
+    def select(self, path: str):
+        for i in range(self.count()):
+            if self.item(i).data(Qt.UserRole) == path:
+                self.setCurrentRow(i)
+                return

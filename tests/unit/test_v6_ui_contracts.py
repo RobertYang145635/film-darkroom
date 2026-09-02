@@ -293,14 +293,13 @@ class TestServiceFailureTolerance:
         def boom(*a, **k):
             raise RuntimeError("模拟服务崩溃")
         monkeypatch.setattr(mw, "process_image", boom)
-        view = win.crop_page.view
+        view = win.view
         view.set_draw_mode(RoiKind.IMAGE_AREA)
         _drag(view, (30, 30), (200, 160))       # 不得抛异常
         assert rec.geometry.image_area_roi is not None, \
             "服务崩溃后用户草稿必须仍然更新"
         assert rec.status in ("needs_crop_review", "imported"), rec.status
         # 预览刷新在后台线程，banner 由回调发出：等线程结束再断言
-        import time
         deadline = time.time() + 5
         while time.time() < deadline and threading.active_count() > 1:
             QApplication.processEvents()
