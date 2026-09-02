@@ -92,6 +92,7 @@ class MainWindow(QMainWindow):
         self._busy = _Busy()
         self._preview_pending = False
         self._frame_data: dict | None = None
+        self._positive_full: np.ndarray | None = None
 
         self.setStyleSheet(theme.qss())
         central = QWidget()
@@ -229,7 +230,7 @@ class MainWindow(QMainWindow):
         cp.delete_active_requested.connect(self._delete_active_roi)
         cp.draw_mode_requested.connect(self.view.set_draw_mode)
         # 几何面板的细微旋转/构图模式变化 -> 即时合成
-        cp.geometry_changed.connect(self._live_crop_composite)
+        cp.geometry_changed.connect(self._compose_view)
 
         self.view.roi_created.connect(self._on_roi_edited)
         self.view.roi_changed.connect(self._on_roi_edited)
@@ -308,19 +309,13 @@ class MainWindow(QMainWindow):
         lay2 = QHBoxLayout(self.bar_convert)
         lay2.setContentsMargins(0, 0, 0, 0)
         lay2.setSpacing(t.SPACING["xs"])
-        self.btn_original = self._tool_button(icons.compare(), "按住看原片")
-        self.btn_original.setCheckable(True)
-        self.btn_original.pressed.connect(
-            lambda: self.convert_panel._show_original(True))
-        self.btn_original.released.connect(
-            lambda: self.convert_panel._show_original(False))
+        self.btn_original = self._tool_button(icons.compare(), "按住看原片（负片）")
+        self.btn_original.pressed.connect(lambda: self._hold_original(True))
+        self.btn_original.released.connect(lambda: self._hold_original(False))
         lay2.addWidget(self.btn_original)
         self.btn_compare = self._tool_button(icons.compare(), "并排前后对比")
         self.btn_compare.setCheckable(True)
-        self.btn_compare.toggled.connect(
-            lambda on: self.convert_panel.btn_compare.setChecked(on))
-        self.convert_panel.btn_compare.toggled.connect(
-            lambda on: self.btn_compare.setChecked(on))
+        self.btn_compare.toggled.connect(self._toggle_compare)
         lay2.addWidget(self.btn_compare)
         self.btn_fit2 = self._tool_button(icons.zoom_fit(), "适合窗口")
         self.btn_fit2.clicked.connect(self.view.fit)
@@ -383,13 +378,22 @@ class MainWindow(QMainWindow):
         self.bar_convert.setVisible(i == 1)
         # ROI 叠加层只在裁切模式显示（转换图上叠裁切框没有意义）
         self.view.set_rois_visible(i == 0)
-        if i == 1:
-            # 转换模式：中央 viewer 显示渲染正片（push=True 才推图）
-            self._refresh_convert_view(push=True)
+        self._compose_view(fit=True)
+
+    def _hold_original(self, on: bool):
+        """按住看原片（负片）；松开回到合成正片。"""
+        if self._small is None:
+            return
+        if on:
+            self.view.set_image(self._small)
         else:
-            # 裁切模式：恢复原负片 + 草稿 ROI（Lightroom 语义：同一大图，
-            # 切换的是内容与右栏，不是页面）
-            self._show_frame()
+            self._compose_view()
+
+    def _toggle_compare(self, on: bool):
+        self.convert_panel.btn_compare.blockSignals(True)
+        self.convert_panel.btn_compare.setChecked(on)
+        self.convert_panel.btn_compare.blockSignals(False)
+        self._compose_view(fit=on)
 
     def _show_preview_image(self, arr01):
         """转换面板的显示回调：中央常驻 viewer 直接显示渲染结果。
@@ -525,14 +529,15 @@ class MainWindow(QMainWindow):
         # 归一化映射钳制出荒谬 ROI（实测：60px 横带被当 image_area，
         # 预览被裁成一条线）。不完整时交给 service 自动检测再种回草稿。
         seed_geo = rec.geometry if rec.geometry.is_complete() else None
+        # keep_rebate=True：技术正片按**整幅**计算并缓存——用户的裁切/
+        # 微调之后都是缓存上的即时合成（毫秒级），只有片基变化才重跑
         pr = process_image(
             small,
             geometry=(_geometry_for_job(None, small, loaded.rgb, seed_geo)
                       if seed_geo is not None else None),
             ann=None, roll_analysis=roll,
             render_intent=self._intent, candidate=self._candidate,
-            keep_rebate=self.crop_panel.keep_rebate(),
-            capture_fingerprint=fp, film_type="unknown")
+            keep_rebate=True, capture_fingerprint=fp, film_type="unknown")
         return {"rec": rec, "rgb": loaded.rgb, "meta": loaded.meta,
                 "fingerprint": fp, "annotation": ann, "roll": roll,
                 "preview": pr, "small": small, "scale": k}
@@ -560,6 +565,8 @@ class MainWindow(QMainWindow):
         if self._ann is not None and not rec.geometry.is_complete():
             rec.geometry = _geometry_from_annotation(self._ann)
         self.pr = d["preview"]
+        # 缓存整幅技术正片：裁切/微调的即时合成数据源
+        self._positive_full = self.pr.result.positive_linear
         if not rec.geometry.is_complete() and self.pr is not None:
             # 自动种子只作初始草稿；service 在 small 副本上检测，必须换算
             # 回 SOURCE 全分辨率（与 _refresh_preview 同一规则）
@@ -575,7 +582,10 @@ class MainWindow(QMainWindow):
                 base_sample_rois=src_geo.get("base_sample_rois") or [])
             self._save_draft_annotation(rec, quiet=True)
         self._draft_touched = rec.geometry.is_complete()
-        self._show_frame()
+        self._sync_filmstrip(rec)
+        # Lightroom 语义：进来看到的就是**处理后的正片**（原负片用
+        # "按住看原片"查看），不是负片+框
+        self._compose_view(fit=True)
         sh, sw = self.t_source.shape[:2]
         self._set_banner(f"{Path(rec.source_path).name} | {sw}x{sh} | "
                          f"片基来源 {self.pr.base_source}", "info")
@@ -660,15 +670,38 @@ class MainWindow(QMainWindow):
 
     # --------------------------------------------------- 草稿 <-> 预览
     def _prepare_frame_views(self):
-        """（同步路径，测试用）工作副本缓存 + 预览服务 + 草稿上屏。"""
+        """（同步路径，测试/兜底用）：管线同步跑一次，状态与图一次到位。"""
         rec = self.current
         k = max(1, int(np.ceil(max(self.t_source.shape[:2]) / MAX_PREVIEW_DIM)))
         self._small = self.t_source[::k, ::k, :].copy()
         self._small_scale = k
-        self._pscale = k
         self._draft_touched = rec.geometry.is_complete()
-        self._refresh_preview(seed_if_untouched=not self._draft_touched)
+        geo_snapshot = rec.geometry
+        seed = not self._draft_touched
+        self.pr = process_image(
+            self._small,
+            geometry=(_geometry_for_job(None, self._small, self.t_source,
+                                        geo_snapshot)
+                      if rec.geometry.is_complete() else None),
+            ann=None, roll_analysis=self.roll_analysis,
+            render_intent=self._intent, candidate=self._candidate,
+            keep_rebate=True, capture_fingerprint=self._fingerprint,
+            film_type="unknown")
+        self._positive_full = self.pr.result.positive_linear
+        if seed:
+            src_geo = _unscale_geometry(self.pr.geometry.roi_source_space,
+                                        self.t_source.shape[:2],
+                                        self._small.shape[:2])
+            rec.geometry = GeometryRegions(
+                rotation_degrees=rec.geometry.rotation_degrees,
+                fine_rotation_degrees=rec.geometry.fine_rotation_degrees,
+                mirror_horizontal=rec.geometry.mirror_horizontal,
+                output_crop_roi=src_geo.get("output_crop_roi"),
+                image_area_roi=src_geo.get("image_area_roi"),
+                base_sample_rois=src_geo.get("base_sample_rois") or [])
+            self._save_draft_annotation(rec, quiet=True)
         self._show_frame()
+        self._compose_view(fit=True)
 
     def _geometry_for_service(self) -> GeometryRegions:
         """把视图（ORIENTED 预览坐标）的三类 ROI 换算回 SOURCE 草稿。"""
@@ -677,7 +710,7 @@ class MainWindow(QMainWindow):
                              rec.geometry.rotation_degrees,
                              rec.geometry.mirror_horizontal,
                              rec.geometry.fine_rotation_degrees)
-        s = self._pscale
+        s = self._small_scale
         h, w = tr.oriented_size
 
         def to_src(rect):
@@ -722,10 +755,11 @@ class MainWindow(QMainWindow):
         """管线刷新：只处理**影响技术底座**的变化。
 
         v6 交互模型（对齐 Lightroom，用户 2026-09-02 指示）：
-        - 裁切/微调 = 输出裁切与 RenderIntent 属于渲染层，**即时合成**
-          （_update_draft_from_view 里零计算完成），不进本函数；
-        - 只有片基取样区/输出构图模式（影响 Dmin 与统计）才重跑管线；
-        - 后台线程执行，主线程零阻塞；结果就绪后按当前模式正确上屏。
+        - 每帧只算一次**整幅**技术正片并缓存（keep_rebate=True）；
+        - 裁切/微调 = 缓存正片上的即时合成（_compose_view，毫秒级），
+          不进本函数；
+        - 只有片基取样区变化（影响 Dmin）才重跑管线；
+        - 后台线程执行，主线程零阻塞。
         """
         rec = self.current
         if rec is None or self._small is None:
@@ -750,7 +784,8 @@ class MainWindow(QMainWindow):
                                            geo_snapshot),
                 ann=None, roll_analysis=roll,
                 render_intent=intent_snapshot, candidate=cand_snapshot,
-                keep_rebate=keep, capture_fingerprint=fp, film_type="unknown")
+                keep_rebate=True,          # 整幅技术正片（裁切走即时合成）
+                capture_fingerprint=fp, film_type="unknown")
 
         def done(result: dict):
             self._busy_leave("preview")
@@ -785,12 +820,9 @@ class MainWindow(QMainWindow):
                         base_sample_rois=src_geo.get("base_sample_rois") or [])
                     self._save_draft_annotation(rec, quiet=True)
                 self._set_status(_frame_status_text(rec, pr))
-                # 按当前模式正确上屏：转换模式重推渲染图（这才是"去色罩
-                # 同步"的关键）；裁切模式保持原负片+ROI 不被打断
-                if self.current_page() == 1:
-                    self._refresh_convert_view(push=True)
-                else:
-                    self._refresh_convert_view(push=False)
+                # 技术底座已更新：刷新缓存正片并按当前模式即时合成
+                self._positive_full = pr.result.positive_linear
+                self._compose_view(fit=True)
             if getattr(self, "_preview_pending", False):
                 self._preview_pending = False
                 self._refresh_preview()
@@ -798,20 +830,54 @@ class MainWindow(QMainWindow):
         from .workers import run_in_thread
         run_in_thread(job, on_done=done)
 
-    # ------------------------------------------------ 即时合成（零计算）
-    def _live_crop_composite(self):
-        """裁切变化的即时反馈：正片缓存上按当前构图合成 + 框外压暗。
+    # ------------------------------------------------ 即时合成（零管线）
+    def _rendered_full(self) -> np.ndarray:
+        """缓存整幅技术正片 + 当前 RenderIntent -> 显示用渲染图（ms 级）。"""
+        from ..pipeline.render import apply_render
 
-        Lightroom 语义：拖动裁切时画面**立即**是"框内=成品、框外=压暗"，
-        零管线调用（毫秒级）。技术底座不变，无需重算。
+        return apply_render(self._positive_full, self._intent)
+
+    def _compose_view(self, *, fit: bool = False):
+        """把当前状态合成到中央常驻 viewer（毫秒级，零管线调用）。
+
+        - 裁切模式：显示**整幅渲染正片**，输出裁切框外由遮罩压暗
+          （Lightroom 式"框内=成品"），三类 ROI 手柄可继续调；
+        - 转换模式：只显示输出裁切内的渲染正片（构图即所见）；
+        - "按住看原片"：显示原负片。
         """
         rec = self.current
-        if rec is None or self.pr is None or self._small is None:
+        if rec is None or self._small is None or self._positive_full is None:
             return
-        self._update_draft_from_view_silent()
-        # 框外压暗即时可见（overlay 已画）；若在转换模式，立即重推渲染图
-        if self.current_page() == 1:
-            self._refresh_convert_view(push=True)
+        if self.btn_original.isDown() or self.convert_panel.btn_original.isDown():
+            self.view.set_image(self._small)
+            if fit:
+                self.view.fit()
+            return
+        rendered = self._rendered_full()
+        if self.convert_panel.btn_compare.isChecked() and \
+                self.current_page() == 1:
+            # 并排对比：左半原负片、右半渲染正片（同一构图）
+            neg = np.clip(self._small, 0, None)
+            neg = neg / max(float(neg.max()), 1e-6)
+            split = rendered.shape[1] // 2
+            rendered = neg.copy()
+            rendered[:, :split] = self._rendered_full()[:, :split]
+        tr = OrientTransform(self.t_source.shape[:2],
+                             rec.geometry.rotation_degrees,
+                             rec.geometry.mirror_horizontal,
+                             rec.geometry.fine_rotation_degrees)
+        s = self._small_scale
+        out = rec.geometry.output_crop_roi
+        if out is not None and self.current_page() == 1:
+            o = tr.bbox_source_to_oriented(tuple(out))
+            x0, y0 = max(0, int(round(o[1] / s))), max(0, int(round(o[0] / s)))
+            x1 = min(self._positive_full.shape[1], int(round(o[3] / s)))
+            y1 = min(self._positive_full.shape[0], int(round(o[2] / s)))
+            if x1 - x0 > 8 and y1 - y0 > 8:
+                rendered = rendered[y0:y1, x0:x1]
+        self.view.set_image(rendered)
+        if fit:
+            self.view.fit()
 
     def _update_draft_from_view_silent(self):
         rec = self.current
@@ -822,21 +888,22 @@ class MainWindow(QMainWindow):
         self._save_draft_annotation(rec, quiet=True)
 
     def _show_frame(self):
-        """把**用户草稿**上屏（service 结果只用于图像与诊断）。"""
+        """把草稿 ROI 上屏（正片显示由 _compose_view 负责）。"""
         if self.current is None or self._small is None:
             return
         rec = self.current
         self._sync_filmstrip(rec)
-        self._pscale = self._small_scale
+        s = self._small_scale
         tr = OrientTransform(self.t_source.shape[:2],
                              rec.geometry.rotation_degrees,
                              rec.geometry.mirror_horizontal,
                              rec.geometry.fine_rotation_degrees)
-        s = self._pscale
         view = self.view
         draw_kind = view.draw_mode()
-        view.clear_rois()
+        # 必须先把图像放进场景（场景尺寸就绪），再放 ROI——
+        # 顺序反了会让 add_roi 在 1x1 场景里钳制出负坐标框（实测教训）
         view.set_image(self._small)
+        view.clear_rois()
 
         def put(kind, roi_src, multiple=False):
             if not roi_src:
@@ -853,11 +920,9 @@ class MainWindow(QMainWindow):
         put(RoiKind.IMAGE_AREA, rss.image_area_roi)
         put(RoiKind.BASE, rss.base_sample_rois, multiple=True)
         view.set_draw_mode(draw_kind)
-        view.fit()
         self.crop_panel.set_fine_rotation(rec.geometry.fine_rotation_degrees)
         self.crop_panel.set_keep_rebate(self.crop_panel.keep_rebate())
         self._set_status(_frame_status_text(rec, self.pr))
-        self._refresh_convert_view()
 
     # ------------------------------------------------------- 编辑事件
     def _on_roi_edited(self, kind, index=0, _rect=None):
@@ -872,7 +937,7 @@ class MainWindow(QMainWindow):
             self._set_banner("片基取样已更新：正在按新片基重新计算去色罩…",
                              "info")
         else:
-            self._live_crop_composite()
+            self._compose_view()
         self.crop_panel.roi_edited.emit(kind, index)
 
     def _on_roi_live_changed(self):
@@ -1000,19 +1065,19 @@ class MainWindow(QMainWindow):
             cand = self.pr.candidates.get(name)
             self._intent = RenderIntent.from_dict(cand.intent)
             self.convert_panel.panel.set_intent(self._intent, silent=True)
-        self._refresh_convert_view()
+        self._compose_view()
 
     def _intent_changed(self, field: str, value: float):
         """微调滑杆：即时合成（RenderIntent 应用在缓存的正片上，毫秒级），
         不重跑管线；技术正片按契约不变。"""
         setattr(self._intent, field, float(value))
-        self._refresh_convert_view(push=self.current_page() == 1)
+        self._compose_view()
 
     def _intent_committed(self, field: str, value: float):
         setattr(self._intent, field, float(value))
         if self.current is not None:
             self.current.render_intent_override = self._intent.to_dict()
-        self._refresh_convert_view(push=self.current_page() == 1)
+        self._compose_view()
 
     # ---------------------------------------------------------------- 提示
     def _set_status(self, text: str):
@@ -1113,16 +1178,8 @@ class MainWindow(QMainWindow):
             f"失败 {report['failed']}\n报告：{report['report_path']}")
 
     def _refresh_convert_view(self, *, push: bool = False):
-        """缓存渲染结果到转换面板；push=True 才显示到中央 viewer。
-
-        裁切模式下 viewer 必须保持原负片+ROI（Lightroom 单图语义），
-        所以默认只缓存，不推图。
-        """
-        if self.pr is None:
-            return
-        pos = candidate_positive(self.pr, self._candidate, self._intent)
-        self.convert_panel.set_images(self._small, pos, push=push)
-        if self.pr.candidates is not None:
+        """候选/意图变化后的缓存同步；图像显示统一走 _compose_view。"""
+        if self.pr is not None and self.pr.candidates is not None:
             self.convert_panel.set_candidates(self.pr.candidates, self._candidate)
 
     # ------------------------------------------------------- 保存区域
