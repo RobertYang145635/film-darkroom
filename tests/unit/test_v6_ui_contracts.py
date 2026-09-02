@@ -11,6 +11,8 @@
 from __future__ import annotations
 
 import re
+import threading
+import time
 from pathlib import Path
 
 import numpy as np
@@ -297,6 +299,13 @@ class TestServiceFailureTolerance:
         assert rec.geometry.image_area_roi is not None, \
             "服务崩溃后用户草稿必须仍然更新"
         assert rec.status in ("needs_crop_review", "imported"), rec.status
+        # 预览刷新在后台线程，banner 由回调发出：等线程结束再断言
+        import time
+        deadline = time.time() + 5
+        while time.time() < deadline and threading.active_count() > 1:
+            QApplication.processEvents()
+            time.sleep(0.02)
+        QApplication.processEvents()
         assert win._banner_text, "必须给出非阻断提示"
 
 

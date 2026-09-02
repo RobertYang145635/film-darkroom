@@ -403,6 +403,14 @@ class PreviewView(QGraphicsView):
     def draw_mode(self) -> RoiKind | None:
         return self._draw_kind
 
+    def set_busy(self, on: bool):
+        """轻量处理中状态（v6 §5.7）：局部提示，viewer 与 ROI 保持可交互。"""
+        if on:
+            self.viewport().setCursor(Qt.BusyCursor)
+        else:
+            self.viewport().setCursor(
+                Qt.CrossCursor if self._draw_kind is not None else Qt.ArrowCursor)
+
     def draw_preview_rect(self) -> QRectF | None:
         return self._draw_rect
 

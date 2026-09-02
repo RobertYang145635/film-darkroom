@@ -81,6 +81,7 @@ class ConvertPage(QWidget):
         self.view = PreviewView()
         body.addWidget(self.view, 1)
         right = QVBoxLayout()
+        right.setContentsMargins(0, 0, 0, 0)
         right.setSpacing(6)
 
         self.lbl_auto = QLabel("自动结果：—")
@@ -88,21 +89,29 @@ class ConvertPage(QWidget):
         f_small.setPointSize(max(7, f_small.pointSize() - 1))
         self.lbl_auto.setFont(f_small)
         self.lbl_auto.setWordWrap(True)
-        self.lbl_auto.setMaximumWidth(230)
         right.addWidget(self.lbl_auto)
         self.panel = BasicAdjustmentsPanel()
         right.addWidget(self.panel)
         right.addStretch(1)
         rw = QWidget()
         rw.setLayout(right)
-        rw.setFixedWidth(240)
-        body.addWidget(rw)
+        from PySide6.QtWidgets import QScrollArea
+
+        scroll = QScrollArea()
+        scroll.setWidget(rw)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setMinimumWidth(210)
+        scroll.setMaximumWidth(300)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        body.addWidget(scroll)
         root.addLayout(body, 1)
 
         self.slider_split = QSlider(Qt.Horizontal)
         self.slider_split.setRange(0, 100)
         self.slider_split.setValue(50)
         self.slider_split.setToolTip("滑动前后对比位置")
+        self.slider_split.setVisible(False)   # 仅并排对比时出现
         root.addWidget(self.slider_split)
 
         foot = QHBoxLayout()
@@ -159,6 +168,7 @@ class ConvertPage(QWidget):
 
         pos = encode_srgb(self._positive)
         if self.btn_compare.isChecked() and self._negative is not None:
+            self.slider_split.setVisible(True)
             neg = self._negative
             x = np.clip(neg, 0, None)
             neg = x / max(float(x.max()), 1e-6)
@@ -167,6 +177,7 @@ class ConvertPage(QWidget):
             out[:, :split] = pos[:, :split]
             self.view.set_image(out)
         else:
+            self.slider_split.setVisible(False)
             self.view.set_image(pos)
 
     # ---------------------------------------------------------------- 状态

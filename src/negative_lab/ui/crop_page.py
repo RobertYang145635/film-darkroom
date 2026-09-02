@@ -61,19 +61,24 @@ class CropPage(QWidget):
         body.addWidget(self._build_inspector())
         root.addLayout(body, 1)
 
-        # ---- 底部：上一张 / 下一张 / 当前帧状态（36px，§5.6.8）
+        # ---- 底部：单行 = 上一张/下一张 | 当前帧状态 | 轻提示（不重叠）
         foot = QHBoxLayout()
         foot.setSpacing(theme.SPACING["sm"])
+        foot.setContentsMargins(0, 0, 0, 0)
         self.btn_prev = self._tool(icons.prev(), "上一张")
         self.btn_next = self._tool(icons.next_(), "下一张")
         foot.addWidget(self.btn_prev)
         foot.addWidget(self.btn_next)
         self.lbl_status = QLabel("就绪")
         self.lbl_status.setProperty("caption", True)
-        foot.addWidget(self.lbl_status, 1)
-        foot.addLayout(self._banner_box())
+        self.lbl_status.setMinimumWidth(240)
+        foot.addWidget(self.lbl_status, 0)
+        self.banner = QLabel("")
+        self.banner.setObjectName("Banner")
+        self.banner.setProperty("level", "info")
+        self.banner.setVisible(False)
+        foot.addWidget(self.banner, 1)     # 提示吃掉剩余宽度，单行省略
         root.addLayout(foot)
-        foot.setContentsMargins(0, 0, 0, theme.SPACING["xs"])
 
         # ---- 信号
         self.btn_ccw.clicked.connect(lambda: self.rotate_requested.emit(-90))
@@ -103,6 +108,7 @@ class CropPage(QWidget):
     def _build_inspector(self) -> QWidget:
         t = self._theme
         side = QVBoxLayout()
+        side.setContentsMargins(0, 0, 0, 0)
         side.setSpacing(t.SPACING["md"])
 
         # ---- 区域
@@ -212,21 +218,25 @@ class CropPage(QWidget):
         side.addLayout(rows)
 
         side.addStretch(1)
-        w = QWidget()
-        w.setLayout(side)
-        w.setFixedWidth(self._theme.SIZES["inspector_w"])
-        return w
+        inner = QWidget()
+        inner.setLayout(side)
+        from PySide6.QtWidgets import QScrollArea
 
-    def _banner_box(self) -> QHBoxLayout:
-        self.banner = QLabel("")
-        self.banner.setObjectName("Banner")
-        self.banner.setLevel = None  # noqa: B010 —— 占位，真实接口在 set_banner
-        self.banner.setProperty("level", "info")
-        self.banner.setVisible(False)
-        box = QHBoxLayout()
-        box.setSpacing(self._theme.SPACING["sm"])
-        box.addWidget(self.banner, 1)
-        return box
+        scroll = QScrollArea()
+        scroll.setWidget(inner)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setMinimumWidth(self._theme.SIZES["inspector_w"] - 60)
+        scroll.setMaximumWidth(self._theme.SIZES["inspector_w"] + 60)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        return scroll
+
+    def set_banner(self, text: str, level: str = "info"):
+        """轻量 inline 提示（v6 §5.6.7）：单行、省略，不用模态弹窗。"""
+        self.banner.setText(text)
+        self.banner.setProperty("level", level)
+        self.banner.setStyleSheet("")          # 触发属性样式重算
+        self.banner.setVisible(bool(text))
 
     # ------------------------------------------------------------- 工具
     def _tool(self, icon, tooltip: str) -> QToolButton:

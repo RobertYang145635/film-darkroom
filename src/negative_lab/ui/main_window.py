@@ -11,6 +11,7 @@ UI 不是唯一业务状态；service warning/error 不阻断画布编辑与保�
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +23,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget)
 
 from .. import __version__
-from ..calibration.annotations import Annotation, load_annotation, save_annotation
+from ..calibration.annotations import (Annotation, ann_path_for,
+                                       load_annotation, save_annotation)
 from ..io.images import ReadError, load_linear_rgb
 from ..library.fingerprint import capture_fingerprint, fingerprints_compatible
 from ..library.models import (FrameRecord, FrameStatus, GeometryRegions,
@@ -32,13 +34,32 @@ from ..pipeline.geometry import OrientTransform
 from ..pipeline.render import RenderIntent
 from ..pipeline.roll_analysis import analyze_roll
 from ..pipeline.service import candidate_positive, process_image
+
+_DRAFTS_DIR = Path(__file__).resolve().parents[3] / "outputs" / "drafts"
 from . import theme
 from .convert_page import ConvertPage
 from .crop_page import CropPage
 from .library_panel import LibraryPanel
 from .preview_view import RoiKind
+from .workers import BusyState as _Busy
 
 MAX_PREVIEW_DIM = 1400
+
+
+def _geometry_for_job(ann, small, source, geo: GeometryRegions | None = None,
+                      ann_source=None) -> GeometryRegions:
+    """把草稿（SOURCE 全分辨率）映射到降采样工作副本坐标。
+
+    - geo 给定：直接按 source 形状归一化映射（编辑路径）；
+    - geo 为 None：从旧标注迁移（加载路径），annotation 坐标即 SOURCE。
+    """
+    if geo is not None and source is not None:
+        return GeometryRegions.from_normalized(
+            geo.normalized(source), small.shape[:2])
+    g = _geometry_from_annotation(ann) if ann is not None else GeometryRegions()
+    return GeometryRegions.from_normalized(
+        g.normalized(ann_source) if ann_source else g.normalized(small.shape[:2]),
+        small.shape[:2])
 
 KIND_LABELS = {RoiKind.OUTPUT_CROP: "输出裁切",
                RoiKind.IMAGE_AREA: "有效画面",
@@ -49,8 +70,9 @@ class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"负片裁切与去色罩 negative-lab v{__version__}")
-        self.resize(1440, 900)
-        self.setMinimumSize(1280, 780)
+        self.setMinimumSize(1024, 640)
+        # 启动即最大化：窗口尺寸不得超过屏幕（150% DPI 下 1440 逻辑像素
+        # = 2160 物理，会把右侧检查器整个裁出屏幕外——2026-09-02 实测教训）
         self.session: ImportSession | None = None
         self.current: FrameRecord | None = None
         self.t_source: np.ndarray | None = None
@@ -66,6 +88,9 @@ class MainWindow(QMainWindow):
         self._fingerprint = None
         self._banner_text = ""
         self._viewer_background = None
+        self._busy = _Busy()
+        self._preview_pending = False
+        self._frame_data: dict | None = None
 
         self.setStyleSheet(theme.qss())
         central = QWidget()
@@ -104,25 +129,37 @@ class MainWindow(QMainWindow):
         self._page_group.addButton(self.btn_page_convert, 1)
         root.addLayout(head)
 
-        # ---- 三列主体
-        body = QHBoxLayout()
-        body.setSpacing(theme.SPACING["sm"])
+        # ---- 三列主体（QSplitter：窗口缩放时中央 viewer 弹性扩展，§5.6.1）
+        from PySide6.QtWidgets import QSplitter
+
         self.library = LibraryPanel()
-        self.library.setFixedWidth(theme.SIZES["sidebar_w"])
-        body.addWidget(self.library)
+        self.library.setMinimumWidth(theme.SIZES["sidebar_w"] - 40)
+        self.library.setMaximumWidth(theme.SIZES["sidebar_w"] + 80)
 
         self.stack = QStackedWidget()
         self.crop_page = CropPage()
         self.convert_page = ConvertPage()
         self.stack.addWidget(self.crop_page)
         self.stack.addWidget(self.convert_page)
-        body.addWidget(self.stack, 1)
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(self.library)
+        splitter.addWidget(self.stack)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setHandleWidth(1)
+        # 初始分栏宽度按逻辑像素给定（DPI 无关）：图库 240、检查器跟随其
+        # min/max，中央吃满剩余。不设的话 150% 缩放下图库会被压成细条。
+        splitter.setSizes([theme.SIZES["sidebar_w"], 10000])
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.addWidget(splitter)
         root.addLayout(body, 1)
 
         # ---- 状态（36px）
         self.status = QLabel("就绪：导入包含 RAW / 16 位 TIFF / DNG 的文件夹")
         self.status.setProperty("caption", True)
-        self.status.setFixedHeight(theme.SIZES["primary_target"])
         root.addWidget(self.status)
 
         self._viewer_background = theme.COLORS["viewer"]
@@ -184,6 +221,11 @@ class MainWindow(QMainWindow):
         (self.btn_page_crop, self.btn_page_convert)[i].setChecked(True)
         if i == 1:
             self._refresh_convert_view()
+            # 切页后强制一次重绘：离屏/低帧率环境下 QStackedWidget 首帧
+            # 可能不触发 paintEvent（2026-09-02 实测中央预览空白）
+            from PySide6.QtCore import QTimer
+
+            QTimer.singleShot(0, self.convert_page.view._overlay.update)
 
     # ---------------------------------------------------------------- 导入
     def _pick_folder(self):
@@ -199,7 +241,23 @@ class MainWindow(QMainWindow):
             self.load_files([Path(f) for f in files])
 
     def load_folder(self, folder: Path) -> ImportSession:
-        return self._adopt_session(import_session(folder))
+        """后台导入（§15.7 响应性）：12 张 NEF 探针+哈希约 20s，不得卡 UI。"""
+        self._set_banner(f"正在导入 {folder.name} …（元数据探针与哈希，"
+                         "界面保持可用）", "info")
+        from .workers import run_in_thread
+        self._busy_enter("import")
+        return run_in_thread(
+            lambda cb: import_session(folder),
+            on_done=lambda r: self._import_done(r, folder),
+            on_progress=lambda m: self._set_banner(f"导入：{m}", "info"))
+
+    def _import_done(self, result: dict, folder: Path):
+        from .workers import BusyState
+        self._busy_leave("import")
+        if not result.get("ok"):
+            self._set_banner(f"导入失败：{result.get('error')}", "danger")
+            return
+        self._adopt_session(result["value"])
 
     def load_files(self, files: list[Path]) -> ImportSession:
         sess = ImportSession()
@@ -239,34 +297,94 @@ class MainWindow(QMainWindow):
 
     # ---------------------------------------------------------------- 帧
     def load_frame(self, path: str):
+        """选帧：解码+卷分析+首预览全部在后台线程（主线程零阻塞）。
+
+        同一时刻只允许一个帧加载任务（BusyState 防抖）；查看区立即进入
+        “处理中”状态并保留上一帧的 ROI（v6 §5.7 加载状态）。
+        """
         if self.session is None:
             return
         rec = self.session.frame(path)
         if rec is None:
             return
-        try:
-            loaded = self._load(rec)
-        except ReadError as e:
-            rec.status = FrameStatus.DECODE_ERROR.value
-            QMessageBox.critical(self, "读取失败", str(e))
+        if not self._busy_enter("frame"):
+            self._set_banner("上一帧仍在处理中…（可继续查看/框选，稍候自动更新）",
+                             "warning")
             return
         self.current = rec
-        self.t_source = loaded.rgb
-        self._load_meta = loaded.meta
-        self._fingerprint = capture_fingerprint(
+        self.library.set_current_frame(path)
+        self.crop_page.set_status(f"{Path(path).name} | 处理中…")
+        from .workers import run_in_thread
+        run_in_thread(lambda cb: self._load_frame_job(rec, cb),
+                      on_done=lambda r: self._frame_done(r, rec),
+                      on_progress=lambda m: self._set_banner(m, "info"))
+
+    def _load_frame_job(self, rec: FrameRecord, cb):
+        """后台执行：解码 -> 指纹 -> 卷分析 -> 预览。返回所有 UI 需要的数据。"""
+        cb("解码原图…")
+        loaded = self._load(rec)
+        fp = capture_fingerprint(
             loaded.meta, source_path=rec.source_path,
             batch_assumption=(self.session.batch_encoding_assumption
                               if self.session else None))
-        rec.capture_fingerprint = self._fingerprint.value
-        rec.input_facts = {**dict(loaded.meta), "kind": loaded.meta.get("kind", "")}
-        self._ann = _annotation_for(rec)
+        cb("卷级片基分析…")
+        ann = _annotation_for(rec)
+        roll = self._analyze_roll_frames()
+        cb("生成预览…")
+        k = max(1, int(np.ceil(max(loaded.rgb.shape[:2]) / MAX_PREVIEW_DIM)))
+        small = loaded.rgb[::k, ::k, :].copy()
+        pr = process_image(
+            small,
+            geometry=_geometry_for_job(ann, small, loaded.rgb,
+                                       rec.geometry if rec.geometry.is_complete()
+                                       else None),
+            ann=None, roll_analysis=roll,
+            render_intent=self._intent, candidate=self._candidate,
+            keep_rebate=self.crop_page.keep_rebate(),
+            capture_fingerprint=fp, film_type="unknown")
+        return {"rec": rec, "rgb": loaded.rgb, "meta": loaded.meta,
+                "fingerprint": fp, "annotation": ann, "roll": roll,
+                "preview": pr, "small": small, "scale": k}
+
+    def _frame_done(self, result: dict, rec: FrameRecord):
+        self._busy_leave("frame")
+        if not result.get("ok"):
+            self._set_banner(f"帧处理失败：{result.get('error')}", "danger")
+            self.crop_page.set_status(f"{Path(rec.source_path).name} | 失败")
+            return
+        d = result["value"]
+        if d["rec"] is not self.current:
+            return          # 用户已切到别的帧：丢弃过期结果
+        self._frame_data = d
+        self.t_source = d["rgb"]
+        self._small = d["small"]
+        self._small_scale = d["scale"]
+        self._load_meta = d["meta"]
+        self._fingerprint = d["fingerprint"]
+        self._ann = d["annotation"]
+        self.roll_analysis = d["roll"]
+        rec = d["rec"]
+        rec.capture_fingerprint = d["fingerprint"].value
+        rec.input_facts = {**dict(d["meta"]), "kind": d["meta"].get("kind", "")}
         if self._ann is not None and not rec.geometry.is_complete():
             rec.geometry = _geometry_from_annotation(self._ann)
-        self._analyze_current_roll()
-        self._prepare_frame_views()
-        self.library.set_current_frame(path)
+        self.pr = d["preview"]
+        if not rec.geometry.is_complete() and self.pr is not None:
+            # 自动种子只作初始草稿：用户第一次编辑后即为唯一事实
+            rss = self.pr.geometry.roi_source_space
+            rec.geometry = GeometryRegions(
+                rotation_degrees=rec.geometry.rotation_degrees,
+                fine_rotation_degrees=rec.geometry.fine_rotation_degrees,
+                mirror_horizontal=rec.geometry.mirror_horizontal,
+                output_crop_roi=_as_roi(rss.get("output_crop_roi")),
+                image_area_roi=_as_roi(rss.get("image_area_roi")),
+                base_sample_rois=[_as_roi(r) for r in
+                                  (rss.get("base_sample_rois") or []) if r])
+            self._save_draft_annotation(rec, quiet=True)
+        self._draft_touched = rec.geometry.is_complete()
+        self._show_frame()
         sh, sw = self.t_source.shape[:2]
-        self._set_banner(f"{Path(path).name} | {sw}x{sh} | "
+        self._set_banner(f"{Path(rec.source_path).name} | {sw}x{sh} | "
                          f"片基来源 {self.pr.base_source}", "info")
 
     def _load(self, rec: FrameRecord):
@@ -303,13 +421,15 @@ class MainWindow(QMainWindow):
 
     def _analyze_current_roll(self):
         """卷级片基汇总（同采集指纹内共享；冲突帧不共享，v5 §4.4）。"""
-        self.roll_analysis = None
+        self.roll_analysis = self._analyze_roll_frames()
+
+    def _analyze_roll_frames(self) -> RollAnalysis | None:
         if self.session is None or not self.library.current_roll:
-            return
+            return None
         frames = [f for f in self._frames_of(self.library.current_roll)
                   if f.capture_fingerprint]
         if not frames:
-            return
+            return None
         main_fp = max({f.capture_fingerprint for f in frames},
                       key=lambda fp: sum(1 for f in frames
                                          if f.capture_fingerprint == fp))
@@ -326,14 +446,15 @@ class MainWindow(QMainWindow):
                 "contamination": st.get("contamination"),
                 "black_level": st.get("black_level"),
                 "spatial_trend": st.get("spatial_trend")})
-        self.roll_analysis = analyze_roll(stats, fingerprint=main_fp)
+        ra = analyze_roll(stats, fingerprint=main_fp)
         conflicts = [f.source_path for f in frames
                      if not fingerprints_compatible(f.capture_fingerprint, main_fp)]
-        self.library.mark_conflicts(conflicts)
         if conflicts:
+            self.library.mark_conflicts(conflicts)
             self._set_banner(
                 f"本卷有 {len(conflicts)} 帧采集指纹不一致：已停止共享卷分析，"
                 "可用“拆分”一键分成不同卷", "warning")
+        return ra
 
     def _frames_of(self, rid: str) -> list[FrameRecord]:
         if self.session is None:
@@ -346,12 +467,12 @@ class MainWindow(QMainWindow):
 
     # --------------------------------------------------- 草稿 <-> 预览
     def _prepare_frame_views(self):
-        """加载公共后处理：工作副本缓存 + 预览服务 + 草稿上屏。"""
+        """（同步路径，测试用）工作副本缓存 + 预览服务 + 草稿上屏。"""
         rec = self.current
         k = max(1, int(np.ceil(max(self.t_source.shape[:2]) / MAX_PREVIEW_DIM)))
         self._small = self.t_source[::k, ::k, :].copy()
         self._small_scale = k
-        # 已有完整草稿（历史标注）视为用户状态，不再被自动结果覆盖
+        self._pscale = k
         self._draft_touched = rec.geometry.is_complete()
         self._refresh_preview(seed_if_untouched=not self._draft_touched)
         self._show_frame()
@@ -389,53 +510,91 @@ class MainWindow(QMainWindow):
 
     def _small_geometry(self, geo: GeometryRegions) -> GeometryRegions:
         """草稿 -> 降采样工作副本坐标（归一化相对位置映射）。"""
-        return GeometryRegions.from_normalized(
-            geo.normalized(self.t_source.shape[:2]), self._small.shape[:2])
+        return _geometry_for_job(None, self._small, self.t_source, geo)
+
+    def _busy_enter(self, key: str) -> bool:
+        if not self._busy.try_enter(key):
+            return False
+        if key == "preview":
+            self.crop_page.view.set_busy(True)
+        return True
+
+    def _busy_leave(self, key: str):
+        self._busy.leave(key)
+        if key == "preview":
+            self.crop_page.view.set_busy(self._busy._locks.__contains__("preview"))
 
     def _refresh_preview(self, *, seed_if_untouched: bool = False):
-        """在降采样副本上调用同一 service 刷新预览（§5.2）。
+        """预览刷新（§5.2）：后台线程执行，主线程零阻塞。
 
-        service 异常不阻断画布编辑与草稿保存：只给出轻量提示。
+        - 画布编辑立即可见（ROI 是视图状态，不等待 service）；
+        - service 结果就绪后只更新预览图/诊断，不重绘 ROI（用户草稿优先）；
+        - service 异常不阻断画布编辑与草稿保存：只给出轻量提示；
+        - 同一时刻只跑一个预览任务，过期的旧结果按帧丢弃。
         """
         rec = self.current
-        geo = rec.geometry
-        try:
-            self.pr = process_image(
-                self._small, geometry=self._small_geometry(geo), ann=None,
-                roll_analysis=self.roll_analysis,
-                render_intent=self._intent, candidate=self._candidate,
-                keep_rebate=self.crop_page.keep_rebate(),
-                capture_fingerprint=self._fingerprint,
-                film_type="unknown")
-        except Exception as e:  # noqa: BLE001 —— §5.2：不阻断编辑
-            self._set_banner(f"预览刷新失败：{type(e).__name__}: {e}"
-                             "（区域编辑与草稿保存不受影响）", "danger")
+        if rec is None or self._small is None:
             return
-        rec.frame_analysis = {
-            "base_dmin": self.pr.frame_base.get("dmin"),
-            "base_confidence": self.pr.frame_base.get("confidence"),
-            "contamination": self.pr.frame_base.get("contamination"),
-            "black_level": self.pr.frame_base.get("black_level"),
-            "spatial_trend": self.pr.frame_base.get("spatial_trend"),
-            "regions": [list(r) for r in geo.base_sample_rois]}
-        if seed_if_untouched and not geo.is_complete():
-            rss = self.pr.geometry.roi_source_space
-            rec.geometry = GeometryRegions(
-                rotation_degrees=geo.rotation_degrees,
-                fine_rotation_degrees=geo.fine_rotation_degrees,
-                mirror_horizontal=geo.mirror_horizontal,
-                output_crop_roi=_as_roi(rss.get("output_crop_roi")),
-                image_area_roi=_as_roi(rss.get("image_area_roi")),
-                base_sample_rois=[_as_roi(r) for r in
-                                  (rss.get("base_sample_rois") or []) if r])
-            self._draft_touched = False
-            self._save_draft_annotation(rec, quiet=True)
-        self.crop_page.set_status(_frame_status_text(rec, self.pr))
-        self._refresh_convert_view()
+        if not self._busy_enter("preview"):
+            self._preview_pending = True
+            return
+        geo_snapshot = rec.geometry
+        touched = self._draft_touched
+        seed = bool(seed_if_untouched and not touched)
+        small = self._small
+        fp = self._fingerprint
+        roll = self.roll_analysis
+        keep = self.crop_page.keep_rebate()
+
+        def job(cb):
+            return process_image(
+                small,
+                geometry=_geometry_for_job(None, small, self.t_source,
+                                           geo_snapshot),
+                ann=None, roll_analysis=roll,
+                render_intent=self._intent, candidate=self._candidate,
+                keep_rebate=keep, capture_fingerprint=fp, film_type="unknown")
+
+        def done(result: dict):
+            self._busy_leave("preview")
+            if result.get("ok") is False:
+                self._set_banner(f"预览刷新失败：{result.get('error')}"
+                                 "（区域编辑与草稿保存不受影响）", "danger")
+            elif result.get("ok"):
+                pr = result["value"]
+                if self.current is not rec:
+                    return                      # 已切帧：过期结果丢弃
+                self.pr = pr
+                rec.frame_analysis = {
+                    "base_dmin": pr.frame_base.get("dmin"),
+                    "base_confidence": pr.frame_base.get("confidence"),
+                    "contamination": pr.frame_base.get("contamination"),
+                    "black_level": pr.frame_base.get("black_level"),
+                    "spatial_trend": pr.frame_base.get("spatial_trend"),
+                    "regions": [list(r) for r in geo_snapshot.base_sample_rois]}
+                if seed and not rec.geometry.is_complete():
+                    rss = pr.geometry.roi_source_space
+                    rec.geometry = GeometryRegions(
+                        rotation_degrees=geo_snapshot.rotation_degrees,
+                        fine_rotation_degrees=geo_snapshot.fine_rotation_degrees,
+                        mirror_horizontal=geo_snapshot.mirror_horizontal,
+                        output_crop_roi=_as_roi(rss.get("output_crop_roi")),
+                        image_area_roi=_as_roi(rss.get("image_area_roi")),
+                        base_sample_rois=[_as_roi(r) for r in
+                                          (rss.get("base_sample_rois") or []) if r])
+                    self._save_draft_annotation(rec, quiet=True)
+                self.crop_page.set_status(_frame_status_text(rec, pr))
+                self._refresh_convert_view()
+            if getattr(self, "_preview_pending", False):
+                self._preview_pending = False
+                self._refresh_preview()
+
+        from .workers import run_in_thread
+        run_in_thread(job, on_done=done)
 
     def _show_frame(self):
         """把**用户草稿**上屏（service 结果只用于图像与诊断）。"""
-        if self.pr is None or self.current is None:
+        if self.current is None or self._small is None:
             return
         rec = self.current
         self._pscale = self._small_scale
@@ -447,6 +606,7 @@ class MainWindow(QMainWindow):
         view = self.crop_page.view
         draw_kind = view.draw_mode()
         view.clear_rois()
+        view.set_image(self._small)
 
         def put(kind, roi_src, multiple=False):
             if not roi_src:
@@ -462,7 +622,6 @@ class MainWindow(QMainWindow):
         put(RoiKind.IMAGE_AREA, rss.image_area_roi)
         put(RoiKind.BASE, rss.base_sample_rois, multiple=True)
         view.set_draw_mode(draw_kind)
-        view.set_image(self._small)
         view.fit()
         self.crop_page.set_fine_rotation(rec.geometry.fine_rotation_degrees)
         self.crop_page.set_keep_rebate(self.crop_page.keep_rebate())
@@ -497,9 +656,16 @@ class MainWindow(QMainWindow):
         self._refresh_preview()
 
     def _save_draft_annotation(self, rec: FrameRecord, *, quiet: bool = False):
-        """编辑后把草稿写入现有 annotation 链路（原子、draft、不签字）。"""
+        """编辑后把草稿写入 **outputs/drafts/**（绝不写真实标注目录）。
+
+        教训（2026-09-02）：自动种子草稿曾覆盖 fixtures/annotations 里的
+        历史标注——真实标注目录只接受用户显式“确认并保存标注”
+        （verified_by=user）。草稿目录在 outputs/ 下，不入 Git。
+        """
         try:
             geo = rec.geometry
+            from ..calibration.annotations import ann_path_for
+            from ..io.atomic import atomic_write_bytes
             ann = Annotation(
                 file=rec.source_path, roll=rec.roll_id or "misc",
                 rotation_degrees=geo.rotation_degrees,
@@ -511,8 +677,10 @@ class MainWindow(QMainWindow):
                 source_sha256=rec.source_sha256,
                 status="draft", verified=False,
                 notes="GUI 草稿（v6 §6.2：每次编辑保存）")
-            save_annotation(rec.source_path, ann)
-            self._ann = ann
+            payload = json.dumps(ann.to_dict(), ensure_ascii=False, indent=2)
+            target = _DRAFTS_DIR / ann_path_for(rec.source_path).name
+            atomic_write_bytes(target, payload.encode("utf-8"), overwrite=True)
+            self._draft_file = target
         except Exception as e:  # noqa: BLE001 —— 保存失败可见但不阻断
             self._set_banner(f"草稿保存失败：{type(e).__name__}: {e}", "danger")
 
@@ -740,10 +908,21 @@ def _abs(path: str, rec: FrameRecord | None = None) -> Path:
 
 
 def _annotation_for(rec: FrameRecord) -> Annotation | None:
+    """用户确认标注优先；GUI 草稿其次（outputs/drafts/，重启可续）。"""
     try:
-        return load_annotation(rec.source_path)
+        a = load_annotation(rec.source_path)
+        if a is not None and a.is_user_verified():
+            return a
     except Exception:  # noqa: BLE001 —— 损坏标注不得阻断打开
-        return None
+        pass
+    f = _DRAFTS_DIR / (ann_path_for(rec.source_path).name)
+    try:
+        if f.exists():
+            return Annotation.from_dict(
+                json.loads(f.read_text(encoding="utf-8")))
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 def _geometry_from_annotation(ann: Annotation) -> GeometryRegions:
@@ -802,9 +981,13 @@ def main() -> int:
 
     app = QApplication(sys.argv)
     app.setApplicationName("negative-lab")
+    # 高分屏：跟随系统 DPI 缩放（否则 150% 下控件按 96dpi 渲染后又被
+    # 系统拉伸，字大糊、布局溢出）
+    app.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     theme.apply(app)
     win = MainWindow()
-    win.show()
+    win.showMaximized()          # 永不超出屏幕（§15 布局混乱根因修复）
     if len(sys.argv) > 1:
         p = Path(sys.argv[1])
         if p.is_dir():

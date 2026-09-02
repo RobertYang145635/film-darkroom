@@ -84,19 +84,16 @@ class LibraryPanel(QWidget):
         lay.setSpacing(4)
 
         head = QHBoxLayout()
-        self.edit_roll = QLineEdit()
-        self.edit_roll.setPlaceholderText("卷名")
+        head.setSpacing(4)
         self.btn_new_roll = QPushButton("新建卷")
         self.btn_rename = QPushButton("改名")
         self.btn_split = QPushButton("拆分")
         for b in (self.btn_new_roll, self.btn_rename, self.btn_split):
-            b.setFixedHeight(22)
-            head.addWidget(b)
+            head.addWidget(b, 1)
         lay.addLayout(head)
 
         self.roll_list = QListWidget()
-        self.roll_list.setMaximumHeight(120)
-        self.roll_list.setAlternatingRowColors(True)
+        self.roll_list.setMaximumHeight(96)
         lay.addWidget(self.roll_list)
 
         self.grid = _IconGrid()
@@ -104,6 +101,7 @@ class LibraryPanel(QWidget):
 
         foot = QHBoxLayout()
         self.lbl_state = QLabel("未导入")
+        self.lbl_state.setProperty("caption", True)
         foot.addWidget(self.lbl_state, 1)
         lay.addLayout(foot)
 
@@ -170,7 +168,8 @@ class LibraryPanel(QWidget):
             item.setToolTip(f"{f.source_path}\n状态：{f.status}")
             c = _STATUS_COLOR.get(f.status)
             if c is not None:
-                item.setBackground(c.darker(260))
+                # 状态只用前景色小圆点语义（文字着色），不整块染色——
+                # 深底色块叠在深色负片缩略图上就是一坨不可读色块
                 item.setForeground(c)
             self.grid.addItem(item)
             self._request_thumb(f)
@@ -278,7 +277,7 @@ class LibraryPanel(QWidget):
 
 
 class _IconGrid(QListWidget):
-    """缩略图网格（多选 + 双击选中）。"""
+    """缩略图网格（多选 + 双击选中；信息在缩略图本身，不做大卡片）。"""
 
     frame_activated = Signal(str)
 
@@ -289,8 +288,11 @@ class _IconGrid(QListWidget):
         self.setResizeMode(QListWidget.Adjust)
         self.setMovement(QListView.Static)
         self.setSelectionMode(QListWidget.ExtendedSelection)
-        self.setSpacing(6)
-        self.setWordWrap(True)
+        self.setSpacing(4)
+        self.setWordWrap(False)              # 文件名单行省略（§5.6.3）
+        self.setTextElideMode(Qt.ElideRight)
+        self.setUniformItemSizes(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.itemDoubleClicked.connect(
             lambda it: self.frame_activated.emit(it.data(Qt.UserRole)))
         self.itemSelectionChanged.connect(self._on_sel)
