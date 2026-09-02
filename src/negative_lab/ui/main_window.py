@@ -43,7 +43,8 @@ from .library_panel import FilmStrip, LibraryPanel
 from .preview_view import PreviewView, RoiKind
 from .workers import BusyState as _Busy
 
-MAX_PREVIEW_DIM = 1400
+MAX_PREVIEW_DIM = 1100          # 交互预览（快）；导出走全分辨率
+IMPORT_PROBE = False            # 导入只取元数据+哈希（完整探针太慢，用户实测）
 
 
 def _geometry_for_job(ann, small, source, geo: GeometryRegions | None = None,
@@ -227,11 +228,14 @@ class MainWindow(QMainWindow):
         cp.reset_all_requested.connect(self._reset_all_geometry)
         cp.delete_active_requested.connect(self._delete_active_roi)
         cp.draw_mode_requested.connect(self.view.set_draw_mode)
-        cp.geometry_changed.connect(self._update_draft_from_view)
+        # 几何面板的细微旋转/构图模式变化 -> 即时合成
+        cp.geometry_changed.connect(self._live_crop_composite)
 
         self.view.roi_created.connect(self._on_roi_edited)
         self.view.roi_changed.connect(self._on_roi_edited)
         self.view.roi_deleted.connect(self._on_roi_deleted)
+        # 拖动过程中即时反馈：保存草稿（静默）+ 重画遮罩，零管线调用
+        self.view.roi_live_changed.connect(self._on_roi_live_changed)
         self.view.roi_selected.connect(
             lambda k, i: self.crop_panel.set_active_roi(k, i))
         self.view.replace_hint.connect(
@@ -410,13 +414,15 @@ class MainWindow(QMainWindow):
             self.load_files([Path(f) for f in files])
 
     def load_folder(self, folder: Path) -> ImportSession:
-        """后台导入（§15.7 响应性）：12 张 NEF 探针+哈希约 20s，不得卡 UI。"""
-        self._set_banner(f"正在导入 {folder.name} …（元数据探针与哈希，"
+        """后台导入（§15.7 响应性）：只取元数据+哈希，不做完整解码探针
+        （12 张 NEF 完整探针 20s——用户实测过久；解码失败在打开帧时
+        给出完整错误即可）。"""
+        self._set_banner(f"正在导入 {folder.name} …（读取元数据与哈希，"
                          "界面保持可用）", "info")
         from .workers import run_in_thread
         self._busy_enter("import")
         return run_in_thread(
-            lambda cb: import_session(folder),
+            lambda cb: import_session(folder, probe=IMPORT_PROBE),
             on_done=lambda r: self._import_done(r, folder),
             on_progress=lambda m: self._set_banner(f"导入：{m}", "info"))
 
@@ -711,13 +717,15 @@ class MainWindow(QMainWindow):
         if key == "preview":
             self.view.set_busy(self._busy._locks.__contains__("preview"))
 
-    def _refresh_preview(self, *, seed_if_untouched: bool = False):
-        """预览刷新（§5.2）：后台线程执行，主线程零阻塞。
+    def _refresh_preview(self, *, seed_if_untouched: bool = False,
+                         reason: str = "crop"):
+        """管线刷新：只处理**影响技术底座**的变化。
 
-        - 画布编辑立即可见（ROI 是视图状态，不等待 service）；
-        - service 结果就绪后只更新预览图/诊断，不重绘 ROI（用户草稿优先）；
-        - service 异常不阻断画布编辑与草稿保存：只给出轻量提示；
-        - 同一时刻只跑一个预览任务，过期的旧结果按帧丢弃。
+        v6 交互模型（对齐 Lightroom，用户 2026-09-02 指示）：
+        - 裁切/微调 = 输出裁切与 RenderIntent 属于渲染层，**即时合成**
+          （_update_draft_from_view 里零计算完成），不进本函数；
+        - 只有片基取样区/输出构图模式（影响 Dmin 与统计）才重跑管线；
+        - 后台线程执行，主线程零阻塞；结果就绪后按当前模式正确上屏。
         """
         rec = self.current
         if rec is None or self._small is None:
@@ -732,6 +740,8 @@ class MainWindow(QMainWindow):
         fp = self._fingerprint
         roll = self.roll_analysis
         keep = self.crop_panel.keep_rebate()
+        intent_snapshot = self._intent.copy()
+        cand_snapshot = self._candidate
 
         def job(cb):
             return process_image(
@@ -739,7 +749,7 @@ class MainWindow(QMainWindow):
                 geometry=_geometry_for_job(None, small, self.t_source,
                                            geo_snapshot),
                 ann=None, roll_analysis=roll,
-                render_intent=self._intent, candidate=self._candidate,
+                render_intent=intent_snapshot, candidate=cand_snapshot,
                 keep_rebate=keep, capture_fingerprint=fp, film_type="unknown")
 
         def done(result: dict):
@@ -775,13 +785,41 @@ class MainWindow(QMainWindow):
                         base_sample_rois=src_geo.get("base_sample_rois") or [])
                     self._save_draft_annotation(rec, quiet=True)
                 self._set_status(_frame_status_text(rec, pr))
-                self._refresh_convert_view()
+                # 按当前模式正确上屏：转换模式重推渲染图（这才是"去色罩
+                # 同步"的关键）；裁切模式保持原负片+ROI 不被打断
+                if self.current_page() == 1:
+                    self._refresh_convert_view(push=True)
+                else:
+                    self._refresh_convert_view(push=False)
             if getattr(self, "_preview_pending", False):
                 self._preview_pending = False
                 self._refresh_preview()
 
         from .workers import run_in_thread
         run_in_thread(job, on_done=done)
+
+    # ------------------------------------------------ 即时合成（零计算）
+    def _live_crop_composite(self):
+        """裁切变化的即时反馈：正片缓存上按当前构图合成 + 框外压暗。
+
+        Lightroom 语义：拖动裁切时画面**立即**是"框内=成品、框外=压暗"，
+        零管线调用（毫秒级）。技术底座不变，无需重算。
+        """
+        rec = self.current
+        if rec is None or self.pr is None or self._small is None:
+            return
+        self._update_draft_from_view_silent()
+        # 框外压暗即时可见（overlay 已画）；若在转换模式，立即重推渲染图
+        if self.current_page() == 1:
+            self._refresh_convert_view(push=True)
+
+    def _update_draft_from_view_silent(self):
+        rec = self.current
+        if rec is None or self.t_source is None:
+            return
+        rec.geometry = self._geometry_for_service()
+        self._draft_touched = True
+        self._save_draft_annotation(rec, quiet=True)
 
     def _show_frame(self):
         """把**用户草稿**上屏（service 结果只用于图像与诊断）。"""
@@ -823,9 +861,24 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------- 编辑事件
     def _on_roi_edited(self, kind, index=0, _rect=None):
-        """画布释放鼠标：保存草稿并刷新预览（service 失败不阻断）。"""
+        """画布释放鼠标（v6 交互模型，对齐 Lightroom）：
+
+        - 输出裁切 / 有效画面：即时合成——正片缓存按新构图即时呈现
+          （转换模式重推渲染图；裁切模式靠框外压暗遮罩），**不重跑管线**；
+        - 片基取样区：影响 Dmin 技术底座 -> 后台重跑管线（唯一慢路径）。
+        """
         self._update_draft_from_view()
+        if kind is RoiKind.BASE:
+            self._set_banner("片基取样已更新：正在按新片基重新计算去色罩…",
+                             "info")
+        else:
+            self._live_crop_composite()
         self.crop_panel.roi_edited.emit(kind, index)
+
+    def _on_roi_live_changed(self):
+        """拖动中（~30fps）：草稿静默更新 + 遮罩即时跟随，零管线调用。"""
+        self._update_draft_from_view_silent()
+        self.view._overlay.update()
 
     def _on_roi_deleted(self, kind, index=0):
         label = KIND_LABELS.get(kind, str(kind))
@@ -950,14 +1003,16 @@ class MainWindow(QMainWindow):
         self._refresh_convert_view()
 
     def _intent_changed(self, field: str, value: float):
+        """微调滑杆：即时合成（RenderIntent 应用在缓存的正片上，毫秒级），
+        不重跑管线；技术正片按契约不变。"""
         setattr(self._intent, field, float(value))
-        self._refresh_convert_view()
+        self._refresh_convert_view(push=self.current_page() == 1)
 
     def _intent_committed(self, field: str, value: float):
         setattr(self._intent, field, float(value))
         if self.current is not None:
             self.current.render_intent_override = self._intent.to_dict()
-        self._refresh_convert_view()
+        self._refresh_convert_view(push=self.current_page() == 1)
 
     # ---------------------------------------------------------------- 提示
     def _set_status(self, text: str):

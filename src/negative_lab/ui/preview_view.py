@@ -12,10 +12,11 @@ v5 要求（本文件逐条落实）：
 
 from __future__ import annotations
 
+import time
 from enum import Enum
 
 from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPixmap, QPen
+from PySide6.QtGui import QColor, QImage, QPainter, QPolygonF, QPixmap, QPen
 from PySide6.QtWidgets import QGraphicsItem, QGraphicsScene, QGraphicsView
 
 HANDLE_COUNT = 8
@@ -44,7 +45,7 @@ ACTIVE_COLOR = (255, 255, 255)
 
 
 class _OverlayItem(QGraphicsItem):
-    """自绘叠加层：ROI、手柄、标签、蒙版、参考点。"""
+    """自绘叠加层：ROI、手柄、标签、蒙版、参考点、裁切遮罩。"""
 
     def __init__(self, view: "PreviewView"):
         super().__init__()
@@ -72,6 +73,7 @@ class PreviewView(QGraphicsView):
     """
 
     roi_changed = Signal(object, int, object)     # RoiKind, index, QRectF
+    roi_live_changed = Signal()                   # 拖动中（即时合成，零计算）
     roi_created = Signal(object, int, object)     # 新建完成（v6 §5.2）
     roi_deleted = Signal(object, int)             # 键盘/按钮删除（v6 §5.3）
     roi_selected = Signal(object, int)            # RoiKind, index
@@ -95,12 +97,14 @@ class PreviewView(QGraphicsView):
         self._scene.addItem(self._overlay)
         self._rois: dict[RoiKind, list[QRectF]] = {k: [] for k in RoiKind}
         self._rois_visible = True
+        self._crop_dim = 0.55          # 裁切框外压暗（Lightroom 式即时遮罩）
         self._active: tuple[RoiKind, int] | None = None
         self._draw_kind: RoiKind | None = None
         self._draw_origin: QPointF | None = None
         self._draw_rect: QRectF | None = None
         self._drag_mode: str | None = None          # "move"|"resize"|"draw"
         self._drag_kind: RoiKind | None = None
+        self._last_live_emit = 0.0
         self._drag_handle: str | None = None
         self._drag_off = QPointF()
         self._drag_orig: QRectF | None = None
@@ -336,6 +340,21 @@ class PreviewView(QGraphicsView):
     # ---------------------------------------------------------------- 绘制
     def _paint_overlay(self, painter: QPainter):
         painter.setRenderHint(QPainter.Antialiasing, True)
+        # Lightroom 式裁切遮罩：输出裁切框外压暗（拖动即时反馈，零计算），
+        # 让"框选的画面"就是看到的画面；框内保持全亮
+        if self._rois_visible and self._crop_dim > 0.0:
+            r = self.roi(RoiKind.OUTPUT_CROP)
+            if r is not None:
+                scene = self._scene_rect
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor(0, 0, 0, int(255 * self._crop_dim)))
+                painter.drawPolygon(QPolygonF([
+                    QPointF(0, 0), QPointF(scene.width(), 0),
+                    QPointF(scene.width(), scene.height()), QPointF(0, scene.height()),
+                    QPointF(r.left(), r.top()), QPointF(r.left(), r.bottom()),
+                    QPointF(r.right(), r.bottom()), QPointF(r.right(), r.top()),
+                    QPointF(r.left(), r.top())]))
+                painter.setBrush(Qt.NoBrush)
         if self._mask is not None and self._mask.any():
             import numpy as np
 
@@ -569,6 +588,11 @@ class PreviewView(QGraphicsView):
                 self.move_roi(kind, pos, idx)
             else:
                 self.resize_roi(kind, self._drag_handle, pos, idx)
+            # 拖动中即时反馈（裁切遮罩实时跟随）；节流到 ~30fps
+            now = time.monotonic()
+            if now - self._last_live_emit > 0.033:
+                self._last_live_emit = now
+                self.roi_live_changed.emit()
             return
         super().mouseMoveEvent(ev)
 
