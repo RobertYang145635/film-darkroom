@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "asset_version": "generic-color-negative-v1",
-  "enabled": true,
+  "enabled": false,
   "sha256": "146742e915a1a238ee78f428283f199906938ca3607302397dfc372fb2cd1357",
   "payload": {
     "density_matrix": [

@@ -62,10 +62,22 @@ class _OverlayItem(QGraphicsItem):
 
 
 class PreviewView(QGraphicsView):
-    """图像预览 + 三类 ROI 叠加层。"""
+    """图像预览 + 三类 ROI 叠加层。
+
+    交互模式（v6 §5.2/§5.3）：
+    - 选择模式（draw_mode() is None）：拖动平移画布；点 ROI 进入移动/缩放；
+    - 绘制模式（set_draw_mode(kind)）：在空白处拖出新矩形；从现有 ROI 内
+      按下时**优先进入移动/缩放**，不得误新建；Esc 取消；Delete 删除当前对象；
+      单类 ROI 重复拖动 = 替换并提示；BASE 每次拖动新增。
+    """
 
     roi_changed = Signal(object, int, object)     # RoiKind, index, QRectF
+    roi_created = Signal(object, int, object)     # 新建完成（v6 §5.2）
+    roi_deleted = Signal(object, int)             # 键盘/按钮删除（v6 §5.3）
     roi_selected = Signal(object, int)            # RoiKind, index
+    draw_cancelled = Signal()                     # Esc
+    draw_rejected = Signal(str)                   # 过小/越界，简短原因
+    replace_hint = Signal(str)                    # "已替换输出裁切" 等
     point_picked = Signal(str, float, float)      # "bright"|"dark", x, y
     mask_painted = Signal()
 
@@ -83,7 +95,11 @@ class PreviewView(QGraphicsView):
         self._scene.addItem(self._overlay)
         self._rois: dict[RoiKind, list[QRectF]] = {k: [] for k in RoiKind}
         self._active: tuple[RoiKind, int] | None = None
-        self._drag_mode: str | None = None          # "move" | "resize"
+        self._draw_kind: RoiKind | None = None
+        self._draw_origin: QPointF | None = None
+        self._draw_rect: QRectF | None = None
+        self._drag_mode: str | None = None          # "move"|"resize"|"draw"
+        self._drag_kind: RoiKind | None = None
         self._drag_handle: str | None = None
         self._drag_off = QPointF()
         self._drag_orig: QRectF | None = None
@@ -357,6 +373,81 @@ class PreviewView(QGraphicsView):
             color = QColor(120, 255, 120) if name == "bright" else QColor(180, 120, 255)
             painter.setPen(QPen(color))
             painter.drawEllipse(p, 6, 6)
+        if self._draw_rect is not None and self._draw_kind is not None:
+            style = ROI_STYLE[self._draw_kind]
+            pen = QPen(QColor(*style["color"]))
+            pen.setCosmetic(True)
+            pen.setStyle(Qt.DashDotLine)
+            pen.setWidthF(2)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(self._draw_rect.normalized())
+            # 拖动过程中显示源像素尺寸（v6 §5.2）
+            r = self._draw_rect.normalized()
+            painter.setPen(QPen(QColor(*ACTIVE_COLOR)))
+            painter.drawText(
+                QPointF(r.left(), max(0, r.top() - 4)),
+                f"{int(r.width())} x {int(r.height())} px")
+
+    # ---------------------------------------------------------------- 绘制
+    def set_draw_mode(self, kind: RoiKind | None):
+        """进入/退出绘制模式（v6 §5.2 的"当前绘制对象"状态）。"""
+        self._draw_kind = kind
+        self._draw_origin = None
+        self._draw_rect = None
+        if kind is not None:
+            self._pick_mode = None
+        self.viewport().setCursor(Qt.CrossCursor if kind else Qt.ArrowCursor)
+        self._overlay.update()
+
+    def draw_mode(self) -> RoiKind | None:
+        return self._draw_kind
+
+    def draw_preview_rect(self) -> QRectF | None:
+        return self._draw_rect
+
+    def _finish_draw(self, kind: RoiKind, rect: QRectF):
+        """提交一次拖出的矩形（v6 §5.2 全部规则）。"""
+        s = self._scene_rect
+        r = rect.normalized()
+        if r.width() < self._min_roi or r.height() < self._min_roi \
+                or not s.intersects(r):
+            self.draw_rejected.emit(
+                f"矩形过小（最小 {int(self._min_roi)}px）或完全越界，未创建")
+            self._draw_rect = None
+            self._overlay.update()
+            return
+        r = self._clamped(kind, r)
+        if kind is RoiKind.BASE:
+            idx = self.add_roi(kind, r)
+            self.roi_created.emit(kind, idx, QRectF(self._rois[kind][idx]))
+        else:
+            existed = self.roi(kind) is not None
+            self.set_roi(kind, r)
+            idx = 0
+            if existed:
+                label = "输出裁切" if kind is RoiKind.OUTPUT_CROP else "有效画面"
+                self.replace_hint.emit(f"已替换{label}")
+            self.roi_created.emit(kind, idx, QRectF(self._rois[kind][idx]))
+        self._active = (kind, idx)
+        self._draw_rect = None
+        self._overlay.update()
+        self.roi_changed.emit(kind, idx, QRectF(self._rois[kind][idx]))
+
+    def keyPressEvent(self, ev):
+        if ev.key() == Qt.Key_Escape and self._draw_kind is not None:
+            self.set_draw_mode(None)
+            self.draw_cancelled.emit()
+            ev.accept()
+            return
+        if ev.key() == Qt.Key_Delete and self._active is not None:
+            # v6 §5.3：Delete 删除当前对象；与绘制模式不冲突
+            kind, idx = self._active
+            if self.remove_roi(kind, idx):
+                self.roi_deleted.emit(kind, idx)
+            ev.accept()
+            return
+        super().keyPressEvent(ev)
 
     # ---------------------------------------------------------------- 交互
     def mousePressEvent(self, ev):
@@ -372,6 +463,38 @@ class PreviewView(QGraphicsView):
                 self._points[self._pick_mode] = pos
                 self.point_picked.emit(self._pick_mode, pos.x(), pos.y())
                 self.set_pick_mode(None)
+                self._overlay.update()
+                return
+            # 绘制模式：同类型 ROI 内/手柄上按下 = 移动/缩放（不得误新建）；
+            # 压在**其他类型**的 ROI 上 = 按当前绘制类型新建——否则嵌套的
+            # 有效画面（在输出裁切内部）永远无法画出（v6 §5.2）。
+            if self._draw_kind is not None:
+                kind = self._draw_kind
+                for idx in range(self.roi_count(kind) - 1, -1, -1):
+                    h = self.handle_at(kind, pos, idx)
+                    r = self.roi(kind, idx)
+                    if h is not None:
+                        self._active = (kind, idx)
+                        self._drag_mode = "resize"
+                        self._drag_handle = h
+                        self._drag_orig = QRectF(r)
+                        self.setDragMode(QGraphicsView.NoDrag)
+                        self.roi_selected.emit(kind, idx)
+                        self._overlay.update()
+                        return
+                    if r is not None and r.contains(pos):
+                        self._active = (kind, idx)
+                        self._drag_mode = "move"
+                        self._drag_off = pos - r.topLeft()
+                        self.setDragMode(QGraphicsView.NoDrag)
+                        self.roi_selected.emit(kind, idx)
+                        self._overlay.update()
+                        return
+                self._drag_mode = "draw"
+                self._drag_kind = self._draw_kind
+                self._draw_origin = pos
+                self._draw_rect = QRectF(pos, pos)
+                self.setDragMode(QGraphicsView.NoDrag)
                 self._overlay.update()
                 return
             for kind in reversed(self.roi_kind_order()):
@@ -397,9 +520,27 @@ class PreviewView(QGraphicsView):
                         return
         super().mousePressEvent(ev)
 
+    def _hit_any(self, pos: QPointF):
+        """pos 是否落在任何已有 ROI（含手柄容差）内；返回 (kind, idx)。"""
+        for kind in self.roi_kind_order():
+            for idx in range(self.roi_count(kind)):
+                r = self.roi(kind, idx)
+                if r is None:
+                    continue
+                tol = self._tolerance()
+                grown = r.adjusted(-tol, -tol, tol, tol)
+                if grown.contains(pos):
+                    return (kind, idx)
+        return None
+
     def mouseMoveEvent(self, ev):
         if self._painting:
             self._paint_at(self.mapToScene(ev.position().toPoint()))
+            self._overlay.update()
+            return
+        if self._drag_mode == "draw" and self._draw_origin is not None:
+            pos = self.mapToScene(ev.position().toPoint())
+            self._draw_rect = QRectF(self._draw_origin, pos).normalized()
             self._overlay.update()
             return
         if self._drag_mode and self._active is not None:
@@ -417,6 +558,16 @@ class PreviewView(QGraphicsView):
             self._painting = False
             self.setDragMode(QGraphicsView.ScrollHandDrag)
             self.mask_painted.emit()
+            return
+        if self._drag_mode == "draw":
+            kind = self._drag_kind
+            rect = self._draw_rect
+            self._drag_mode = None
+            self._drag_kind = None
+            self._draw_origin = None
+            self.setDragMode(QGraphicsView.ScrollHandDrag)
+            if kind is not None and rect is not None:
+                self._finish_draw(kind, rect)
             return
         if self._drag_mode and self._active is not None:
             kind, idx = self._active

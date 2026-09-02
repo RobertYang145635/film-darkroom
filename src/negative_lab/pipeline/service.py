@@ -41,7 +41,7 @@ from .candidates import build_candidates
 from .density import InvertResult, invert_chunked, preclip_ratios
 from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi, quad_mask, rect_mask)
-from .model_assets import load_asset
+from .model_assets import deterministic_asset
 from .params import InvertParams
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
@@ -380,9 +380,13 @@ def process_image(t_source: np.ndarray, *,
                        neutral_bright_points=nb, neutral_dark_points=nd,
                        prior=prior, resolved_dmin=resolved["dmin"],
                        base_source=base_source)
-    # v5 §6.3：跨卷通用模型资产（A_global + 单调曲线）。缺失/不兼容/校验失败
-    # 自动回退确定性密度模型，仍可转换，不进入任何"缺校准"状态。
-    asset = model_asset if model_asset is not None else load_asset()
+    # A density matrix trained only by channel decorrelation is not a colour
+    # calibration.  It can change correlation while making neutral objects
+    # purple/blue, so it must never be silently enabled in the ordinary path.
+    # An explicitly supplied asset remains available for controlled experiments
+    # and future colour-validated models.
+    asset = (model_asset if model_asset is not None else
+             deterministic_asset(reason="默认关闭：通用矩阵尚未通过颜色真值验证"))
     asset_info = asset.apply_to(rep.params)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决

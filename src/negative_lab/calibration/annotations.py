@@ -127,6 +127,9 @@ class Annotation:
     verified: bool = False                      # 由 status 派生（兼容字段）
     verified_by: str = ""                       # user | agent-inspected | ...
     verified_date: str = ""
+    # v6 §6.1：几何变换与 ROI 一起持久化（附加可选字段，旧文件可读）
+    fine_rotation_degrees: float = 0.0
+    mirror_horizontal: bool = False
     frame_roi: tuple | None = None              # 已废弃：语义含混（v4 §8.6）
     neutral_rois: list = field(default_factory=list)    # 已废弃别名
     mask_rois: list = field(default_factory=list)       # 已废弃别名

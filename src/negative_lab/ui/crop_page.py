@@ -1,8 +1,11 @@
-"""裁切页（v5 §5）。
+"""裁切页（v6 §5/§6 布局与交互契约）。
 
-顶部紧凑图标工具栏 / 中央三类 ROI 画布 / 右侧裁切模式与同步范围 /
-底部上一张·下一张与简短状态。页面只保留裁切所需控件——色彩与微调在
-转换页，技术日志墙不在 P0。
+三列布局：左图库（主窗口持有）/ 中央原始负片查看区 / 右侧检查器。
+右侧按 区域 / 几何 / 同步 三组组织（§5.6），当前绘制对象用紧凑分段选择
+（图标 + tooltip，§5.2），创建矩形必须由用户在画布拖出。
+
+视觉 token 全部来自 ui.theme；本文件不得出现十六进制颜色（契约锁定）。
+本页只保留裁切所需控件；色彩与微调在转换页。
 """
 
 from __future__ import annotations
@@ -19,6 +22,8 @@ from .preview_view import PreviewView, RoiKind
 
 CROP_MODES = ("仅画面", "保留片边")
 SYNC_SCOPES = ("当前帧", "选中帧", "整卷")
+MIN_TARGET = 32
+PRIMARY_TARGET = 36
 
 
 class CropPage(QWidget):
@@ -33,113 +38,42 @@ class CropPage(QWidget):
     prev_requested = Signal()
     next_requested = Signal()
     sync_requested = Signal(str)             # 范围
+    draw_mode_requested = Signal(object)     # RoiKind | None
+    reset_kind_requested = Signal(object)    # RoiKind
+    reset_all_requested = Signal()
+    delete_active_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        from . import theme
+        self._theme = theme
         root = QVBoxLayout(self)
-        root.setContentsMargins(4, 4, 4, 4)
-        root.setSpacing(4)
+        root.setContentsMargins(theme.SPACING["sm"], theme.SPACING["sm"],
+                                theme.SPACING["sm"], 0)
+        root.setSpacing(theme.SPACING["sm"])
 
-        # ---- 顶部工具栏（图标 + tooltip，不用长句按钮）
-        bar = QHBoxLayout()
-        self.btn_ccw = QToolButton()
-        self.btn_ccw.setIcon(icons.rotate_ccw())
-        self.btn_ccw.setToolTip("逆时针旋转 90 度")
-        self.btn_cw = QToolButton()
-        self.btn_cw.setIcon(icons.rotate_cw())
-        self.btn_cw.setToolTip("顺时针旋转 90 度")
-        self.btn_mirror = QToolButton()
-        self.btn_mirror.setIcon(icons.mirror_h())
-        self.btn_mirror.setToolTip("水平镜像")
-        self.btn_autocrop = QToolButton()
-        self.btn_autocrop.setIcon(icons.crop())
-        self.btn_autocrop.setToolTip("自动裁切（三类区域一起重算）")
-        self.btn_redetect = QToolButton()
-        self.btn_redetect.setIcon(icons.target())
-        self.btn_redetect.setToolTip("重新检测")
-        self.btn_fit = QToolButton()
-        self.btn_fit.setIcon(icons.zoom_fit())
-        self.btn_fit.setToolTip("适合窗口")
-        self.btn_100 = QToolButton()
-        self.btn_100.setIcon(icons.zoom_100())
-        self.btn_100.setToolTip("100% 检查")
-        self.btn_add_base = QToolButton()
-        self.btn_add_base.setIcon(icons.plus())
-        self.btn_add_base.setToolTip("新增片基取样区")
-        self.btn_del_base = QToolButton()
-        self.btn_del_base.setIcon(icons.trash())
-        self.btn_del_base.setToolTip("删除当前片基取样区")
-        for b in (self.btn_ccw, self.btn_cw, self.btn_mirror, self.btn_autocrop,
-                  self.btn_redetect, self.btn_fit, self.btn_100,
-                  self.btn_add_base, self.btn_del_base):
-            b.setAutoRaise(True)
-            bar.addWidget(b)
-        bar.addStretch(1)
-        root.addLayout(bar)
-
+        # ---- 中央查看区 + 右侧检查器
         body = QHBoxLayout()
+        body.setSpacing(theme.SPACING["sm"])
         self.view = PreviewView()
+        self.view.setObjectName("CropViewer")
         body.addWidget(self.view, 1)
-
-        # ---- 右侧：只保留裁切所需
-        side = QVBoxLayout()
-        side.setSpacing(6)
-        f_small = QFont(self.font())
-        f_small.setPointSize(max(7, f_small.pointSize() - 1))
-
-        side.addWidget(_header("裁切模式", f_small))
-        self.combo_mode = QComboBox()
-        self.combo_mode.addItems(CROP_MODES)
-        self.combo_mode.setToolTip("“保留片边”时颜色分析仍只使用绿色有效画面区")
-        side.addWidget(self.combo_mode)
-
-        side.addWidget(_header("细微旋转", f_small))
-        row = QHBoxLayout()
-        self.slider_fine = QSlider(Qt.Horizontal)
-        self.slider_fine.setRange(int(-MAX_FINE_ROTATION * 100),
-                                  int(MAX_FINE_ROTATION * 100))
-        self.slider_fine.setToolTip("小范围拉直（±10 度）")
-        self.lbl_fine = QLabel("0.00°")
-        self.lbl_fine.setFixedWidth(44)
-        row.addWidget(self.slider_fine, 1)
-        row.addWidget(self.lbl_fine)
-        side.addLayout(row)
-
-        side.addWidget(_header("同步范围", f_small))
-        self.combo_sync = QComboBox()
-        self.combo_sync.addItems(SYNC_SCOPES)
-        self.combo_sync.setToolTip("把方向、镜像、细微旋转与三类 ROI 的"
-                                   "归一化相对位置同步到选中帧或整卷")
-        side.addWidget(self.combo_sync)
-        self.btn_sync = QPushButton("同步到该范围")
-        side.addWidget(self.btn_sync)
-
-        self.lbl_roi = QLabel("当前对象：—")
-        self.lbl_roi.setFont(f_small)
-        side.addWidget(self.lbl_roi)
-        side.addStretch(1)
-        side_w = QWidget()
-        side_w.setLayout(side)
-        side_w.setFixedWidth(190)
-        body.addWidget(side_w)
+        body.addWidget(self._build_inspector())
         root.addLayout(body, 1)
 
-        # ---- 底部：上一张 / 下一张 / 简短状态
+        # ---- 底部：上一张 / 下一张 / 当前帧状态（36px，§5.6.8）
         foot = QHBoxLayout()
-        self.btn_prev = QToolButton()
-        self.btn_prev.setIcon(icons.prev())
-        self.btn_prev.setToolTip("上一张")
-        self.btn_next = QToolButton()
-        self.btn_next.setIcon(icons.next_())
-        self.btn_next.setToolTip("下一张")
-        self.btn_prev.setAutoRaise(True)
-        self.btn_next.setAutoRaise(True)
+        foot.setSpacing(theme.SPACING["sm"])
+        self.btn_prev = self._tool(icons.prev(), "上一张")
+        self.btn_next = self._tool(icons.next_(), "下一张")
         foot.addWidget(self.btn_prev)
         foot.addWidget(self.btn_next)
         self.lbl_status = QLabel("就绪")
-        self.lbl_status.setFont(f_small)
+        self.lbl_status.setProperty("caption", True)
         foot.addWidget(self.lbl_status, 1)
+        foot.addLayout(self._banner_box())
         root.addLayout(foot)
+        foot.setContentsMargins(0, 0, 0, theme.SPACING["xs"])
 
         # ---- 信号
         self.btn_ccw.clicked.connect(lambda: self.rotate_requested.emit(-90))
@@ -149,8 +83,9 @@ class CropPage(QWidget):
         self.btn_redetect.clicked.connect(self.redetect_requested)
         self.btn_fit.clicked.connect(self.fit_requested)
         self.btn_100.clicked.connect(self.zoom100_requested)
-        self.btn_add_base.clicked.connect(self._add_base)
-        self.btn_del_base.clicked.connect(self._del_base)
+        self.btn_del_roi.clicked.connect(self.delete_active_requested)
+        self.btn_reset_kind.clicked.connect(self._emit_reset_kind)
+        self.btn_reset_all.clicked.connect(self.reset_all_requested)
         self.btn_prev.clicked.connect(self.prev_requested)
         self.btn_next.clicked.connect(self.next_requested)
         self.btn_sync.clicked.connect(
@@ -160,22 +95,205 @@ class CropPage(QWidget):
         self.slider_fine.sliderReleased.connect(self.geometry_changed)
         self.view.roi_changed.connect(self._roi_changed)
         self.view.roi_selected.connect(self._roi_selected)
+        for kind in (RoiKind.OUTPUT_CROP, RoiKind.IMAGE_AREA, RoiKind.BASE):
+            b = self._draw_buttons[kind]
+            b.clicked.connect(lambda _c=False, k=kind: self._toggle_draw(k))
 
-    # ---------------------------------------------------------------- 辅助
+    # ------------------------------------------------------------- 检查器
+    def _build_inspector(self) -> QWidget:
+        t = self._theme
+        side = QVBoxLayout()
+        side.setSpacing(t.SPACING["md"])
+
+        # ---- 区域
+        side.addWidget(self._header("区域"))
+        row = QHBoxLayout()
+        row.setSpacing(t.SPACING["xs"])
+        self._draw_buttons = {}
+        for kind, icon, tip in (
+                (RoiKind.OUTPUT_CROP, icons.crop(), "绘制模式：输出裁切"
+                 "（在画布拖出新框；重复拖动替换）"),
+                (RoiKind.IMAGE_AREA, icons.target(), "绘制模式：有效画面"
+                 "（在画布拖出新框；重复拖动替换）"),
+                (RoiKind.BASE, icons.plus(), "绘制模式：片基取样"
+                 "（每次拖动新增一个区域）")):
+            b = self._tool(icon, tip)
+            b.setCheckable(True)
+            self._draw_buttons[kind] = b
+            row.addWidget(b)
+        row.addStretch(1)
+        self.btn_del_roi = self._tool(icons.trash(), "删除当前选中对象（Delete）")
+        row.addWidget(self.btn_del_roi)
+        side.addLayout(row)
+        self.lbl_draw = QLabel("选择上方类型后在画布拖出矩形；Esc 取消绘制")
+        self.lbl_draw.setProperty("caption", True)
+        self.lbl_draw.setWordWrap(True)
+        side.addWidget(self.lbl_draw)
+        self.lbl_roi = QLabel("当前对象：—")
+        self.lbl_roi.setProperty("caption", True)
+        side.addWidget(self.lbl_roi)
+        side.addWidget(self._sep())
+        row_r = QHBoxLayout()
+        self.btn_reset_kind = QPushButton("重置当前类")
+        self.btn_reset_kind.setObjectName("btn_reset_kind")
+        self.btn_reset_kind.setToolTip("清空当前选中类型的区域"
+                                       "（不影响其他两类）")
+        self.btn_reset_all = QPushButton("重置全部几何")
+        self.btn_reset_all.setObjectName("btn_reset_all")
+        self.btn_reset_all.setToolTip("清空输出裁切、有效画面和全部片基区")
+        for b in (self.btn_reset_kind, self.btn_reset_all):
+            b.setMinimumHeight(PRIMARY_TARGET)
+        row_r.addWidget(self.btn_reset_kind)
+        row_r.addWidget(self.btn_reset_all)
+        side.addLayout(row_r)
+
+        # ---- 几何
+        side.addWidget(self._sep())
+        side.addWidget(self._header("几何"))
+        tools = QHBoxLayout()
+        tools.setSpacing(t.SPACING["xs"])
+        self.btn_ccw = self._tool(icons.rotate_ccw(), "逆时针旋转 90 度")
+        self.btn_cw = self._tool(icons.rotate_cw(), "顺时针旋转 90 度")
+        self.btn_mirror = self._tool(icons.mirror_h(), "水平镜像")
+        self.btn_fit = self._tool(icons.zoom_fit(), "适合窗口")
+        self.btn_100 = self._tool(icons.zoom_100(), "100% 检查")
+        for b in (self.btn_ccw, self.btn_cw, self.btn_mirror,
+                  self.btn_fit, self.btn_100):
+            tools.addWidget(b)
+        tools.addStretch(1)
+        side.addLayout(tools)
+        rowf = QHBoxLayout()
+        rowf.setSpacing(t.SPACING["sm"])
+        self.slider_fine = QSlider(Qt.Horizontal)
+        self.slider_fine.setRange(int(-MAX_FINE_ROTATION * 100),
+                                  int(MAX_FINE_ROTATION * 100))
+        self.slider_fine.setToolTip("小范围拉直（±10 度）")
+        self.lbl_fine = QLabel("0.00°")
+        self.lbl_fine.setProperty("caption", True)
+        self.lbl_fine.setFixedWidth(44)
+        rowf.addWidget(QLabel("细微旋转"), 0)
+        rowf.addWidget(self.slider_fine, 1)
+        rowf.addWidget(self.lbl_fine)
+        side.addLayout(rowf)
+        rowm = QHBoxLayout()
+        rowm.setSpacing(t.SPACING["sm"])
+        rowm.addWidget(QLabel("输出构图"))
+        self.combo_mode = QComboBox()
+        self.combo_mode.addItems(CROP_MODES)
+        self.combo_mode.setToolTip("“保留片边”时颜色分析仍只使用有效画面区")
+        rowm.addWidget(self.combo_mode, 1)
+        side.addLayout(rowm)
+        rowa = QHBoxLayout()
+        rowa.setSpacing(t.SPACING["xs"])
+        rowa.addWidget(QLabel("自动检测"))
+        self.btn_autocrop = self._tool(icons.crop(), "自动裁切（三类区域重算）")
+        self.btn_redetect = self._tool(icons.target(), "重新检测")
+        rowa.addWidget(self.btn_autocrop)
+        rowa.addWidget(self.btn_redetect)
+        rowa.addStretch(1)
+        side.addLayout(rowa)
+
+        # ---- 同步
+        side.addWidget(self._sep())
+        side.addWidget(self._header("同步"))
+        rows = QHBoxLayout()
+        rows.setSpacing(t.SPACING["sm"])
+        self.combo_sync = QComboBox()
+        self.combo_sync.addItems(SYNC_SCOPES)
+        self.combo_sync.setToolTip("把方向、镜像、细微旋转与三类 ROI 的"
+                                   "归一化相对位置同步到选中帧或整卷")
+        rows.addWidget(self.combo_sync, 1)
+        self.btn_sync = QPushButton("同步")
+        self.btn_sync.setObjectName("btn_sync")
+        self.btn_sync.setProperty("accent", True)
+        self.btn_sync.setMinimumHeight(PRIMARY_TARGET)
+        self.btn_sync.setToolTip("按所选范围同步几何")
+        rows.addWidget(self.btn_sync)
+        side.addLayout(rows)
+
+        side.addStretch(1)
+        w = QWidget()
+        w.setLayout(side)
+        w.setFixedWidth(self._theme.SIZES["inspector_w"])
+        return w
+
+    def _banner_box(self) -> QHBoxLayout:
+        self.banner = QLabel("")
+        self.banner.setObjectName("Banner")
+        self.banner.setLevel = None  # noqa: B010 —— 占位，真实接口在 set_banner
+        self.banner.setProperty("level", "info")
+        self.banner.setVisible(False)
+        box = QHBoxLayout()
+        box.setSpacing(self._theme.SPACING["sm"])
+        box.addWidget(self.banner, 1)
+        return box
+
+    # ------------------------------------------------------------- 工具
+    def _tool(self, icon, tooltip: str) -> QToolButton:
+        b = QToolButton()
+        b.setIcon(icon)
+        b.setToolTip(tooltip)
+        b.setMinimumSize(MIN_TARGET, MIN_TARGET)
+        b.setIconSize(b.iconSize())
+        return b
+
+    def _header(self, text: str) -> QLabel:
+        lbl = QLabel(text)
+        lbl.setProperty("groupTitle", True)
+        return lbl
+
+    def _sep(self) -> QWidget:
+        line = QWidget()
+        line.setFixedHeight(1)
+        line.setStyleSheet(
+            f"background: {self._theme.COLORS['separator']};")
+        return line
+
+    # ------------------------------------------------------------- 绘制
+    def _toggle_draw(self, kind: RoiKind):
+        if self.view.draw_mode() is kind:
+            self.set_draw_mode(None)
+        else:
+            self.set_draw_mode(kind)
+
+    def set_draw_mode(self, kind: RoiKind | None):
+        self.view.set_draw_mode(kind)
+        for k, b in self._draw_buttons.items():
+            b.blockSignals(True)
+            b.setChecked(k is kind)
+            b.blockSignals(False)
+        if kind is RoiKind.OUTPUT_CROP:
+            self.lbl_draw.setText("绘制模式：输出裁切 —— 在画布拖出新框；"
+                                  "重复拖动替换；Esc 取消")
+        elif kind is RoiKind.IMAGE_AREA:
+            self.lbl_draw.setText("绘制模式：有效画面 —— 在画布拖出新框；"
+                                  "重复拖动替换；Esc 取消")
+        elif kind is RoiKind.BASE:
+            self.lbl_draw.setText("绘制模式：片基取样 —— 每次拖动新增一个；"
+                                  "Delete 删除选中项；Esc 取消")
+        else:
+            self.lbl_draw.setText("选择上方类型后在画布拖出矩形；Esc 取消绘制")
+
+    def set_banner(self, text: str, level: str = "info"):
+        """轻量 inline 提示（v6 §5.6.7：不用模态弹窗打断框选）。"""
+        self.banner.setText(text)
+        self.banner.setProperty("level", level)
+        self.banner.setStyleSheet("")          # 触发属性样式重算
+        self.banner.setVisible(bool(text))
+
+    def clear_banner(self):
+        self.set_banner("")
+
+    def _emit_reset_kind(self):
+        act = self.view.active_roi() or (
+            self.view.draw_mode(), 0) if self.view.draw_mode() else \
+            self.view.active_roi()
+        kind = act[0] if act else RoiKind.OUTPUT_CROP
+        self.reset_kind_requested.emit(kind)
+
+    # ------------------------------------------------------------- 辅助
     def _add_base(self):
-        r = self.view.roi(RoiKind.OUTPUT_CROP) or self.view.roi(RoiKind.IMAGE_AREA)
-        if r is None:
-            return
-        rect = r.adjusted(4, 4, -max(8.0, r.width() * 0.1), -max(8.0, r.height() * 0.9))
-        self.view.add_roi(RoiKind.BASE, rect)
-        self.geometry_changed.emit()
-
-    def _del_base(self):
-        act = self.view.active_roi()
-        idx = act[1] if (act and act[0] is RoiKind.BASE) \
-            else max(0, self.view.roi_count(RoiKind.BASE) - 1)
-        if self.view.remove_roi(RoiKind.BASE, idx):
-            self.geometry_changed.emit()
+        raise NotImplementedError  # v6：新增片基必须由用户拖出（§5.2）
 
     def _mode_changed(self, _i):
         self.geometry_changed.emit()
@@ -193,7 +311,7 @@ class CropPage(QWidget):
         suffix = f" {index + 1}" if kind is RoiKind.BASE else ""
         self.lbl_roi.setText(f"当前对象：{label}{suffix}")
 
-    # ---------------------------------------------------------------- 状态
+    # ------------------------------------------------------------- 状态
     def fine_rotation(self) -> float:
         return self.slider_fine.value() / 100.0
 
@@ -211,11 +329,3 @@ class CropPage(QWidget):
 
     def set_status(self, text: str):
         self.lbl_status.setText(text)
-
-
-def _header(text: str, font: QFont) -> QLabel:
-    lbl = QLabel(text)
-    f = QFont(font)
-    f.setBold(True)
-    lbl.setFont(f)
-    return lbl

@@ -15,6 +15,7 @@ v5 §8.1：没有中性点、没有色卡、未知胶片型号都**不**是失�
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -79,7 +80,14 @@ def auto_analyze(t_rgb: np.ndarray,
     （本帧 / 卷级 / 通用先验）。提供时**不再**本地重估 Dmin，来源如实记录。
     """
     t = np.asarray(t_rgb, dtype=np.float32)
-    rep = AutoReport(params=prior or InvertParams())
+    # `prior` is shared by batch/roll callers as an immutable starting point.
+    # Never mutate it while estimating a frame: Dmax/offset and later model
+    # assets are frame results, not edits to the caller's prior.  In-place
+    # mutation here previously made the first processed frame change every
+    # subsequent frame in a two-pass roll and also disabled the Dmax prior
+    # upper-bound check below.
+    rep = AutoReport(params=copy.deepcopy(prior) if prior is not None
+                     else InvertParams())
     rep.stages.append("1 解码/线性化（调用方完成）")
 
     # ---- 2/3 片基
