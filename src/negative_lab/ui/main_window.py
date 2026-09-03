@@ -469,14 +469,15 @@ class MainWindow(QMainWindow):
             # 导入即预览：选卷 -> 库面板选中信号会自动加载第一帧
             self.library.select_roll(sess.roll_groups[0].id)
         else:
-            # 无分组：直接加载第一张，用户立刻看到图
-            self._load_first_frame_of(None)
+            # 无分组：选"未分卷"（select_roll(None)=第一项），触发
+            # _roll_changed -> _populate_grid -> roll_selected -> 自动预览
+            self.library.select_roll(None)
         self._set_banner(f"已导入 {len(sess.files)} 个文件", "info")
         return sess
 
     def _load_first_frame_of(self, rid: str | None):
         """自动预览：载入该卷（或未分组）的第一帧。"""
-        frames = self._frames_of(rid or "")
+        frames = self._frames_of(rid or "__ungrouped__")
         if frames:
             self.load_frame(frames[0].source_path)
 

@@ -143,13 +143,18 @@ class LibraryPanel(QWidget):
         """编程化选卷：显式走 _roll_changed 全流程（setCurrentRow 在
         行号未变时不发 currentItemChanged 信号，会导致导入后不预览——
         2026-09-02 用户实测：导入后还得手动点一次'未分卷'）。"""
+        if self.roll_list.count() == 0:
+            return False
+        if rid is None:
+            rid = self.roll_list.item(0).data(Qt.UserRole)   # 第一项（含未分卷）
         for i in range(self.roll_list.count()):
             if self.roll_list.item(i).data(Qt.UserRole) == rid:
                 if self.roll_list.currentRow() == i:
                     self._roll_changed(self.roll_list.item(i), None)
                 else:
                     self.roll_list.setCurrentRow(i)   # 行号变化自动发信号
-                return
+                return True
+        return False
 
     def _roll_changed(self, cur, _prev):
         if cur is None:
