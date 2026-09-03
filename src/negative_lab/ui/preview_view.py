@@ -512,11 +512,14 @@ class PreviewView(QGraphicsView):
                 self.set_pick_mode(None)
                 self._overlay.update()
                 return
-            # 绘制模式：同类型 ROI 内/手柄上按下 = 移动/缩放（不得误新建）；
-            # 压在**其他类型**的 ROI 上 = 按当前绘制类型新建——否则嵌套的
-            # 有效画面（在输出裁切内部）永远无法画出（v6 §5.2）。
+            # 绘制模式：手柄上按下 = 缩放已有框；**框内按下 = 新建**
+            # （2026-09-02 用户实测改规则：旧规则"框内按下=移动"导致
+            # 画片基时框被旧框吞掉，看起来像"点了不出现"。移动仍可用
+            # ——但只在非绘制状态下直接拖框）。压在**其他类型**的 ROI
+            # 上 = 按当前绘制类型新建（保证嵌套区域可画，v6 §5.2）。
             if self._draw_kind is not None:
                 kind = self._draw_kind
+                s = self._scene_rect
                 for idx in range(self.roi_count(kind) - 1, -1, -1):
                     h = self.handle_at(kind, pos, idx)
                     r = self.roi(kind, idx)
@@ -529,18 +532,16 @@ class PreviewView(QGraphicsView):
                         self.roi_selected.emit(kind, idx)
                         self._overlay.update()
                         return
-                    if r is not None and r.contains(pos):
-                        self._active = (kind, idx)
-                        self._drag_mode = "move"
-                        self._drag_off = pos - r.topLeft()
-                        self.setDragMode(QGraphicsView.NoDrag)
-                        self.roi_selected.emit(kind, idx)
-                        self._overlay.update()
-                        return
                 self._drag_mode = "draw"
                 self._drag_kind = self._draw_kind
-                self._draw_origin = pos
-                self._draw_rect = QRectF(pos, pos)
+                # 起点钳制进场景：视图 fit 后场景周围有留黑区，从留黑区
+                # 起手会被判"完全越界"静默拒绝（2026-09-02 用户实测
+                # "片基点了不出现"的根因）。用户意图显然是在图上画。
+                origin = QPointF(
+                    min(max(pos.x(), s.left()), s.right()),
+                    min(max(pos.y(), s.top()), s.bottom()))
+                self._draw_origin = origin
+                self._draw_rect = QRectF(origin, origin)
                 self.setDragMode(QGraphicsView.NoDrag)
                 self._overlay.update()
                 return
@@ -587,6 +588,10 @@ class PreviewView(QGraphicsView):
             return
         if self._drag_mode == "draw" and self._draw_origin is not None:
             pos = self.mapToScene(ev.position().toPoint())
+            # 拖动点同样钳制进场景（避免终点越界导致矩形怪异）
+            s = self._scene_rect
+            pos = QPointF(min(max(pos.x(), s.left()), s.right()),
+                          min(max(pos.y(), s.top()), s.bottom()))
             self._draw_rect = QRectF(self._draw_origin, pos).normalized()
             self._overlay.update()
             return
@@ -619,6 +624,17 @@ class PreviewView(QGraphicsView):
             self._draw_origin = None
             self.setDragMode(QGraphicsView.ScrollHandDrag)
             if kind is not None and rect is not None:
+                # 用 release 位置重算矩形（不信任缓存的 _draw_rect）：
+                # QTest/触摸板快速拖动时 move 事件可能滞留到 release 之后，
+                # 缓存值会滞后一拍——2026-09-02 实测第一次拖拽被吞。
+                pos = self.mapToScene(ev.position().toPoint())
+                s = self._scene_rect
+                pos = QPointF(min(max(pos.x(), s.left()), s.right()),
+                              min(max(pos.y(), s.top()), s.bottom()))
+                origin = rect.topLeft()
+                rect = QRectF(origin, pos).normalized()
+                if rect.width() < 1 or rect.height() < 1:
+                    rect = QRectF(origin, origin + QPointF(2, 2))
                 self._finish_draw(kind, rect)
             return
         if self._drag_mode and self._active is not None:

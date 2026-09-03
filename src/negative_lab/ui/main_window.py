@@ -237,6 +237,7 @@ class MainWindow(QMainWindow):
         rp.rotate_requested.connect(self._rotate)
         rp.mirror_requested.connect(self._mirror)
         rp.fine_changed.connect(self._set_fine_rotation)
+        rp.go_edit_requested.connect(lambda: self._set_stage(1))
         rp.reset_geometry.connect(self._reset_all_geometry)
         rp.candidate_chosen.connect(self._choose_candidate)
         rp.tone_changed.connect(self._intent_changed)
@@ -252,8 +253,7 @@ class MainWindow(QMainWindow):
         self.view.roi_live_changed.connect(self._on_roi_live_changed)
         self.view.roi_selected.connect(self._on_roi_selected)
         self.view.replace_hint.connect(lambda t: self._set_banner(t, 'info'))
-        self.view.draw_rejected.connect(
-            lambda t: self._set_banner(t, 'warning'))
+        self.view.draw_rejected.connect(self._on_draw_rejected)
         self._stage = 0          # 0=分析（负片） 1=调整（正片）
 
     # ------------------------------------------------------- Stage 切换
@@ -378,8 +378,10 @@ class MainWindow(QMainWindow):
         if self.current is None:
             return
         self.current.geometry.fine_rotation_degrees = float(deg)
+        self.right.sec_areas.set_fine_rotation(float(deg))
         self._update_draft_from_view()
-        self._compose_view(fit=True)
+        self._compose_view(fit=True) if self._stage == 1 else \
+            self._refresh_preview(seed_if_untouched=False)
 
     def _hold_original(self, on: bool):
         """按住看原片（负片）；松开回到当前阶段视图。"""
@@ -447,6 +449,10 @@ class MainWindow(QMainWindow):
             self._set_banner(f"导入失败：{result.get('error')}", "danger")
             return
         self._adopt_session(result["value"])
+        # 导入即预览（兜底）：若自动选卷链路没触发加载，直接载第一帧
+        if self.current is None and self.session is not None \
+                and self.session.files:
+            self._load_first_frame_of(self.library.current_roll)
 
     def load_files(self, files: list[Path]) -> ImportSession:
         sess = ImportSession()
@@ -1003,6 +1009,15 @@ class MainWindow(QMainWindow):
         """拖动中（~30fps）：草稿静默更新 + 遮罩即时跟随，零管线调用。"""
         self._update_draft_from_view_silent()
         self.view._overlay.update()
+
+    def _on_draw_rejected(self, text: str):
+        """绘制被拒：用引导 pill 突出显示（状态行太隐蔽，用户看不到）。"""
+        self._set_banner(text, 'warning')
+        self.pill.setText(text)
+        self.pill.setStyleSheet(f'color: {theme.COLORS['danger']};')
+        QTimer.singleShot(2500, lambda: (
+            self.pill.setStyleSheet(''),
+            self._update_guidance()))
 
     def _on_roi_selected(self, kind, index=0):
         pass          # 状态引导由 _update_area_states 负责

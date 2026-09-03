@@ -180,10 +180,14 @@ class _AnalysisAreaRow(QWidget):
 
 
 class AnalysisSection(Section):
-    """「分析区」节：三行任务 + 每区说明微文案。"""
+    """「分析区」节：三行任务 + 每区说明微文案 + 几何工具 + 去调整按钮。"""
 
     area_action = Signal(str)          # "image_area"|"base"|"output_crop"
     area_clear = Signal(str)
+    rotate_requested = Signal(int)
+    mirror_requested = Signal()
+    fine_changed = Signal(float)
+    go_edit_requested = Signal()
 
     HELP = {
         "image_area": "框住单帧的画面内容（不含片边文字），"
@@ -206,14 +210,63 @@ class AnalysisSection(Section):
             tip.setProperty("caption", True)
             tip.setWordWrap(True)
             self.add(tip)
+
+        # ---- 方向工具（旋转 90 / 镜像 / 细微旋转拉直）
+        rowg = QHBoxLayout()
+        rowg.setSpacing(4)
+        self.btn_ccw = self.add_tool(icons.rotate_ccw(), "逆时针旋转 90°")
+        self.btn_cw = self.add_tool(icons.rotate_cw(), "顺时针旋转 90°")
+        self.btn_mirror = self.add_tool(icons.mirror_h(), "水平镜像")
+        for b in (self.btn_ccw, self.btn_cw, self.btn_mirror):
+            rowg.addWidget(b)
+        rowg.addStretch(1)
+        hg = QWidget()
+        hg.setLayout(rowg)
+        self.add(hg)
+        self.slider_fine = QSlider(Qt.Horizontal)
+        self.slider_fine.setRange(int(-MAX_FINE_ROTATION * 100),
+                                  int(MAX_FINE_ROTATION * 100))
+        self.slider_fine.setToolTip("细微旋转（拉直）")
+        self.lbl_fine = QLabel("0.00°")
+        self.lbl_fine.setProperty("caption", True)
+        self.lbl_fine.setFixedWidth(40)
+        rowf = QHBoxLayout()
+        rowf.setSpacing(6)
+        rowf.addWidget(self.slider_fine, 1)
+        rowf.addWidget(self.lbl_fine)
+        hf = QWidget()
+        hf.setLayout(rowf)
+        self.add_row("拉直", hf)
+        self.btn_ccw.clicked.connect(lambda: self.rotate_requested.emit(-90))
+        self.btn_cw.clicked.connect(lambda: self.rotate_requested.emit(90))
+        self.btn_mirror.clicked.connect(self.mirror_requested)
+        self.slider_fine.valueChanged.connect(
+            lambda v: self.lbl_fine.setText(f"{v / 100.0:+.2f}°"))
+        self.slider_fine.sliderReleased.connect(
+            lambda: self.fine_changed.emit(self.slider_fine.value() / 100.0))
+
         self.btn_auto = QPushButton("自动检测全部区域")
         self.btn_auto.setMinimumHeight(26)
         self.add(self.btn_auto)
+
+        # ---- 分析完成 -> 去调整（显式阶段跳转，竞品式 Stage 切换动作）
+        self.btn_go_edit = QPushButton("分析完成，去调整 →")
+        self.btn_go_edit.setProperty("accent", True)
+        self.btn_go_edit.setMinimumHeight(30)
+        self.btn_go_edit.setToolTip("切换到调整阶段：查看去色罩结果并微调")
+        self.btn_go_edit.clicked.connect(self.go_edit_requested)
+        self.add(self.btn_go_edit)
 
     def set_state(self, key: str, *, has: bool, text: str,
                   allow_clear: bool = False):
         row = self.rows[key]
         row.set_state(has, text, allow_clear=allow_clear)
+
+    def set_fine_rotation(self, deg: float):
+        self.slider_fine.blockSignals(True)
+        self.slider_fine.setValue(int(round(deg * 100)))
+        self.slider_fine.blockSignals(False)
+        self.lbl_fine.setText(f"{deg:+.2f}°")
 
 
 class InputSection(Section):
@@ -329,6 +382,7 @@ class RightPanel(QWidget):
     mirror_requested = Signal()
     fine_changed = Signal(float)
     reset_geometry = Signal()
+    go_edit_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -405,6 +459,10 @@ class RightPanel(QWidget):
         self.sec_areas.area_action.connect(self.area_action)
         self.sec_areas.area_clear.connect(self.area_clear)
         self.sec_areas.btn_auto.clicked.connect(self.auto_detect_requested)
+        self.sec_areas.rotate_requested.connect(self.rotate_requested)
+        self.sec_areas.mirror_requested.connect(self.mirror_requested)
+        self.sec_areas.fine_changed.connect(self.fine_changed)
+        self.sec_areas.go_edit_requested.connect(self.go_edit_requested)
         self.sec_settings.keep_rebate_toggled.connect(self.keep_rebate_toggled)
         self.cand.candidate_chosen.connect(self.candidate_chosen)
         self.panel.changed.connect(self.tone_changed)

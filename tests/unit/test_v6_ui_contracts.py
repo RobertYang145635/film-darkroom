@@ -42,6 +42,10 @@ def view():
     from negative_lab.ui.preview_view import PreviewView
 
     v = PreviewView()
+    v.resize(900, 700)
+    # 左上对齐（AlignmentLeft|Top）：视图大于场景时默认居中会产生滚动
+    # 偏移，mapToScene 坐标全变——拖拽断言必须用确定的映射
+    v.setAlignment(Qt.AlignLeft | Qt.AlignTop)
     v.set_image(np.zeros((400, 600, 3), np.float32))
     yield v
 
@@ -50,6 +54,7 @@ def _drag(view, p0, p1, button=Qt.LeftButton):
     from PySide6.QtTest import QTest
 
     vp = view.viewport()
+    vp.resize(900, 700)          # 离屏默认视口 ~100x30，必须撑大才可拖
     QTest.mousePress(vp, button, Qt.NoModifier, QPoint(*p0))
     QTest.mouseMove(vp, QPoint(*p1))
     QTest.mouseRelease(vp, button, Qt.NoModifier, QPoint(*p1))
@@ -235,7 +240,8 @@ class TestDrawMode:
         view.set_draw_mode(RoiKind.BASE)
         _drag(view, (10, 10), (100, 40))
         _drag(view, (10, 60), (100, 90))
-        assert view.roi_count(RoiKind.BASE) == 2
+        assert view.roi_count(RoiKind.BASE) == 2, \
+            "片基区在已有框内拖动也必须新建（2026-09-02 用户实测改规则）"
         view.set_active(RoiKind.BASE, 0)
         from PySide6.QtTest import QTest
 
@@ -243,6 +249,17 @@ class TestDrawMode:
         assert view.roi_count(RoiKind.BASE) == 1, "Delete 只删当前对象"
         QTest.keyClick(view, Qt.Key_Escape)
         assert view.draw_mode() is None
+
+    def test_draw_from_dark_margin_is_clamped(self, view):
+        """从留黑区（场景外）起手必须钳制进场景，不得静默拒绝
+        （2026-09-02 用户实测'片基点了不出现'的根因）。"""
+        from negative_lab.ui.preview_view import RoiKind
+
+        view.set_draw_mode(RoiKind.BASE)
+        # (-80,-80) 在视口坐标里映射到场景外（fit 后有留黑）
+        _drag(view, (-80, -80), (120, 90))
+        assert view.roi_count(RoiKind.BASE) == 1, \
+            "从场景外起手也必须能画出框（钳制到场景内）"
 
     def test_nested_kind_can_be_drawn(self, view):
         from negative_lab.ui.preview_view import RoiKind
