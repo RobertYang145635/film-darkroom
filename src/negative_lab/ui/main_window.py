@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QFileDialog, QHBoxLayout, QLabel,
@@ -207,6 +207,11 @@ class MainWindow(QMainWindow):
         self._compare_on = False
         self._stage = 0          # 0=分析（负片） 1=调整（正片）
         self.lbl_stage_tag = None   # 阶段标签 pill（首帧时创建）
+        # 草稿落盘防抖：拖动中只写内存，停顿 600ms 后才写盘（修卡顿）
+        self._draft_flush_timer = QTimer(self)
+        self._draft_flush_timer.setSingleShot(True)
+        self._draft_flush_timer.setInterval(600)
+        self._draft_flush_timer.timeout.connect(self._flush_draft)
         self._tag_stage('原负片')
         self.pill.setText('导入包含 RAW / 16 位 TIFF / DNG 的文件夹后开始')
         self.pill.setVisible(True)
@@ -219,6 +224,7 @@ class MainWindow(QMainWindow):
         self.btn_export.clicked.connect(self.export_roll)
         self.library.frame_selected.connect(self.load_frame)
         self.library.grouping_changed.connect(self._on_grouping_changed)
+        self.library.roll_selected.connect(self._load_first_frame_of)
         self.library.request_split.connect(self._on_split)
 
         # ---- 右栏（Stage 模型）
@@ -454,10 +460,19 @@ class MainWindow(QMainWindow):
         self.library.set_session(sess)
         self.filmstrip.set_frames([], pixmap_of=self._strip_pixmap)
         if sess.roll_groups:
+            # 导入即预览：选卷 -> 库面板选中信号会自动加载第一帧
             self.library.select_roll(sess.roll_groups[0].id)
-        self._set_banner(f"导入 {len(sess.files)} 个文件；请整理成卷后标定区域",
-                         "info")
+        else:
+            # 无分组：直接加载第一张，用户立刻看到图
+            self._load_first_frame_of(None)
+        self._set_banner(f"已导入 {len(sess.files)} 个文件", "info")
         return sess
+
+    def _load_first_frame_of(self, rid: str | None):
+        """自动预览：载入该卷（或未分组）的第一帧。"""
+        frames = self._frames_of(rid or "")
+        if frames:
+            self.load_frame(frames[0].source_path)
 
     def _strip_pixmap(self, rec: FrameRecord):
         """胶片条取图：与左栏缩略图同源（后台生成后由 library 缓存）。"""
@@ -905,11 +920,24 @@ class MainWindow(QMainWindow):
             self.view.fit()
 
     def _update_draft_from_view_silent(self):
+        """拖动中的草稿更新：**只写内存**，不落盘。
+
+        2026-09-02 实测教训：此前每次（30fps）都原子写盘，磁盘 fsync
+        拖垮主线程——裁切拖动卡顿的根因。落盘交给 _flush_draft（停顿
+        600ms 后）或松手时立即执行。
+        """
         rec = self.current
         if rec is None or self.t_source is None:
             return
         rec.geometry = self._geometry_for_service()
         self._draft_touched = True
+        self._draft_flush_timer.start()
+
+    def _flush_draft(self):
+        """把内存中的草稿写盘（防抖落地）。"""
+        rec = self.current
+        if rec is None or not self._draft_touched:
+            return
         self._save_draft_annotation(rec, quiet=True)
 
     def _show_frame(self):
@@ -991,7 +1019,7 @@ class MainWindow(QMainWindow):
             self._set_banner(f"已删除{label} {index + 1}", "info")
 
     def _update_draft_from_view(self, *, rerun: bool = False):
-        """草稿 <- 画布。rerun=True 才重跑管线（只有片基变化需要）。"""
+        """草稿 <- 画布（松手路径：立即落盘）。rerun=True 才重跑管线。"""
         rec = self.current
         if rec is None or self.t_source is None:
             return
@@ -999,6 +1027,7 @@ class MainWindow(QMainWindow):
         self._draft_touched = True
         if not rec.geometry.is_complete():
             rec.status = FrameStatus.NEEDS_CROP_REVIEW.value
+        self._draft_flush_timer.stop()      # 松手即写，取消防抖定时
         self._save_draft_annotation(rec, quiet=True)
         self._set_status(_frame_status_text(rec, self.pr))
         if rerun:
