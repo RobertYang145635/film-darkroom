@@ -137,10 +137,38 @@ class MainWindow(QMainWindow):
         center_lay = QVBoxLayout(center)
         center_lay.setContentsMargins(0, 0, 0, 0)
         center_lay.setSpacing(theme.SPACING['xs'])
+
+        # 引导 pill（竞品式）：永远告诉用户下一步做什么（非模态）
+        self.pill = QLabel('')
+        self.pill.setProperty('pill', True)
+        self.pill.setAlignment(Qt.AlignCenter)
+        self.pill.setVisible(False)
+        center_lay.addWidget(self.pill)
+
+        # 查看区（相对定位容器：toast/缩放提示悬浮其上）
+        from PySide6.QtWidgets import QGridLayout
+        self.view_host = QWidget()
+        view_grid = QGridLayout(self.view_host)
+        view_grid.setContentsMargins(0, 0, 0, 0)
         self.view = PreviewView()
         self.view.setStyleSheet(
             f"background: {theme.COLORS['viewer']}; border: none;")
-        center_lay.addWidget(self.view, 1)
+        view_grid.addWidget(self.view, 0, 0)
+        # 处理中 toast（居中悬浮，非模态，竞品式）
+        self.toast = QLabel('处理中…')
+        self.toast.setProperty('toast', True)
+        self.toast.setAlignment(Qt.AlignCenter)
+        self.toast.setVisible(False)
+        view_grid.addWidget(self.toast, 0, 0, Qt.AlignCenter)
+        # 缩放提示（左下角 pill）
+        self.lbl_zoom = QLabel('100%')
+        self.lbl_zoom.setProperty('pill', True)
+        self.lbl_zoom.setVisible(False)
+        view_grid.addWidget(self.lbl_zoom, 0, 0,
+                            Qt.AlignLeft | Qt.AlignBottom)
+        view_grid.setContentsMargins(0, 0, 0, 0)
+        center_lay.addWidget(self.view_host, 1)
+
         self.filmstrip = FilmStrip()
         self.filmstrip.frame_selected.connect(self.load_frame)
         center_lay.addWidget(self.filmstrip)
@@ -177,6 +205,11 @@ class MainWindow(QMainWindow):
         self._viewer_background = theme.COLORS['viewer']
         self._orig_held = False
         self._compare_on = False
+        self._stage = 0          # 0=分析（负片） 1=调整（正片）
+        self.lbl_stage_tag = None   # 阶段标签 pill（首帧时创建）
+        self._tag_stage('原负片')
+        self.pill.setText('导入包含 RAW / 16 位 TIFF / DNG 的文件夹后开始')
+        self.pill.setVisible(True)
 
         # ---- 顶部动作
         self.btn_import.clicked.connect(self._pick_folder)
@@ -188,18 +221,17 @@ class MainWindow(QMainWindow):
         self.library.grouping_changed.connect(self._on_grouping_changed)
         self.library.request_split.connect(self._on_split)
 
-        # ---- 右栏
+        # ---- 右栏（Stage 模型）
         rp = self.right
-        rp.crop_activate.connect(self._set_crop_active)
+        rp.stage_changed.connect(self._set_stage)
+        rp.area_action.connect(self._on_area_action)
+        rp.area_clear.connect(self._on_area_clear)
+        rp.auto_detect_requested.connect(self._auto_crop)
+        rp.keep_rebate_toggled.connect(self._on_keep_rebate)
         rp.rotate_requested.connect(self._rotate)
         rp.mirror_requested.connect(self._mirror)
-        rp.auto_crop_requested.connect(self._auto_crop)
         rp.fine_changed.connect(self._set_fine_rotation)
         rp.reset_geometry.connect(self._reset_all_geometry)
-        rp.show_base_toggled.connect(
-            lambda on: self.view.set_kind_visible(RoiKind.BASE, on))
-        rp.show_image_area_toggled.connect(
-            lambda on: self.view.set_kind_visible(RoiKind.IMAGE_AREA, on))
         rp.candidate_chosen.connect(self._choose_candidate)
         rp.tone_changed.connect(self._intent_changed)
         rp.tone_committed.connect(self._intent_committed)
@@ -216,33 +248,121 @@ class MainWindow(QMainWindow):
         self.view.replace_hint.connect(lambda t: self._set_banner(t, 'info'))
         self.view.draw_rejected.connect(
             lambda t: self._set_banner(t, 'warning'))
+        self._stage = 0          # 0=分析（负片） 1=调整（正片）
 
-    # ------------------------------------------------------- 裁切叠加工具
+    # ------------------------------------------------------- Stage 切换
+    def current_page(self) -> int:
+        return self._stage
+
     def page_count(self) -> int:
         return 1
 
     def page_title(self, index: int = 0) -> str:
         return '工作区'
 
-    def current_page(self) -> int:
-        return 0          # 单工作区：裁切叠加/转换共用同一视图
+    def _set_stage(self, i: int):
+        """Stage 切换（竞品 Convert/Edit 模型）：
 
-    def _set_crop_active(self, on: bool):
-        """激活/退出裁切叠加（右栏小工具节按钮；Esc/完成退出）。
-
-        激活：输出裁切框出现 + 框外压暗（即时遮罩）；输出裁切不存在时
-        自动进入"画新框"状态。退出：恢复整幅正片（框外不再压暗）。
+        - 分析：中央显示**原负片**（分析要在负片上看片基/文字），
+          三类 ROI 叠加可见；
+        - 调整：中央显示**转换结果**（缓存合成正片，毫秒级），
+          ROI 隐藏（构图在分析阶段已定）。
         """
-        self.right.set_crop_active(on)
-        if on:
+        self._stage = 0 if i == 0 else 1
+        self.right.set_stage(self._stage)
+        if self._stage == 0:
             self.view.set_rois_visible(True)
-            if self.view.roi(RoiKind.OUTPUT_CROP) is None:
-                self._toggle_draw(RoiKind.OUTPUT_CROP)
-            self.view._crop_dim = 0.55
-        else:
             self.view.set_draw_mode(None)
             self.view._crop_dim = 0.0
-        self.view._overlay.update()
+            if self._small is not None and not self._orig_held:
+                self.view.set_image(self._small)
+                self.view.fit()
+            self._tag_stage('原负片')
+        else:
+            self.view.set_draw_mode(None)
+            self.view.set_rois_visible(False)
+            self._compose_view(fit=True)
+            self._tag_stage('转换结果')
+        self._update_guidance()
+        self._update_area_states()
+
+    def _tag_stage(self, text: str):
+        """图像左上角的阶段标签 pill（竞品 Original Negative/Converted）。"""
+        if self.lbl_stage_tag is None:
+            from PySide6.QtWidgets import QGridLayout
+
+            self.lbl_stage_tag = QLabel(text)
+            self.lbl_stage_tag.setProperty('pill', True)
+            lay = self.view_host.layout()
+            lay.addWidget(self.lbl_stage_tag, 0, 0,
+                          Qt.AlignTop | Qt.AlignLeft)
+        else:
+            self.lbl_stage_tag.setText(text)
+        self.lbl_stage_tag.setVisible(True)
+
+    def _update_guidance(self):
+        """引导 pill：按当前状态告诉用户下一步（竞品核心 UX）。"""
+        if self.current is None:
+            self.pill.setVisible(False)
+            return
+        g = self.current.geometry
+        if self._stage == 0:
+            if not g.image_area_roi:
+                text = '拖动绿框圈出单帧画面区域（右栏「有效画面 · 框选」）'
+            elif not g.base_sample_rois:
+                text = '片基未取样：点「片基 Dmin · 取样」，在未曝光片基上拖出一小块'
+            else:
+                text = '分析完成：切到「调整」查看去色罩结果'
+        else:
+            text = '拖动滑杆微调，直方图实时更新；按住「看原片」对比'
+        self.pill.setText(text)
+        self.pill.setVisible(True)
+
+    def _update_area_states(self):
+        """右栏分析区状态行（彩点 + 文本 + 清除按钮）。"""
+        if self.current is None:
+            for key in ('image_area', 'base', 'output_crop'):
+                self.right.set_area_state(key, has=False, text='未载入帧')
+            return
+        g = self.current.geometry
+        self.right.set_area_state(
+            'image_area', has=bool(g.image_area_roi),
+            text='已框选' if g.image_area_roi else '未框选',
+            allow_clear=bool(g.image_area_roi))
+        self.right.set_area_state(
+            'base', has=bool(g.base_sample_rois),
+            text=(f'已取样 {len(g.base_sample_rois)} 块'
+                  if g.base_sample_rois else '未取样'),
+            allow_clear=bool(g.base_sample_rois))
+        self.right.set_area_state(
+            'output_crop', has=bool(g.output_crop_roi),
+            text='已裁切' if g.output_crop_roi else '未裁切（导出用画面区）',
+            allow_clear=bool(g.output_crop_roi))
+
+    AREA_KIND = {'image_area': RoiKind.IMAGE_AREA,
+                 'base': RoiKind.BASE,
+                 'output_crop': RoiKind.OUTPUT_CROP}
+
+    def _on_area_action(self, key: str):
+        """分析区动作按钮：进入对应类型的绘制模式（分析阶段在负片上）。"""
+        if self._stage != 0 or self.current is None:
+            self._set_stage(0)
+        kind = self.AREA_KIND[key]
+        self.view.set_rois_visible(True)
+        self.view.set_draw_mode(kind)
+        label = {'image_area': '有效画面', 'base': '片基 Dmin',
+                 'output_crop': '输出裁切'}[key]
+        self._set_banner(f'在画布上拖出{label}区域（Esc 取消）', 'info')
+
+    def _on_area_clear(self, key: str):
+        kind = self.AREA_KIND[key]
+        self.view.clear_rois(kind)
+        self._update_draft_from_view()
+        self._update_area_states()
+        self._update_guidance()
+
+    def _on_keep_rebate(self, on: bool):
+        self.current.keep_rebate = bool(on) if self.current else None
 
     def _toggle_draw(self, kind: RoiKind):
         self.view.set_draw_mode(
@@ -256,14 +376,38 @@ class MainWindow(QMainWindow):
         self._compose_view(fit=True)
 
     def _hold_original(self, on: bool):
-        """按住看原片（负片）；松开回到合成正片。"""
+        """按住看原片（负片）；松开回到当前阶段视图。"""
         self._orig_held = bool(on)
         if self._small is None:
             return
         if on:
             self.view.set_image(self._small)
+        elif self._stage == 0:
+            self.view.set_image(self._small)
         else:
             self._compose_view()
+
+    def _update_input_info(self, rec: FrameRecord, meta: dict):
+        """右栏「输入」节：只读元信息（竞品 Film Type/Decoder 式）。"""
+        self.right.set_input_info(
+            file=Path(rec.source_path).name,
+            camera=str(meta.get('camera_model') or meta.get('make') or '—'),
+            decoder=str(meta.get('kind') or '—'),
+            bits=f"{meta.get('bits', '')}".strip() or '16bit?',
+            fingerprint=rec.capture_fingerprint or '')
+
+    def _update_histograms(self):
+        """两处直方图：分析=负片；调整=当前合成正片。"""
+        try:
+            if self._small is not None:
+                x = np.clip(self._small, 0, None)
+                self.right.hist_convert.set_image(
+                    x / max(float(x.max()), 1e-6))
+            pos = self._rendered_full() if self._positive_full is not None \
+                else None
+            self.right.hist_edit.set_image(pos)
+        except Exception:  # noqa: BLE001 直方图失败不影响编辑
+            pass
 
     def _pick_folder(self):
         d = QFileDialog.getExistingDirectory(self, "导入包含负片的文件夹")
@@ -446,9 +590,18 @@ class MainWindow(QMainWindow):
         # 先把草稿 ROI 放上画布（_show_frame），再合成显示（_compose_view）
         # ——顺序反了或缺了都会让"框消失"（2026-09-02 实测教训）
         self._show_frame()
-        # Lightroom 语义：进来看到的就是**处理后的正片**（原负片用
-        # "按住看原片"查看），不是负片+框
-        self._compose_view(fit=True)
+        # 竞品式：分析阶段看原负片；调整阶段看转换结果
+        if self._stage == 0:
+            self.view.set_image(self._small)
+            self.view.fit()
+            self._tag_stage('原负片')
+        else:
+            self._compose_view(fit=True)
+            self._tag_stage('转换结果')
+        self._update_input_info(rec, d['meta'])
+        self._update_area_states()
+        self._update_guidance()
+        self._update_histograms()
         sh, sw = self.t_source.shape[:2]
         self._set_banner(f"{Path(rec.source_path).name} | {sw}x{sh} | "
                          f"片基来源 {self.pr.base_source}", "info")
@@ -606,12 +759,15 @@ class MainWindow(QMainWindow):
             return False
         if key == "preview":
             self.view.set_busy(True)
+            self._show_toast('正在分析片基与密度范围…')
         return True
 
     def _busy_leave(self, key: str):
         self._busy.leave(key)
         if key == "preview":
             self.view.set_busy(self._busy._locks.__contains__("preview"))
+            if not self._busy._locks.__contains__("preview"):
+                self._hide_toast()
 
     def _refresh_preview(self, *, seed_if_untouched: bool = False,
                          reason: str = "crop"):
@@ -683,9 +839,15 @@ class MainWindow(QMainWindow):
                         base_sample_rois=src_geo.get("base_sample_rois") or [])
                     self._save_draft_annotation(rec, quiet=True)
                 self._set_status(_frame_status_text(rec, pr))
-                # 技术底座已更新：刷新缓存正片并按当前模式即时合成
+                # 技术底座已更新：刷新缓存正片并按当前阶段上屏
                 self._positive_full = pr.result.positive_linear
-                self._compose_view(fit=True)
+                if self._stage == 1:
+                    self._compose_view(fit=True)
+                else:
+                    self._show_frame()          # 分析阶段：负片+ROI
+                self._update_area_states()
+                self._update_guidance()
+                self._set_banner('片基分析完成', 'success')
             if getattr(self, "_preview_pending", False):
                 self._preview_pending = False
                 self._refresh_preview()
@@ -783,25 +945,31 @@ class MainWindow(QMainWindow):
         put(RoiKind.IMAGE_AREA, rss.image_area_roi)
         put(RoiKind.BASE, rss.base_sample_rois, multiple=True)
         view.set_draw_mode(draw_kind)
-        self.right.set_fine_rotation(rec.geometry.fine_rotation_degrees)
-        self.right.set_keep_rebate(self.right.keep_rebate())
         self._set_status(_frame_status_text(rec, self.pr))
 
-    # ------------------------------------------------------- 编辑事件
+        # ------------------------------------------------------- 编辑事件
     def _on_roi_edited(self, kind, index=0, _rect=None):
-        """画布释放鼠标（v6 交互模型，对齐 Lightroom）：
+        """画布释放鼠标（Stage 模型，对齐竞品）：
 
-        - 输出裁切 / 有效画面：即时合成——正片缓存按新构图即时呈现
-          （转换模式重推渲染图；裁切模式靠框外压暗遮罩），**不重跑管线**；
-        - 片基取样区：影响 Dmin 技术底座 -> 后台重跑管线（唯一慢路径）。
+        - 分析阶段（负片）：更新草稿 + 分析区状态 + 引导文案；
+          片基变化 -> 后台重跑管线（唯一慢路径，toast 提示）；
+        - 调整阶段：即时合成（毫秒级）。
         """
         self._update_draft_from_view(rerun=(kind is RoiKind.BASE))
+        self._update_area_states()
+        self._update_guidance()
         if kind is RoiKind.BASE:
-            self._set_banner("片基取样已更新：正在按新片基重新计算去色罩…",
-                             "info")
-        else:
+            self._show_toast('正在分析片基与密度范围…')
+        elif self._stage == 1:
             self._compose_view()
-        # roi_edited 对外信号已无订阅者（快/慢路径在 MainWindow 内闭环）
+
+    def _show_toast(self, text: str):
+        """居中非模态处理提示（竞品式）。"""
+        self.toast.setText(text)
+        self.toast.setVisible(True)
+
+    def _hide_toast(self):
+        self.toast.setVisible(False)
 
     def _on_roi_live_changed(self):
         """拖动中（~30fps）：草稿静默更新 + 遮罩即时跟随，零管线调用。"""
@@ -809,11 +977,13 @@ class MainWindow(QMainWindow):
         self.view._overlay.update()
 
     def _on_roi_selected(self, kind, index=0):
-        self.right.sec_crop.set_active(True)
+        pass          # 状态引导由 _update_area_states 负责
 
     def _on_roi_deleted(self, kind, index=0):
         label = KIND_LABELS.get(kind, str(kind))
-        self._update_draft_from_view()
+        self._update_draft_from_view(rerun=(kind is RoiKind.BASE))
+        self._update_area_states()
+        self._update_guidance()
         if kind is not RoiKind.BASE:
             self._set_banner(f"已删除{label}：状态 = 需要裁切复核"
                              "（不会自动用其他框代替）", "warning")

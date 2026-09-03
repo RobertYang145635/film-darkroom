@@ -75,19 +75,51 @@ class TestSingleWorkspace:
     def test_right_panel_is_section_stack(self):
         w = _win()
         rp = w.right
-        for name in ("sec_crop", "sec_basic", "sec_cand", "sec_tech"):
-            assert hasattr(rp, name), f"右栏缺 {name} 节"
-        # 裁切节默认收起（Lightroom 小工具）
-        assert rp.sec_crop.btn_head.isChecked() is False
+        # Stage 模型：分析页（输入/分析区/转换设置）+ 调整页（色罩校正/
+        # 基础调整/技术信息）
+        assert hasattr(rp, "sec_areas") and hasattr(rp, "sec_input")
+        assert hasattr(rp, "sec_cast") and hasattr(rp, "sec_basic")
+        assert hasattr(rp, "sec_tech") and hasattr(rp, "sec_settings")
+        # 默认分析阶段
+        assert rp.stack.currentIndex() == 0
+        # 分析区三行任务（竞品式：彩点+状态+动作按钮）
+        for key in ("image_area", "base", "output_crop"):
+            assert key in rp.sec_areas.rows
+
+    def test_stage_switch_swaps_content_not_page(self):
+        """Stage 只换右栏内容与中央图内容；查看区控件常驻。"""
+        w = _win()
+        host = w.view_host
+        w._set_stage(0)
+        assert w.right.stack.currentIndex() == 0
+        w._set_stage(1)
+        assert w.right.stack.currentIndex() == 1
+        assert w.view_host is host, "查看区容器必须常驻（不换页）"
+
+    def test_analysis_area_actions_enter_draw_mode(self):
+        w = _win()
+        from negative_lab.ui.preview_view import RoiKind
+
+        w._set_stage(0)
+        w.right.sec_areas.area_action.emit("image_area")
+        assert w.view.draw_mode() is RoiKind.IMAGE_AREA
+        w.view.set_draw_mode(None)
+        w.right.sec_areas.area_action.emit("base")
+        assert w.view.draw_mode() is RoiKind.BASE
+        w.view.set_draw_mode(None)
+
+    def test_guidance_pill_exists(self):
+        w = _win()
+        assert hasattr(w, "pill") and hasattr(w, "toast")
+        assert hasattr(w, "lbl_stage_tag"), "必须有阶段标签 pill"
 
     def test_crop_tool_is_panel_section_not_page(self):
-        """裁切是右栏按钮激活的叠加态；激活/退出不换页、照片不消失。"""
+        """裁切通过右栏「分析区 · 输出裁切」进入绘制态；不换页。"""
         w = _win()
         img_before = w.view._pix_item
-        w.right.sec_crop._on_activate(True)
-        assert w.view._crop_dim > 0.3, "激活后框外必须压暗"
-        w.right.sec_crop._on_activate(False)
-        assert w.view._crop_dim == 0.0, "退出后遮罩必须消失"
+        w.right.sec_areas.area_action.emit("output_crop")
+        assert w.view.draw_mode() is not None
+        w.view.set_draw_mode(None)
         assert w.view._pix_item is img_before, "照片控件必须常驻"
 
     def test_compose_is_instant_no_pipeline(self, monkeypatch):

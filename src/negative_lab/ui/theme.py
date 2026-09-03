@@ -23,6 +23,9 @@ COLORS = {
     "warning": "#D7BA7D",
     "danger": "#F48771",
     "viewer": "#141414",        # 照片查看区（比面板更深）
+    "area_image": "#4EC9B0",    # 分析区点色：有效画面（竞品绿）
+    "area_base": "#E5A54B",     # 分析区点色：片基 Dmin（竞品橙）
+    "area_crop": "#5A9CFF",     # 分析区点色：输出裁切（竞品蓝）
 }
 
 #: 8pt 间距基线

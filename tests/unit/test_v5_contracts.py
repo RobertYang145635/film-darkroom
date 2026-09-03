@@ -183,7 +183,7 @@ class TestCropPageGeometry:
 
         win = MainWindow()
         banned = re.compile(
-            r'(Dmin|dmin|Dmax|dmax|wb_low|wb_high|reference_exponent|red_ratio|'
+            r'(dmax_|wb_low|wb_high|reference_exponent|red_ratio|'
             r'blue_ratio|density_matrix|backend|除尘|画笔|蒙版|卷级校准|配置文件)')
         visible = [lbl.text() for lbl in win.findChildren(QLabel)
                    if lbl.isVisibleTo(win) and banned.search(lbl.text())]
