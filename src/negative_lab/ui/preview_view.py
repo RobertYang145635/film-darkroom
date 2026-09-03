@@ -82,6 +82,7 @@ class PreviewView(QGraphicsView):
     replace_hint = Signal(str)                    # "已替换输出裁切" 等
     point_picked = Signal(str, float, float)      # "bright"|"dark", x, y
     mask_painted = Signal()
+    zoom_changed = Signal(float)      # 相对场景 1:1 的缩放倍数
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -90,6 +91,9 @@ class PreviewView(QGraphicsView):
         self.setRenderHints(self.renderHints())
         self.setDragMode(QGraphicsView.ScrollHandDrag)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        # 放大平滑（默认 Fast=最近邻，放大即马赛克——2026-09-02 用户反馈"糊"）
+        self.setRenderHint(QPainter.SmoothPixmapTransform, True)
+        self.setOptimizationFlag(QGraphicsView.DontAdjustForAntialiasing, True)
         # 必须在创建 _OverlayItem 之前就绪：首个 boundingRect() 就会读它
         self._scene_rect = QRectF(0, 0, 1, 1)
         self._pix_item = None
@@ -652,3 +656,8 @@ class PreviewView(QGraphicsView):
         factor = 1.25 if ev.angleDelta().y() > 0 else 0.8
         self.scale(factor, factor)
         self._overlay.update()
+        self.zoom_changed.emit(float(self.m11()))
+
+    def current_zoom(self) -> float:
+        """相对场景 1:1 的缩放倍数。"""
+        return float(self.m11())

@@ -42,7 +42,7 @@ from .preview_view import PreviewView, RoiKind
 from .right_panel import RightPanel
 from .workers import BusyState as _Busy
 
-MAX_PREVIEW_DIM = 1100          # 交互预览（快）；导出走全分辨率
+MAX_PREVIEW_DIM = 1400          # 交互预览（fit 视图在 150% DPI 下约需 1400 物理px；再大走按需高清分片）
 IMPORT_PROBE = False            # 导入只取元数据+哈希（完整探针太慢，用户实测）
 
 
@@ -212,6 +212,8 @@ class MainWindow(QMainWindow):
         self._draft_flush_timer.setSingleShot(True)
         self._draft_flush_timer.setInterval(600)
         self._draft_flush_timer.timeout.connect(self._flush_draft)
+        self._hd_tile_pending = False
+        self.view.zoom_changed.connect(self._on_zoom_changed)
         self._tag_stage('原负片')
         self.pill.setText('导入包含 RAW / 16 位 TIFF / DNG 的文件夹后开始')
         self.pill.setVisible(True)
@@ -982,7 +984,50 @@ class MainWindow(QMainWindow):
         view.set_draw_mode(draw_kind)
         self._set_status(_frame_status_text(rec, self.pr))
 
-        # ------------------------------------------------------- 编辑事件
+    # ------------------------------------------------- 高清放大（按需）
+    def _on_zoom_changed(self, zoom: float):
+        """缩放变化：超过 1:1 时后台解码原分辨率局部替换（Lightroom 式），
+        缩回预览尺寸时恢复小图（内存友好）。"""
+        if self.current is None or self.t_source is None:
+            return
+        self.lbl_zoom.setText(f'{zoom * 100:.0f}%')
+        self.lbl_zoom.setVisible(True)
+        if zoom > 1.01 and self._hd_tile_pending is False:
+            self._hd_tile_pending = True
+            from .workers import run_in_thread
+            rec = self.current
+            tr = OrientTransform(self.t_source.shape[:2],
+                                 rec.geometry.rotation_degrees,
+                                 rec.geometry.mirror_horizontal,
+                                 rec.geometry.fine_rotation_degrees)
+            run_in_thread(
+                lambda cb: self._hd_tile_job(rec, tr),
+                on_done=lambda r: self._hd_tile_done(r, rec, zoom))
+        elif zoom <= 1.01:
+            self._hd_tile_pending = False
+            self.view.set_image(self._small)
+            self._show_frame()
+
+    def _hd_tile_job(self, rec: FrameRecord, tr):
+        """后台：全帧原分辨率解码 + oriented + encode sRGB（一次性）。"""
+        loaded = self._load(rec)
+        arr = tr.apply(loaded.rgb) if hasattr(tr, 'apply') else loaded.rgb
+        pos = self._positive_full
+        if self._stage == 1 and pos is not None and \
+                pos.shape[:2] == arr.shape[:2]:
+            arr = pos
+        from ..pipeline.density import encode_srgb
+        return encode_srgb(np.clip(arr, 0, None))
+
+    def _hd_tile_done(self, arr, rec, zoom):
+        self._hd_tile_pending = False
+        if rec is not self.current or arr is None:
+            return
+        # 只有仍处于放大态才替换（避免缩回后覆盖小图）
+        if self.view.current_zoom() > 1.01:
+            self.view.set_image(arr)
+
+    # ------------------------------------------------------- 编辑事件
     def _on_roi_edited(self, kind, index=0, _rect=None):
         """画布释放鼠标（Stage 模型，对齐竞品）：
 
