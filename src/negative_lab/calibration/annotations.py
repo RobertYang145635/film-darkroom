@@ -56,8 +56,32 @@ import tempfile
 from dataclasses import dataclass, field, fields
 from datetime import date
 from pathlib import Path
+from .. import storage   # 模块级：目录常量在 import 期就需要它（v6.2 审查修复）
 
-ANNOTATIONS_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "annotations"
+ANNOTATIONS_DIR = storage.repo_path("fixtures", "annotations")
+
+
+def _py_scalar(v):
+    """numpy 标量 -> python 原生标量（json 只认后者）。非 numpy 值原样返回。"""
+    item = getattr(v, "item", None)
+    if callable(item):
+        try:
+            return item()
+        except (ValueError, TypeError):     # ndarray.size>1 等：不是标量，原样交回
+            return v
+    return v
+
+
+def current_annotations_dir() -> Path:
+    """生效标注目录：环境变量 > 模块全局 `ANNOTATIONS_DIR`（供测试 patch）。
+
+    真实用户标注只接受显式「确认并保存标注」；测试与冒烟必须经
+    `storage.isolated_storage()` 整体改道（v6.2 §3 阶段 A），
+    绝不允许写进仓库内的真实标注目录。
+    """
+    from .. import storage
+    return storage.annotations_dir(module_global=ANNOTATIONS_DIR)
+
 
 VALID_ROT = (0, 90, 180, 270)
 VALID_COORDINATE_SPACES = ("source", "oriented")
@@ -85,25 +109,28 @@ def _is_number(v) -> bool:
 
 
 def _check_roi(name: str, roi) -> str | None:
-    """单个 (y0,x0,y1,x1) ROI 的合法性；返回 ASCII 错误信息或 None。"""
-    if roi is None:
+    """单个 (y0,x0,y1,x1) ROI 的合法性；返回 ASCII 错误信息或 None。
+
+    判据委托 library.models.roi_facts（唯一实现），但**逐条保留本模块原有文案**：
+    两份校验此前已漂移（models 版漏查 str/bytes 与非有限数），合一才不会再漂。
+    """
+    from ..library.models import (ROI_BAD_TYPE, ROI_NEGATIVE, ROI_OK, roi_facts)
+    kind, _coords, n = roi_facts(roi)
+    if kind is ROI_OK:
         return None
-    if isinstance(roi, (str, bytes)):
+    if kind is ROI_BAD_TYPE:
+        if n >= 0 and n != 4:
+            return f"{name} must have 4 values, got {n}: {roi!r}"
+        try:
+            finite = all(_is_number(v) for v in roi)
+        except TypeError:
+            finite = False
+        if finite:
+            return f"{name} values must be finite numbers, got {roi!r}"
         return f"{name} must be a (y0,x0,y1,x1) sequence, got {roi!r}"
-    try:
-        vals = list(roi)
-    except TypeError:
-        return f"{name} must be a (y0,x0,y1,x1) sequence, got {roi!r}"
-    if len(vals) != 4:
-        return f"{name} must have 4 values, got {len(vals)}: {roi!r}"
-    if not all(_is_number(v) for v in roi):
-        return f"{name} values must be finite numbers, got {roi!r}"
-    y0, x0, y1, x1 = (int(v) for v in roi)
-    if min(y0, x0, y1, x1) < 0:
+    if kind is ROI_NEGATIVE:
         return f"{name} has negative coordinates (out of bounds): {roi!r}"
-    if y1 <= y0 or x1 <= x0:
-        return f"{name} is reversed or empty: {roi!r}"
-    return None
+    return f"{name} is reversed or empty: {roi!r}"
 
 
 @dataclass
@@ -130,6 +157,14 @@ class Annotation:
     # v6 §6.1：几何变换与 ROI 一起持久化（附加可选字段，旧文件可读）
     fine_rotation_degrees: float = 0.0
     mirror_horizontal: bool = False
+    #: v6.1 §4：当前帧「保留片边」的用户选择（草稿/确认标注随几何一起恢复）
+    keep_rebate: bool = False
+    #: v6.2 §5.2：工作草稿的来源身份——派生自哪一版确认标注的内容指纹
+    #: （见 calibration/state.content_fingerprint）。空 = 旧版草稿，来源不可证明；
+    #: 与确认标注并存时判 conflict：确认基线生效，草稿原地保留，绝不静默合并。
+    base_annotation_sha: str = ""
+    #: 草稿修订号：每次写盘 +1，表示"同一基线上的第几份工作稿"。
+    draft_revision: int = 0
     frame_roi: tuple | None = None              # 已废弃：语义含混（v4 §8.6）
     neutral_rois: list = field(default_factory=list)    # 已废弃别名
     mask_rois: list = field(default_factory=list)       # 已废弃别名
@@ -137,6 +172,9 @@ class Annotation:
     # ------------------------------------------------------------------ 迁移
     def migrate(self, *, legacy: bool) -> "Annotation":
         """就地迁移：旧别名 -> v3 字段；旧 schema 强制 draft + 需重新确认。"""
+        # v6.1 §4：非 bool 值不能静默当真
+        if not isinstance(self.keep_rebate, bool):
+            self.keep_rebate = False
         if self.image_area_roi is None and self.frame_roi is not None:
             # frame_roi 用途含混，只能作为"画面分析区"草稿（§8.6）
             self.image_area_roi = tuple(self.frame_roi)
@@ -182,11 +220,17 @@ class Annotation:
         d: dict = {}
         for f in fields(self):
             d[f.name] = getattr(self, f.name)
+        # 审查修复（2026-09-08）：ROI 常来自 numpy（argmax/切片下标），而
+        # json.dumps 不认 np.int64 —— 实测直接 TypeError: Object of type int64
+        # is not JSON serializable，整条草稿保存路径崩掉。统一降级为 python 原生。
+        for k, v in list(d.items()):
+            if not isinstance(v, (list, tuple, dict)):
+                d[k] = _py_scalar(v)
         for k in _ROI_FIELDS:
             if d[k] is not None:
-                d[k] = list(d[k])
+                d[k] = [_py_scalar(v) for v in d[k]]
         for k in _ROI_LIST_FIELDS:
-            d[k] = [list(r) for r in (d.get(k) or [])]
+            d[k] = [[_py_scalar(v) for v in r] for r in (d.get(k) or [])]
         d["neutral_refs"] = [_neutral_ref_dict(r, as_json=True)
                              for r in d["neutral_refs"]]
         d.pop("neutral_rois", None)     # 旧别名不再落盘（已迁移进 neutral_refs）
@@ -327,7 +371,7 @@ def ann_path_for(file_rel: str) -> Path:
     p = Path(file_rel)
     roll = p.parts[1] if len(p.parts) > 2 else "misc"
     safe = re.sub(r"[^\w.-]+", "_", roll)
-    return ANNOTATIONS_DIR / f"{safe}__{p.stem}.json"
+    return current_annotations_dir() / f"{safe}__{p.stem}.json"
 
 
 def load_annotation(file_rel: str) -> Annotation | None:
@@ -338,7 +382,16 @@ def load_annotation(file_rel: str) -> Annotation | None:
     f = ann_path_for(file_rel)
     if not f.exists():
         return None
-    return Annotation.from_dict(json.loads(f.read_text(encoding="utf-8")))
+    ann = Annotation.from_dict(json.loads(f.read_text(encoding="utf-8")))
+    from .ownership import same_source
+    if ann.file and not same_source(ann.file, file_rel):
+        # 撞名不等于归属（见 calibration/ownership.py）：拒绝套用别的帧。
+        msg = (f"标注归属不符：{f.name} 记的是 {ann.file!r}，不是 "
+               f"{file_rel!r}（命名冲突，已拒绝套用）")
+        LAST_LOAD_ERRORS.append(msg)
+        print(f"[annotations] WARNING {msg}", file=sys.stderr)
+        return None
+    return ann
 
 
 def save_annotation(rel: str, ann: Annotation) -> Path:
@@ -366,6 +419,17 @@ def save_annotation(rel: str, ann: Annotation) -> Path:
 
     path = ann_path_for(rel)
     path.parent.mkdir(parents=True, exist_ok=True)
+    from .ownership import same_source
+    if path.exists():
+        try:
+            prev = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:                            # 损坏文件允许被覆盖
+            prev = None
+        rec_file = str((prev or {}).get("file") or "")
+        if rec_file and not same_source(rec_file, rel):
+            raise ValueError(
+                f"标注命名冲突：{path.name} 已属于 {rec_file!r}，不能保存 "
+                f"{rel!r}。请把两帧放到不同卷目录下再试。")
     payload = json.dumps(ann.to_dict(), ensure_ascii=False, indent=2)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp",
                                     dir=str(path.parent), text=True)
@@ -392,8 +456,9 @@ def scan_annotations(*, only_verified: bool = True,
     global LAST_LOAD_ERRORS
     anns: list[Annotation] = []
     errors: list[str] = []
-    if ANNOTATIONS_DIR.exists():
-        for f in sorted(ANNOTATIONS_DIR.glob("*.json")):
+    _ann_dir = current_annotations_dir()
+    if _ann_dir.exists():
+        for f in sorted(_ann_dir.glob("*.json")):
             try:
                 a = Annotation.from_dict(json.loads(f.read_text(encoding="utf-8")))
             except Exception as exc:  # noqa: BLE001 —— 损坏标注必须可见
@@ -411,7 +476,7 @@ def scan_annotations(*, only_verified: bool = True,
         for line in errors:
             print(f"[annotations] WARNING {line}", file=sys.stderr)
         print(f"[annotations] {len(anns)} usable / {len(errors)} rejected "
-              f"in {ANNOTATIONS_DIR}", file=sys.stderr)
+              f"in {_ann_dir}", file=sys.stderr)
     return anns, errors
 
 
