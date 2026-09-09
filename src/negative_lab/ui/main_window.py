@@ -1694,25 +1694,32 @@ class MainWindow(QMainWindow):
         # 不重绘；也没有取消入口，导致 roll_export 新增的 cancelled 计数在
         # 主流程里永远不可达。现在走 run_in_thread + cancel 事件。
         from .workers import run_in_thread
+        from ..pipeline.roll_export import freeze_export_inputs
+        # §4-1（2026-09-08）：主线程一次性冻结整卷导出全部输入（几何深拷贝、
+        # 微调、意图查表、批次编码假设、卷统计），worker 全程零读零写活对象；
+        # 状态回写由 _on_export_done 在主线程按 items 完成。
+        frozen = freeze_export_inputs(
+            self.session, rid, frames, default_intent=self._intent)
         self._export_cancel = threading.Event()
         self._export_running = True
         self.btn_export.setText("取消导出")
         self._set_banner(f"整卷导出开始（{len(frames)} 帧）…", "info")
         run_in_thread(
-            lambda cb: self._export_job(frames, Path(out), rid, cb),
+            lambda cb: self._export_job(frozen, Path(out), rid, cb),
             on_done=self._on_export_done,
             on_progress=lambda m: self._set_banner(str(m), "info"))
 
-    def _export_job(self, frames, outdir, roll_id, progress):
-        """后台线程执行整卷导出：只算不碰控件（结果经信号回主线程）。"""
+    def _export_job(self, frozen, outdir, roll_id, progress):
+        """后台线程执行整卷导出：只消费冻结输入，不碰控件与活对象。"""
         from ..pipeline.roll_export import export_roll_frames
         return export_roll_frames(
-            frames, outdir, session=self.session, roll_id=roll_id,
-            intent_resolver=lambda rec: RenderIntent.from_dict(
-                rec.render_intent_override or self._intent.to_dict()),
-            tiff_assumption=(self.session.batch_encoding_assumption or {}).get(
-                "encoding"),
-            cancel=self._export_cancel, progress=progress)
+            frozen["records"], outdir, session=None, roll_id=roll_id,
+            intent_resolver=lambda rec: frozen["intents"].get(
+                rec.source_path) or RenderIntent(),
+            tiff_assumption=frozen["tiff_encoding"],
+            cancel=self._export_cancel, progress=progress,
+            presnapshot=True, frozen_roll_stats=frozen["roll_stats"],
+            frozen_batch_assumption=frozen["batch_assumption"])
 
     def cancel_export(self):
         """取消整卷导出：当前帧完成后停止（已写出的成品不回滚）。"""
@@ -1721,14 +1728,21 @@ class MainWindow(QMainWindow):
             self._set_banner("取消中：当前帧完成后停止…", "warning")
 
     def _on_export_done(self, res):
-        """导出结束（主线程）：如实报告四类计数。
+        """导出结束（主线程）：按 items 回写状态，如实报告四类计数。
 
+        §4-1：worker 线程全程零写共享状态（presnapshot 冻结输入），
+        状态回写必须在这里——主线程——完成。
         审查修复：此前标题恒为「整卷导出完成」且不报 cancelled —— 取消掉
         半卷仍被说成成功，正是 v6.2 §6.6 想消灭的静默丢帧，只是修在数据层。
         """
         self._export_running = False
         self.btn_export.setText("整卷导出…")
         ok = isinstance(res, dict) and bool(res.get("ok"))
+        if ok:
+            from ..pipeline.roll_export import apply_status_writeback
+            rep0 = res.get("value") or {}
+            if isinstance(rep0, dict) and isinstance(rep0.get("items"), list):
+                apply_status_writeback(self.session, rep0["items"])
         if not ok:
             err = res.get("error") if isinstance(res, dict) else str(res)
             QMessageBox.critical(self, "导出失败（已回滚）",
