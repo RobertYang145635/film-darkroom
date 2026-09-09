@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton,
+    QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton,
     QScrollArea, QSlider, QStackedWidget, QToolButton, QVBoxLayout,
     QWidget)
 
@@ -357,8 +357,10 @@ class TechSection(Section):
         self.add(self.lbl_body)
 
     def set_info(self, *, base_source: str, gate: str, review: list[str],
-                 warnings: list[str]):
+                 warnings: list[str], consistency: str = ""):
         lines = [f"片基来源：{base_source}   门禁：{gate}"]
+        if consistency:
+            lines.append(consistency)
         if review:
             lines.append("待复核：\n  " + "\n  ".join(review[:4]))
         if warnings:
@@ -374,6 +376,8 @@ class RightPanel(QWidget):
     area_clear = Signal(str)
     auto_detect_requested = Signal()
     keep_rebate_toggled = Signal(bool)
+    pick_neutral_toggled = Signal(bool)      # R5b：中性点救援开/关
+    undo_pick_requested = Signal()           # R5b：撤销上次拾点救援
     candidate_chosen = Signal(str)
     tone_changed = Signal(str, float)
     tone_committed = Signal(str, float)
@@ -382,6 +386,10 @@ class RightPanel(QWidget):
     mirror_requested = Signal()
     fine_changed = Signal(float)
     reset_geometry = Signal()
+    #: 「全部重置」微调。此前 BasicAdjustmentsPanel 只有 emit，全仓仅有的两处
+    #: connect 都在已废弃的 crop_page/crop_panel 里 —— 在用面板上点了没反应
+    #: （2026-09-08 死代码审计实证）。现在接到 MainWindow._reset_all_intent。
+    intent_reset_requested = Signal()
     go_edit_requested = Signal()
 
     def __init__(self, parent=None):
@@ -439,6 +447,24 @@ class RightPanel(QWidget):
         self.sec_cast = Section("色罩校正")
         self.cand = CandidateSection()
         self.sec_cast.add(self.cand)
+        # ---- R5b 中性点救援（痛点调研 #2：自动失败时"点一下灰就能救"）
+        self.btn_pick_neutral = QPushButton("中性点救援（点画面里该是灰的地方）")
+        self.btn_pick_neutral.setCheckable(True)
+        self.btn_pick_neutral.setToolTip(
+            "进入拾点模式后在画面上点击：该点会被拉向中性灰（立即生效）。\n"
+            "点错地方会给出警告；Esc 退出；「撤销拾点」回到之前的状态。")
+        self.btn_pick_neutral.setMinimumHeight(28)
+        self.sec_cast.add(self.btn_pick_neutral)
+        self.btn_undo_pick = QPushButton("撤销拾点")
+        self.btn_undo_pick.setProperty("flat", True)
+        self.btn_undo_pick.setMinimumHeight(28)
+        self.btn_undo_pick.setEnabled(False)
+        self.sec_cast.add(self.btn_undo_pick)
+        self.lbl_pick_hint = QLabel("")
+        self.lbl_pick_hint.setProperty("caption", True)
+        self.lbl_pick_hint.setWordWrap(True)
+        self.lbl_pick_hint.setVisible(False)
+        self.sec_cast.add(self.lbl_pick_hint)
         c1.addWidget(self.sec_cast)
 
         self.sec_basic = Section("基础调整")
@@ -464,10 +490,13 @@ class RightPanel(QWidget):
         self.sec_areas.fine_changed.connect(self.fine_changed)
         self.sec_areas.go_edit_requested.connect(self.go_edit_requested)
         self.sec_settings.keep_rebate_toggled.connect(self.keep_rebate_toggled)
+        self.btn_pick_neutral.toggled.connect(self.pick_neutral_toggled)
+        self.btn_undo_pick.clicked.connect(self.undo_pick_requested)
         self.cand.candidate_chosen.connect(self.candidate_chosen)
         self.panel.changed.connect(self.tone_changed)
         self.panel.committed.connect(self.tone_committed)
         self.panel.sync_requested.connect(self.sync_tone_requested)
+        self.panel.reset_all_requested.connect(self.intent_reset_requested)
 
     def _on_stage(self, i: int):
         self.stack.setCurrentIndex(i)
@@ -515,3 +544,27 @@ class RightPanel(QWidget):
 
     def keep_rebate(self) -> bool:
         return self.sec_settings.chk_rebate.isChecked()
+
+    def set_keep_rebate(self, on: bool):
+        """v6.1 §4 公开 setter：帧加载/切换后反映 FrameRecord.keep_rebate。
+
+        blockSignals 防回发（程序化恢复，不是用户点击）。
+        """
+        self.sec_settings.chk_rebate.blockSignals(True)
+        self.sec_settings.chk_rebate.setChecked(bool(on))
+        self.sec_settings.chk_rebate.blockSignals(False)
+
+    # ------------------------------------------------------------ R5b 拾点救援
+    def set_pick_mode_active(self, on: bool):
+        """拾点模式开/关（view.pick_mode_changed 回来时同步按钮态）。"""
+        self.btn_pick_neutral.blockSignals(True)
+        self.btn_pick_neutral.setChecked(bool(on))
+        self.btn_pick_neutral.blockSignals(False)
+
+    def set_undo_pick_enabled(self, on: bool):
+        self.btn_undo_pick.setEnabled(bool(on))
+
+    def set_pick_hint(self, text: str):
+        """拾点结果/警告（一级提示：警告常驻直到下一次拾点/撤销）。"""
+        self.lbl_pick_hint.setText(text)
+        self.lbl_pick_hint.setVisible(bool(text))

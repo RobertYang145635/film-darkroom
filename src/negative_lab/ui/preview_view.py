@@ -80,7 +80,8 @@ class PreviewView(QGraphicsView):
     draw_cancelled = Signal()                     # Esc
     draw_rejected = Signal(str)                   # 过小/越界，简短原因
     replace_hint = Signal(str)                    # "已替换输出裁切" 等
-    point_picked = Signal(str, float, float)      # "bright"|"dark", x, y
+    point_picked = Signal(str, float, float)      # "bright"|"dark"|"neutral", x, y
+    pick_mode_changed = Signal(bool)              # 拾点模式开/关（同步按钮态）
     mask_painted = Signal()
     zoom_changed = Signal(float)      # 相对场景 1:1 的缩放倍数
 
@@ -140,9 +141,11 @@ class PreviewView(QGraphicsView):
 
     def fit(self):
         self.fitInView(self._scene.sceneRect(), Qt.KeepAspectRatio)
+        self.zoom_changed.emit(self.current_zoom())
 
     def zoom_100(self):
         self.resetTransform()
+        self.zoom_changed.emit(self.current_zoom())
 
     # ---------------------------------------------------------------- ROI
     def roi_kind_order(self) -> list[RoiKind]:
@@ -253,7 +256,7 @@ class PreviewView(QGraphicsView):
         if r is None or handle not in HANDLES:
             return None
         p = self._as_point(pos)
-        s = self._scene.sceneRect()
+        self._scene.sceneRect()
         left, top, right, bottom = r.left(), r.top(), r.right(), r.bottom()
         if "w" in handle:
             left = min(p.x(), right - self._min_roi)
@@ -290,6 +293,7 @@ class PreviewView(QGraphicsView):
     def set_pick_mode(self, mode: str | None):
         self._pick_mode = mode
         self.viewport().setCursor(Qt.CrossCursor if mode else Qt.ArrowCursor)
+        self.pick_mode_changed.emit(mode is not None)
 
     def points(self) -> dict[str, tuple[float, float]]:
         return {k: (v.x(), v.y()) for k, v in self._points.items()}
@@ -491,6 +495,12 @@ class PreviewView(QGraphicsView):
             self.draw_cancelled.emit()
             ev.accept()
             return
+        if ev.key() == Qt.Key_Escape and self._pick_mode is not None:
+            # R5b：中性救援拾点模式下 Esc 退出（保持模式时连续试点）
+            self.set_pick_mode(None)
+            self.draw_cancelled.emit()
+            ev.accept()
+            return
         if ev.key() == Qt.Key_Delete and self._active is not None:
             # v6 §5.3：Delete 删除当前对象；与绘制模式不冲突
             kind, idx = self._active
@@ -513,7 +523,12 @@ class PreviewView(QGraphicsView):
             if self._pick_mode:
                 self._points[self._pick_mode] = pos
                 self.point_picked.emit(self._pick_mode, pos.x(), pos.y())
-                self.set_pick_mode(None)
+                if self._pick_mode == "neutral":
+                    # R5b 中性救援：拾点模式保持，允许连续试几个点
+                    # （Esc 退出；每个点立即给出结果）
+                    pass
+                else:
+                    self.set_pick_mode(None)
                 self._overlay.update()
                 return
             # 绘制模式：手柄上按下 = 缩放已有框；**框内按下 = 新建**
@@ -656,8 +671,9 @@ class PreviewView(QGraphicsView):
         factor = 1.25 if ev.angleDelta().y() > 0 else 0.8
         self.scale(factor, factor)
         self._overlay.update()
-        self.zoom_changed.emit(float(self.m11()))
+        self.zoom_changed.emit(self.current_zoom())
 
     def current_zoom(self) -> float:
-        """相对场景 1:1 的缩放倍数。"""
-        return float(self.m11())
+        """相对场景 1:1 的缩放倍数（QGraphicsView 的变换矩阵，
+        不是 QGraphicsView.m11()——那个方法不存在，v6.1 §3）。"""
+        return float(self.transform().m11())

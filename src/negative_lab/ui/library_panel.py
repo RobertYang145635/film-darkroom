@@ -8,13 +8,15 @@
 
 from __future__ import annotations
 
+from .. import storage
+
 from pathlib import Path
 import threading
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
-    QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem,
     QListView, QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from ..library.models import FrameStatus
@@ -212,7 +214,7 @@ class LibraryPanel(QWidget):
         p = Path(path)
         if p.is_absolute():
             return p
-        root = Path(__file__).resolve().parents[3]
+        root = storage.repo_path()
         return root / path
 
     def _thumb_ready(self, path: str, img):

@@ -88,7 +88,7 @@ class AdjustmentRow(QWidget):
     def _to_val(self, i: int) -> float:
         return i / _STEPS_PER_UNIT
 
-    def setValue(self, v: float):              # noqa: N802（Qt 风格）
+    def setValue(self, v: float):              # noqa: N802  Qt 风格命名
         self._updating = True
         v = float(max(self.lo, min(self.hi, float(v))))
         self.spin.setValue(v)

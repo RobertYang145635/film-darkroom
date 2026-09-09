@@ -7,8 +7,15 @@
 - 首次选帧 NEF 解码+卷分析+预览：16s
 - 每次拖完 ROI 的预览刷新：2.8s
 
-因此**一切 >200ms 的工作都必须在 QThread 中执行**，主线程只做
-界面更新。所有 worker 通过 Qt 信号回主线程，不直接触碰控件。
+因此**一切 >200ms 的工作都必须离开主线程执行**，主线程只做
+界面更新。所有 worker 通过 Qt 信号回主线程，**绝不直接触碰控件**
+（QListWidget item、QLabel、QMessageBox 都不行：跨线程操作控件是未定义
+行为，事故样本见 main_window._analyze_roll_frames 的 2026-09-08 修复）。
+
+实现注意：run_in_thread() 用的是 threading.Thread(daemon=True)，不是
+QThread（本节沿用旧说法）。daemon 线程在进程退出时被直接丢弃，因此
+worker 里只做计算与读取；任何落盘都必须走 io.atomic，否则硬退出会留下
+半截文件。
 """
 
 from __future__ import annotations
@@ -16,7 +23,6 @@ from __future__ import annotations
 import threading
 import traceback
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
 
