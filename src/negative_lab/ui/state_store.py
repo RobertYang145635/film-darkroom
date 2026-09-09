@@ -35,6 +35,17 @@ ENABLE_HD_PREVIEW = False
 _CANVAS_STALE = object()
 
 
+def ui_process_image(*args, **kwargs):
+    """UI 侧管线唯一入口：经 main_window 解析 process_image。
+
+    测试契约（test_v6_ui_contracts / test_v6_hd_preview）：monkeypatch
+    `main_window.process_image` 即可拦截 UI 发起的全部管线调用。
+    延迟导入避免 import 期成环（main_window -> mixin -> main_window）。
+    """
+    from .main_window import process_image
+    return process_image(*args, **kwargs)
+
+
 def _shape_hw(value):
     """统一取 (H, W)：ndarray 用 shape[:2]，尺寸元组原样通过。
 

@@ -24,10 +24,9 @@ from ..library.models import (FrameRecord, GeometryRegions, ImportSession,
 from ..library.session import (import_session, make_frame_record,
                                suggest_groups_by_directory)
 from ..pipeline.roll_analysis import analyze_roll
-from ..pipeline.service import process_image
 from .state_store import (IMPORT_PROBE, MAX_PREVIEW_DIM, _CANVAS_STALE,
                           _abs, _geometry_for_job, _geometry_from_annotation,
-                          _unscale_geometry)
+                          _unscale_geometry, ui_process_image)
 
 
 class FrameLoaderMixin:
@@ -194,7 +193,7 @@ class FrameLoaderMixin:
         seed_geo = eff_geo if eff_geo.is_complete() else None
         # keep_rebate=True：技术正片按**整幅**计算并缓存——用户的裁切/
         # 微调之后都是缓存上的即时合成（毫秒级），只有片基变化才重跑
-        pr = process_image(
+        pr = ui_process_image(
             small,
             geometry=(_geometry_for_job(None, small, loaded.rgb, seed_geo)
                       if seed_geo is not None else None),
