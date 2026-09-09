@@ -57,9 +57,11 @@ uv pip install --python .venv/Scripts/python.exe -e . pytest
 - `src/negative_lab/calibration`  片基与区域检测（研发用 calibration 亦在此）
 - `src/negative_lab/diagnostics`  剪裁、NaN/Inf、质量门禁与报告
 - `src/negative_lab/io`  读写与事务导出（原始文件永远只读）
-- `src/negative_lab/ui`  裁切页 / 转换页 / 基础微调面板
+- `src/negative_lab/ui`  单工作区主窗口（MainWindow + frame_loader /
+  geometry_bridge / intent_controller / export_coordinator / state_store
+  五个拆分模块，2026-09-08 结构整改）、预览画布、右栏面板、后台线程
 - `src/negative_lab/testing`  合成负片生成器
-- `tests/`  unit / synthetic / regression
+- `tests/`  unit / synthetic / regression（unit 含分层门禁与回归锁）
 - `docs/`  色彩管线 ADR、算法数学契约、支持矩阵、进度与验收记录
 
 ## 真实样片
