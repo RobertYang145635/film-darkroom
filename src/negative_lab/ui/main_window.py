@@ -22,9 +22,11 @@ from PySide6.QtWidgets import (
     QMainWindow, QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from .. import __version__
-from ..calibration.annotations import (Annotation, ann_path_for,
-                                       load_annotation, save_annotation)
-from ..calibration.state import ResolvedState, is_confirmed, resolve_state
+from ..calibration.annotations import (Annotation, ann_path_for,  # noqa: F401 重导出（测试引用 mw.ann_path_for）
+                                       load_annotation,  # noqa: F401
+                                       save_annotation)
+from ..calibration.state import (ResolvedState, is_confirmed,  # noqa: F401
+                                 resolve_state)  # noqa: F401
 from ..io.images import ReadError, load_linear_rgb
 from ..library.fingerprint import capture_fingerprint, fingerprints_compatible
 from ..library.models import (FrameRecord, FrameStatus, GeometryRegions,
@@ -43,10 +45,21 @@ from .preview_view import PreviewView, RoiKind
 from .right_panel import RightPanel
 from .workers import BusyState as _Busy
 
-# 画布归属哨兵：self.current 已切到新帧、但画布还挂着上一帧像素的那段窗口。
-# 用它（而不是 None）表达「确定不同源」，这样从未走过 _frame_done 的手工装配
-# 调用方（测试）不会被误判。必须放在 import 之后，否则整块 import 变 E402。
-_CANVAS_STALE = object()
+# MainWindow 拆分（2026-09-08 交接 §12-(6)，只搬不改行为）：模块级状态辅助
+# 与常量移到 ui/state_store.py；四个方法族移到 mixin（frame_loader /
+# geometry_bridge / intent_controller / export_coordinator）。
+# 这里显式重导出全部既有公开名，既有测试与调用方零改动（noqa: F401）。
+from .state_store import (  # noqa: F401 —— 显式重导出（兼容旧路径）
+    ENABLE_HD_PREVIEW, IMPORT_PROBE, MAX_PREVIEW_DIM, _CANVAS_STALE,
+    _as_roi, _frame_status_text, _geometry_for_job,
+    _geometry_from_annotation, _qrect, _shape_hw, _size_of, _unscale_geometry,
+    annotation_for as _annotation_for_impl,
+    resolve_persistent_state as _resolve_state_impl,
+)
+from .state_store import _abs as _abs  # noqa: F401
+
+# 画布归属哨兵等已随 state_store 下沉；_DRAFTS_DIR 留在本模块：
+# 测试 monkeypatch 的是 main_window._DRAFTS_DIR，_drafts_dir() 必须就地读它。
 
 
 def _drafts_dir() -> Path:
@@ -59,51 +72,15 @@ def _drafts_dir() -> Path:
     from .. import storage
     return storage.drafts_dir(module_global=_DRAFTS_DIR)
 
-MAX_PREVIEW_DIM = 1400          # 交互预览（fit 视图在 150% DPI 下约需 1400 物理px；再大走按需高清分片）
-IMPORT_PROBE = False            # 导入只取元数据+哈希（完整探针太慢，用户实测）
-#: v6.1 §3：后台高清替换默认关闭——当前实现把全分辨率整帧塞进使用
-#: small ROI 坐标的场景，且把 worker 返回的 {"ok","value"} 当数组用，
-#: 会显示错误内容；在实现同场景高清 tile 之前必须保持 False。
-ENABLE_HD_PREVIEW = False
+
+def resolve_persistent_state(rec: FrameRecord) -> ResolvedState:
+    """（兼容包装）确认基线 + 工作草稿 -> 生效状态；实现见 ui/state_store.py。"""
+    return _resolve_state_impl(rec, drafts_dir=_drafts_dir())
 
 
-def _shape_hw(value):
-    """统一取 (H, W)：ndarray 用 shape[:2]，尺寸元组原样通过。
-
-    v6.1 §2：任何 source 入口都可能是全分辨率 RGB 数组；绝不能把数组
-    本身传给只接受 (H,W) 的 normalized()/from_normalized()，也不能对
-    ndarray 做真假判断（ambiguous truth value）。
-    """
-    if value is None:
-        return None
-    shape = getattr(value, "shape", None)
-    if shape is not None and len(shape) >= 2:
-        return int(shape[0]), int(shape[1])
-    try:
-        if len(value) >= 2:
-            return int(value[0]), int(value[1])
-    except TypeError:
-        pass
-    raise ValueError(f"invalid image/size value: {value!r}")
-
-
-def _geometry_for_job(ann, small, source, geo: GeometryRegions | None = None,
-                      ann_source=None) -> GeometryRegions:
-    """把草稿（SOURCE 全分辨率）映射到降采样工作副本坐标。
-
-    - geo 给定：直接按 source 形状归一化映射（编辑路径）；
-    - geo 为 None：从旧标注迁移（加载路径），annotation 坐标即 SOURCE。
-    source / ann_source 可为 (H,W,3) 数组或 (H,W) 尺寸元组。
-    """
-    small_hw = _shape_hw(small)
-    source_hw = _shape_hw(source)
-    if geo is not None and source_hw is not None:
-        return GeometryRegions.from_normalized(
-            geo.normalized(source_hw), small_hw)
-    g = _geometry_from_annotation(ann) if ann is not None else GeometryRegions()
-    ann_hw = _shape_hw(ann_source) if ann_source is not None else small_hw
-    return GeometryRegions.from_normalized(
-        g.normalized(ann_hw), small_hw)
+def _annotation_for(rec: FrameRecord) -> Annotation | None:
+    """（兼容包装）生效标注；实现见 ui/state_store.annotation_for。"""
+    return _annotation_for_impl(rec, drafts_dir=_drafts_dir())
 
 KIND_LABELS = {RoiKind.OUTPUT_CROP: "输出裁切",
                RoiKind.IMAGE_AREA: "有效画面",
@@ -1821,154 +1798,6 @@ class MainWindow(QMainWindow):
         # 只刷新血缘、不删草稿（"绝不删用户工作稿"是本模块的既定原则）。
         self._save_draft_annotation(rec, quiet=True)
         self._set_banner(f"三类区域已保存为用户确认标注：{p.name}", "success")
-
-
-# ------------------------------------------------------------------ 工具
-def _abs(path: str, rec: FrameRecord | None = None) -> Path:
-    """记录的 abs_path 优先（导入根不一定是仓库根）。"""
-    if rec is not None:
-        abs_path = (rec.input_facts or {}).get("abs_path")
-        if abs_path and Path(abs_path).exists():
-            return Path(abs_path)
-    p = Path(path)
-    if p.is_absolute():
-        return p
-    return Path(__file__).resolve().parents[3] / path
-
-
-# 审查修复（2026-09-08，我的 P0）：此前两个 loader 把所有异常吞成 None，
-# 「文件损坏」与「用户从没标定过」在下游不可区分 -> resolve_state 判 none ->
-# 界面显示自动检测、用户在其上再签字 -> 可恢复的旧基线被覆盖。这就是
-# state.py 想根治的「标定无声消失」，只是换了个入口发生。现在记录诊断，
-# 由 resolve_persistent_state 并进 reason，UI 明示并**拒绝覆盖式保存**。
-_LAST_STATE_LOAD_ERRORS: list[str] = []
-
-
-def _load_confirmed_annotation(rec: FrameRecord) -> Annotation | None:
-    """只取用户签字的确认基线（非 user 来源在加载时已被降级为 draft）。"""
-    try:
-        a = load_annotation(rec.source_path)
-    except Exception as e:  # noqa: BLE001 —— 不得阻断打开，但必须留痕
-        _LAST_STATE_LOAD_ERRORS.append(
-            f"确认标注读取失败（{type(e).__name__}: {e}）")
-        return None
-    return a if is_confirmed(a) else None
-
-
-def _load_draft_annotation(rec: FrameRecord) -> Annotation | None:
-    """工作草稿（经 storage 改道的 drafts/，重启可续；损坏**必须可见**）。"""
-    f = _drafts_dir() / (ann_path_for(rec.source_path).name)
-    try:
-        if f.exists():
-            draft = Annotation.from_dict(
-                json.loads(f.read_text(encoding="utf-8")))
-            from ..calibration.ownership import same_source
-            recorded = str(getattr(draft, "file", "") or "")
-            if recorded and not same_source(recorded, rec.source_path):
-                # 冷读审查 L2-④：不同帧可能映射到同一个草稿文件名
-                _LAST_STATE_LOAD_ERRORS.append(
-                    f"工作草稿归属不符（{f.name} 记的是 {recorded!r}），"
-                    "已忽略，未套用别的帧的几何")
-                return None
-            return draft
-    except Exception as e:  # noqa: BLE001 —— 不得阻断打开，但必须留痕
-        _LAST_STATE_LOAD_ERRORS.append(
-            f"工作草稿读取失败（{f.name}：{type(e).__name__}: {e}）")
-        return None
-    return None
-
-
-def resolve_persistent_state(rec: FrameRecord) -> ResolvedState:
-    """确认基线 + 工作草稿 -> 生效状态（v6.2 §5.2；纯读盘，不写盘）。
-
-    规则表见 calibration/state.py：草稿只有带当前确认基线指纹时才生效；
-    来源不可证明或基于旧基线 -> conflict，确认基线生效、草稿原地保留。
-    """
-    _LAST_STATE_LOAD_ERRORS.clear()          # 逐帧重置：诊断不得串到下一帧
-    resolved = resolve_state(confirmed=_load_confirmed_annotation(rec),
-                             draft=_load_draft_annotation(rec),
-                             source_sha256=rec.source_sha256 or "")
-    if _LAST_STATE_LOAD_ERRORS:
-        # 损坏 = 需要重新确认，且绝不能顺手覆盖：并进 reason 让 UI 说清楚。
-        resolved.needs_reconfirm = True
-        resolved.reason = ((resolved.reason + "；") if resolved.reason else "") + \
-            "；".join(_LAST_STATE_LOAD_ERRORS) + \
-            "。已停止自动覆盖，请先备份该文件再继续确认"
-    return resolved
-
-
-def _annotation_for(rec: FrameRecord) -> Annotation | None:
-    """生效标注（兼容入口）：确认基线与工作草稿按 §5.2 规则决定谁生效。
-
-    v6.1 此前是"确认标注无条件优先"，命中后草稿永远轮不到（审计 F4）。
-    """
-    return resolve_persistent_state(rec).annotation
-
-
-def _geometry_from_annotation(ann: Annotation) -> GeometryRegions:
-    return GeometryRegions(
-        rotation_degrees=ann.rotation_degrees,
-        fine_rotation_degrees=float(getattr(ann, "fine_rotation_degrees", 0.0) or 0.0),
-        mirror_horizontal=bool(getattr(ann, "mirror_horizontal", False)),
-        output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
-        image_area_roi=ann.image_area_roi,
-        base_sample_rois=list(ann.base_sample_rois or []))
-
-
-def _as_roi(v):
-    if not v:
-        return None
-    try:
-        return tuple(int(x) for x in v)
-    except (TypeError, ValueError):
-        return None
-
-
-def _unscale_geometry(rss: dict, src_shape, small_shape) -> dict:
-    """service 的 roi_source_space（small 空间坐标）-> SOURCE 全分辨率。
-
-    service 在降采样副本上检测 ROI；`roi_source_space` 里的值是 small
-    空间的 SOURCE 语义。真正的换算用归一化相对位置：small 上的 ROI /
-    small 尺寸 == SOURCE 上的 ROI / SOURCE 尺寸。
-    """
-    sy = src_shape[0] / max(small_shape[0], 1)
-    sx = src_shape[1] / max(small_shape[1], 1)
-
-    def up(roi):
-        if not roi:
-            return None
-        return (int(round(roi[0] * sy)), int(round(roi[1] * sx)),
-                int(round(roi[2] * sy)), int(round(roi[3] * sx)))
-
-    return {
-        "output_crop_roi": up(rss.get("output_crop_roi")),
-        "image_area_roi": up(rss.get("image_area_roi")),
-        "base_sample_rois": [r for r in (up(x) for x in
-                                         (rss.get("base_sample_rois") or []))
-                             if r],
-    }
-
-
-def _size_of(rec: FrameRecord) -> tuple[int, int]:
-    w = int((rec.input_facts or {}).get("width") or 0)
-    h = int((rec.input_facts or {}).get("height") or 0)
-    return (h, w) if h and w else (0, 0)
-
-
-def _frame_status_text(rec: FrameRecord, pr) -> str:
-    sh, sw = "", ""
-    if pr is not None:
-        h, w = pr.geometry.source_size
-        sh, sw = str(h), str(w)
-    saved = "已保存" if rec.geometry.is_complete() else "草稿(不完整)"
-    gate = pr.gate.status if pr is not None else "-"
-    return f"{Path(rec.source_path).name} | {sw}x{sh} | 草稿: {saved} | 门禁: {gate}"
-
-
-def _qrect(x, y, w, h):
-    from PySide6.QtCore import QRectF
-
-    return QRectF(x, y, w, h)
 
 
 def main() -> int:
