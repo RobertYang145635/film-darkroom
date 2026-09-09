@@ -103,6 +103,18 @@ def detect_base_strip(lum: np.ndarray, frame: tuple[int, int, int, int],
             "warnings": []}
 
 
+# ------------------------------------------------------------- 端点来源标记
+# v6.1 P1 用一个 bool（used_fallback）表达「是否跳过 base_band 钳制」，但实现里
+# 有三条性质完全不同的路径都返回 True，其中「什么都没找到」的退化端点 n//2
+# 因此绕过了原有保护 —— 画面中点可被当作端点，最多裁掉 50% 帧高/帧宽。
+# 改成语义明确的来源标记：只有 STRUCTURAL / NO_BASE 允许跳过钳制。
+ENDPOINT_STRUCTURAL = "structural"      # 锚定帧缘亮带内缘：比粗 base 带更准
+ENDPOINT_DARK_SCAN = "dark_scan"        # 正常暗印带扫描结果：仍受 base_band 约束
+ENDPOINT_NO_BASE = "no_base"            # 判为无可信片基带：这一条整条不裁
+ENDPOINT_DEGENERATE = "degenerate"      # 结构完全没找到：必须回落到 base_band 钳制
+SKIP_BAND_CLIP = (ENDPOINT_STRUCTURAL, ENDPOINT_NO_BASE)
+
+
 def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
                       base_edge: str | None,
                       base_band: tuple[int, int, int, int] | None = None,
@@ -141,7 +153,7 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
         c = np.cumsum(np.insert(ap, 0, 0.0))
         return (c[k:] - c[:-k]) / k   # 长度恰为 len(a)，窗口中心对齐
 
-    def _strip_end(profile: np.ndarray, from_end: bool) -> int:
+    def _strip_end(profile: np.ndarray, from_end: bool) -> tuple[int, str]:
         """结构先验：[帧边暗隙] [片基亮带] [暗印边带] [画面...]（自片基端向内）。
 
         1) 从帧端向内进入亮带（>0.6*外侧半区峰值）；
@@ -149,6 +161,9 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
         3) 继续向内穿过暗印边带（<0.1*峰值，不透光印字近黑），
            画面端点 = 首个不再低于阈值的行。
         无暗印带（片基直接邻接画面）时端点=亮带内缘。
+        返回 (端点, 来源标记)：STRUCTURAL=锚定帧缘亮带内缘（比粗 base 带更准，
+        不得再被拉回带缘）；NO_BASE=判为无可信片基带（整条不裁）；
+        DARK_SCAN=正常暗印带扫描；DEGENERATE=结构没找到（回落钳制保护）。
         """
         n = len(profile)
         ps = _smooth(profile)
@@ -167,7 +182,33 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
                 base_inner = i
                 break
         if base_inner is None:
-            return n // 2
+            # v6.1 P1（G200-4 诊断）：亮度跌不回 0.4*peak = 片基后没有
+            # 暗印边带（片基直接邻接画面）。此时端点取**锚定帧缘**的
+            # >=0.5*peak 亮带（起点距帧缘 <=6% 帧长——片基带贴帧缘，
+            # 场景亮带/齿孔亮带浮在中间，不锚定帧缘）的内缘。
+            th = ps > 0.5 * peak
+            runs: list[tuple[int, int]] = []
+            s = None
+            for i, v in enumerate(th):
+                if v and s is None:
+                    s = i
+                elif not v and s is not None:
+                    runs.append((s, i))
+                    s = None
+            if s is not None:
+                runs.append((s, len(th)))
+            runs = [(a, b) for a, b in runs if a >= 2 or b - a > 2]
+            edge_anchored = max(4, int(0.06 * n))
+            for a, b in runs:
+                # 锚定端 = 靠帧缘的游程外端；画面端点 = 游程内缘
+                if from_end:
+                    anchored, inner = (n - b) <= edge_anchored, a
+                else:
+                    anchored, inner = a <= edge_anchored, b - 1
+                if not anchored:
+                    continue
+                return int(np.clip(inner, 2, n - 2)), ENDPOINT_STRUCTURAL
+            return n # 2, ENDPOINT_DEGENERATE
         # 平坦度守卫：真片基是均匀透光带（变异系数低）；亮沙地/天空等
         # 场景高光带方差大，不得当作片基来裁（CN400 目检教训）。
         band = profile[min(base_start, base_inner):max(base_start, base_inner) + 1] \
@@ -176,7 +217,7 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
             m = float(np.mean(band))
             cv = float(np.std(band)) / max(m, 1e-6)
             if cv > 0.35:
-                return n - 1 if from_end else 0   # 无可信片基带：不裁这条
+                return (n - 1 if from_end else 0), ENDPOINT_NO_BASE   # 无可信片基带：不裁这条
         rng_dark = (range(base_inner - 1, n // 2, -1) if from_end
                     else range(base_inner + 1, n // 2))
         img_end = base_inner
@@ -186,7 +227,7 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
                 img_end = i + (1 if from_end else -1)
                 break
             img_end = i
-        return int(np.clip(img_end, 2, n - 2))
+        return int(np.clip(img_end, 2, n - 2)), ENDPOINT_DARK_SCAN
 
     if base_band is not None:
         # base_band 为绝对降采样坐标 -> 转帧内相对
@@ -195,23 +236,91 @@ def detect_image_area(t_rgb: np.ndarray, frame: tuple[int, int, int, int],
 
     # 结构约束：画面端点不得进入片基带；也不得越过带端 +6% 帧长
     # （暗云合法地比 0.1*peak 更暗时，暗带扫描会切过头 -> 上限保护）。
+    # 只有 STRUCTURAL（已落在片基亮带内缘）与 NO_BASE（整条不裁）可以跳过
+    # 这个钳制；DEGENERATE / DARK_SCAN 必须受约束（审查修复 2026-09-08：
+    # 原 bool 把三种情况混为一谈，退化端点 n//2 因此能裁掉半幅）。
     slack = max(16, int(0.06 * max(H, W)))
+    y1_src = y0_src = x1_src = x0_src = ENDPOINT_DARK_SCAN
     if base_edge == "bottom":
-        y1 = _strip_end(rowmed, from_end=True)
-        if base_band:
+        y1, y1_src = _strip_end(rowmed, from_end=True)
+        if base_band and y1_src not in SKIP_BAND_CLIP:
             y1 = int(np.clip(y1, base_band[0] - slack, base_band[0]))
     elif base_edge == "top":
-        y0 = _strip_end(rowmed, from_end=False)
-        if base_band:
+        y0, y0_src = _strip_end(rowmed, from_end=False)
+        if base_band and y0_src not in SKIP_BAND_CLIP:
             y0 = int(np.clip(y0, base_band[2], base_band[2] + slack))
     elif base_edge == "right":
-        x1 = _strip_end(colmed, from_end=True)
-        if base_band:
+        x1, x1_src = _strip_end(colmed, from_end=True)
+        if base_band and x1_src not in SKIP_BAND_CLIP:
             x1 = int(np.clip(x1, base_band[1] - slack, base_band[1]))
     elif base_edge == "left":
-        x0 = _strip_end(colmed, from_end=False)
-        if base_band:
+        x0, x0_src = _strip_end(colmed, from_end=False)
+        if base_band and x0_src not in SKIP_BAND_CLIP:
             x0 = int(np.clip(x0, base_band[3], base_band[3] + slack))
+
+    # v6.1 P1（G200-4 诊断）：**片基对侧**的端点同样会带进齿孔/边印
+    # 亮带（该侧没有 base_band 参照，之前从不修剪）。片边亮带的判据
+    # 与片基同源：>=0.7*片基亮度（切的是"亮"结构，暗场景安全）、
+    # 自帧缘向内找"暗隙->亮带->跌落"结构，且从不越过 15% 帧长。
+    def _trim_opposite_end(pm: np.ndarray, from_end: bool,
+                           base_ref: float) -> int | None:
+        """片基对侧端点：自帧缘向内找 [暗隙 -> >=0.7*片基亮带 -> 跌落]。
+
+        返回亮带内缘（跌落处），无结构或亮带越过 15% 帧长时返回 None
+        （不裁）。暗场景列永不修剪（只对"亮"结构下手）。
+        """
+        n = len(pm)
+        lim = max(2, int(0.15 * n))
+        thr = 0.7 * base_ref
+        idx = range(n - 1, -1, -1) if from_end else range(n)
+        seen_bright = False
+        for i in idx:
+            if abs(i - (n - 1 if from_end else 0)) >= lim:
+                break
+            if pm[i] > thr:
+                seen_bright = True
+                continue
+            if seen_bright:
+                return i      # 亮带之后的首个暗位 = 亮带内缘
+        return None
+
+    # 审查修复（2026-09-08）：扫描剖面改用平滑值（兄弟函数 _strip_end 一直用
+    # _smooth 并注明原因，这里此前用原始中位线，单个尘点/高光噪声即可造出假
+    # "亮带内缘"）；片基参考位由 max 改 p95 —— 带区里最亮的一个像素不该抬高
+    # 整条阈值，那会让对侧修剪在噪声样本上随机失灵或随机误裁。
+    colmed_s, rowmed_s = _smooth(colmed), _smooth(rowmed)
+    if base_edge == "left" and x0 < W - 8:
+        base_level_opp = (float(np.percentile(colmed[:x0 + 1], 95))
+                          if x0 > 0 else 0.0)
+        if base_level_opp > 1e-6:
+            e = _trim_opposite_end(colmed_s, from_end=True,
+                                   base_ref=base_level_opp)
+            if e is not None and e > x0 + 0.3 * W:
+                x1 = min(x1, e)
+    elif base_edge == "right" and x1 > 8:
+        base_level_opp = (float(np.percentile(colmed[x1:], 95))
+                          if x1 < W else 0.0)
+        if base_level_opp > 1e-6:
+            e = _trim_opposite_end(colmed_s, from_end=False,
+                                   base_ref=base_level_opp)
+            if e is not None and e < x1 - 0.3 * W:
+                x0 = max(x0, e)
+    if base_edge == "top" and y0 < H - 8:
+        base_level_opp = (float(np.percentile(rowmed[:y0 + 1], 95))
+                          if y0 > 0 else 0.0)
+        if base_level_opp > 1e-6:
+            e = _trim_opposite_end(rowmed_s, from_end=True,
+                                   base_ref=base_level_opp)
+            if e is not None and e > y0 + 0.3 * H:
+                y1 = min(y1, e)
+    elif base_edge == "bottom" and y1 > 8:
+        base_level_opp = (float(np.percentile(rowmed[y1:], 95))
+                          if y1 < H else 0.0)
+        if base_level_opp > 1e-6:
+            e = _trim_opposite_end(rowmed_s, from_end=False,
+                                   base_ref=base_level_opp)
+            if e is not None and e < y1 - 0.3 * H:
+                y0 = max(y0, e)
 
     # 垂直条带轴：从两端向内修剪"片基亮度"的列——齿孔边带是亮片基+暗印字，
     # 整体亮度接近片基本身（实测 colmed≈0.13 vs 片基 0.15 vs 画面 0.05），

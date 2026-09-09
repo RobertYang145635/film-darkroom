@@ -27,7 +27,11 @@ import numpy as np
 from .params import InvertParams
 
 # 防止 log10(0) 的正数 epsilon（规格 §4.2.4）
-EPS = 1e-6
+from ..metrics import EPS                                   # 值下沉到叶子
+from ..metrics import transmittance_to_z as transmittance_to_z  # noqa: F401
+#: 显式自别名的重导出：ruff 在 ignore=[] 下会把普通 import 当未用而 --fix 删掉
+#: （本轮实测：删掉后 pipeline/auto.py 等 13 处收集错误）。as 同名 + noqa 才留得住。
+#: pipeline.density.transmittance_to_z 必须继续可用（auto/neutral_stats 都在用）。
 # Dmax 非法时的安全回退值（规格 §4.3：报错并回退，而不是产生无穷大）
 DEFAULT_DMAX = 2.0
 DMAX_MIN = 1e-3
@@ -71,11 +75,8 @@ def sanitize_dmax(dmax: float) -> tuple[float, str | None]:
     return v, None
 
 
-def transmittance_to_z(t: np.ndarray, dmin: np.ndarray | tuple, eps: float = EPS) -> np.ndarray:
-    """z_c = log10(max(t_c,eps)/max(Dmin_c,eps))，见模块头符号约定。"""
-    t = np.maximum(np.asarray(t, dtype=np.float32), eps)
-    d = np.maximum(np.asarray(dmin, dtype=np.float32), eps)
-    return np.log10(t / d).astype(np.float32)
+# transmittance_to_z 已下沉到叶子 negative_lab.metrics（见上方重导出）：
+# calibration.base 与 calibration.neutral_stats 都需要它。符号约定不变。
 
 
 def channel_exponents(p: InvertParams) -> np.ndarray:
@@ -147,10 +148,15 @@ def soft_highlight_compress(x: np.ndarray, knee: float, strength: float) -> np.n
 
 
 def encode_srgb(linear: np.ndarray) -> np.ndarray:
-    """sRGB 分段传递函数（仅用于预览/8 位导出；核心反相之前禁止显示曲线，§4.1.2）。"""
-    x = np.clip(linear, 0.0, 1.0)
-    out = np.where(x <= 0.0031308, 12.92 * x, 1.055 * np.power(x, 1.0 / 2.4) - 0.055)
-    return out.astype(np.float32)
+    """sRGB 分段传递函数（仅用于预览/8 位导出；核心反相之前禁止显示曲线，§4.1.2）。
+
+    公式唯一来源是 color.management.linear_to_srgb —— 此前这里是第二份手写
+    同一段（12.92x / 1.055·x^(1/2.4)-0.055），两份会在阈值或精度上各自漂移；
+    本函数只多一步 [0,1] 钳制，因为预览不接受超范围值。
+    """
+    from ..color.management import linear_to_srgb
+
+    return linear_to_srgb(np.clip(linear, 0.0, 1.0))
 
 
 def invert(t_rgb: np.ndarray, p: InvertParams,
