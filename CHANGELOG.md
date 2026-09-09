@@ -4,6 +4,41 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 结构整改清账（开发版，未发布）— 2026-09-08 Round 6
+
+依据：`docs/交接_20260908.md` §12 未完成清单全部清账；13 笔提交（门禁卫生 →
+原子落盘 → 表示归属 → 算法 → UI 线程纪律 → 死模块 → 测试文档 → 上述五项）。
+
+- **导出输入快照冻结（交接 §4-1，最高危）**：整卷导出启动前在主线程一次性
+  冻结全部逐帧输入（几何深拷贝、微调、意图查表、批次编码假设、卷统计），
+  后台 worker 全程零读零写活对象；状态与采集指纹由主线程按 items 回写
+  （`pipeline/roll_export.snapshot_frame / freeze_export_inputs /
+  apply_status_writeback`）。回归锁：`test_export_snapshot_20260908.py`
+  —— 导出中途改活对象几何/勾选片边，成品仍用启动前输入。
+- **process_image 死参数清理（§4-2）**：`film_type` / `calibration`
+  （34 形参中 AST 核实从未被读取的两个）随 15 处仪式性调用点一并移除；
+  sidecar/RollCalibration/FilmProfile 的同名真形参不受影响。
+- **反向依赖清零（§4-3 前半）**：`RenderIntent` 及色温/影调数学整体下沉
+  `library/render.py`（`pipeline/render.py` 变兼容重导出壳，io/sidecar
+  不再上行）；监督解混拟合下沉叶子 `metrics.py`；`calibration/neutral_stats`
+  移入 pipeline（唯一 src 调用方是研发脚本）；冷读新发现 `GENERIC_PRIOR`
+  在 roll_analysis 是**独立复制的字面量**而非别名，已改真别名。
+  分层门禁 ALLOW 只剩登记在案的 `profiles/profile → pipeline.params`
+  （放错目录而非倒置，决定不搬家）。
+- **报告 schema 统一（§4-3 后半）**：batch 与 roll 报告共用核心键集
+  （schema_version=2 / kind 判别 / summary / summary_complete / items
+  最小契约）；roll-report 1→2。
+- **MainWindow 拆分（§4-4）**：93 方法 / 1996 行 → 25 方法 / 541 行；
+  StateStore（模块级持久状态辅助）、FrameLoader（导入/会话/帧加载/卷分析
+  装配）、GeometryBridge（预览管线/即时合成/草稿读写/ROI 事件）、
+  IntentController（候选/微调/拾点救援）、ExportCoordinator（整卷导出）
+  各自成模块，方法原文搬移；`mw.process_image` monkeypatch 契约经
+  `ui_process_image` 保持有效。顺手统一 `_abs` 最后一处 `parents[3]`。
+- **C8 实测收口**：`test_c8_hold_orig_guard.py` 证明按住按钮期间
+  `isDown()` 为真（守卫前提成立），且按住拒绝、松手恢复。
+- **门禁**：分层测试 ALLOW 收紧；ruff `select=["E9","F"]` 无豁免维持；
+  全量基线 427 passed（真实样片回归层含内）。
+
 ## v6.2 交互与标定闭环修复（开发版，未发布）— 2026-09-08
 
 规格：`负片裁切与去色罩_AI执行规格_v6.2_交互与标定闭环修复.md`；
