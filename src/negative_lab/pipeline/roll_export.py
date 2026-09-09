@@ -27,10 +27,6 @@ from ..pipeline.render import RenderIntent
 from .service import process_image
 
 
-class Cancelled(Exception):
-    pass
-
-
 # ---------------------------------------------------------- 导出输入快照
 # 审查 §4-1（2026-09-08，最高危未修项）：此前后台导出线程逐帧读
 # `rec.geometry / keep_rebate / render_intent_override / frame_analysis`
