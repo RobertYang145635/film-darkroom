@@ -215,11 +215,18 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
         if progress:
             progress(f"{Path(rec.source_path).name}: {entry['status']}")
     report = {
-        "schema_version": 1,
+        # ---- 报告 schema 统一（2026-09-08，交接 §4-3 后半）----
+        # 与 batch.report() 共用核心键集（schema_version / software_version /
+        # started_utc / finished_utc / outdir / kind / summary /
+        # summary_complete / items 至少含 file、status、失败含 error）。
+        # kind 区分批次与整卷导出；本侧保留 v1 的 roll 字段，
+        # schema_version 从 1 提升到 2 以对齐键集口径。
+        "schema_version": 2,
         "software_version": __version__,
         "started_utc": started,
         "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "outdir": outdir.as_posix(),
+        "kind": "roll",
         "roll": roll_id,
         "summary": dict(counts),
         "summary_complete": sum(counts.values()) == len(frames),

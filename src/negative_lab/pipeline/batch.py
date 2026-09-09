@@ -219,8 +219,17 @@ class BatchJob:
             "started_utc": self.started_utc,
             "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
             "outdir": self.outdir.as_posix(),
+            # ---- 报告 schema 统一（2026-09-08，交接 §4-3 后半）----
+            # batch.report(v2) 与 roll_export(v1) 键集漂移是本轮审查发现的
+            # 重复实现问题。统一后两者共用核心键集：
+            #   schema_version / software_version / started_utc / finished_utc /
+            #   outdir / kind / summary / summary_complete / items（items 至少含
+            #   file、status，失败含 error）。kind 区分批次与整卷导出；
+            #   roll 侧另有 roll 字段、batch 侧另有 profile 字段。
+            "kind": "batch",
             "profile": self.prior.name if self.prior else None,
             "summary": counts,
+            "summary_complete": sum(counts.values()) == len(self.items),
             "items": [it.to_dict() for it in self.items],
         }
 
