@@ -13,8 +13,8 @@ from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
-from ..pipeline.batch import BatchJob, STATUS_ICON, collect_files
-from ..profiles.profile import FilmProfile, list_profiles
+from ..pipeline.batch import BatchJob, collect_files
+from ..profiles.profile import list_profiles
 
 
 class _Worker(QThread):

@@ -313,7 +313,7 @@ def classify_dng(path: str | Path) -> dict:
             if ver is not None:
                 out["dng_version"] = ".".join(str(int(v)) for v in ver.value)
             cfa = pg.tags.get(321)            # CFAPattern（mosaic 证据）
-            spp = int(pg.tags[338].value) if pg.tags.get(338) else 0
+            int(pg.tags[338].value) if pg.tags.get(338) else 0
             out["has_cfa"] = cfa is not None
             cm = pg.tags.get(50717)           # ColorMatrix1
             if cm is not None:

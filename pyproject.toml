@@ -26,3 +26,17 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-ra"
+
+# ---- 静态门禁（2026-09-08 审查：此前无任何 ruff 配置，425 项存量无人守）----
+# 策略：day-1 必须是绿的，否则 CI 会被直接关掉。因此先只锁「会真炸」的类别：
+#   E9 语法错误 / F6x 无效比较 / F7 结构错误 / F82 未定义名 / F811 重定义
+# 已知的存量噪声（F401 未用导入 69、F841 未用变量 9）先 ignore，清完一类
+# 就从这里删一项 —— 收紧方向单一，不会再次失守。
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["build", "dist", ".venv", "outputs"]
+
+[tool.ruff.lint]
+select = ["E9", "F"]
+ignore = []

@@ -5,6 +5,7 @@ __pycache__/
 *.egg-info/
 build/
 dist/
+.ruff_cache/
 .pytest_cache/
 
 # 用户原始样片与大文件：绝不入库（规格 §8.3.6）
@@ -20,14 +21,21 @@ fixtures/provided/references/
 *.DNG
 *.cr2
 *.CR2
+
+# 所有可写产物目录（导出/草稿/报告/证据）
 outputs/
 
-# �����������ļ�
-dist/
-build/
-outputs/
-
-# ������ʱ��־/��ϣ�����⣩
+# 本地调试临时件：日志、文本、脚本、图片一律不入库
+# （2026-09-08 审查：此前只忽略 .log/.txt，12 个 tmp_*.py/.jpg 被提交了）
 tmp_*.log
 tmp_*.txt
+tmp_*.py
+tmp_*.jpg
+tmp_*.png
+tmp_*
+_qa_*.py
+_v_*.py
+_x_*.py
+
+# 浏览器/工具缓存
 .playwright-mcp/

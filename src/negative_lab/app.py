@@ -30,7 +30,6 @@ def selftest() -> int:
         from .color.management import OutputEncoding
         from .io.images import save_jpeg8, save_tiff16
         from .pipeline.auto import auto_analyze
-        from .pipeline.candidates import build_candidates
         from .pipeline.density import invert
         from .pipeline.render import RenderIntent
         from .pipeline.service import candidate_positive, process_image

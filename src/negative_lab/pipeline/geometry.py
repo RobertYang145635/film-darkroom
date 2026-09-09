@@ -322,7 +322,7 @@ def quad_mask(shape: tuple[int, int], quad: np.ndarray) -> np.ndarray:
     mask = np.zeros((h, w), bool)
     if len(quad) == 0:
         return mask
-    ys, xs = quad[:, 0], quad[:, 1]
+    ys, _xs = quad[:, 0], quad[:, 1]
     y0 = max(0, int(math.floor(ys.min())))
     y1 = min(h, int(math.ceil(ys.max())))
     if y1 <= y0:

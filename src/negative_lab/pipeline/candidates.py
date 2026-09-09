@@ -26,7 +26,7 @@ import numpy as np
 
 from ..library.models import Candidate, CandidateSet
 from .render import (CANDIDATE_TEMP_CAP, CANDIDATE_TINT_CAP, RenderIntent,
-                     _BRADFORD, adaptation_matrix, cct_from_temperature,
+                     _BRADFORD, cct_from_temperature,
                      clamp_candidate_intent, daylight_xy)
 
 EPS = 1e-6

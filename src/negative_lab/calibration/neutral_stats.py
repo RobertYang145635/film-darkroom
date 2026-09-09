@@ -39,7 +39,7 @@ def find_neutral_z_samples(t_rgb: np.ndarray, params: InvertParams,
         frac_total += frac
         if frac < 0.0005:
             continue
-        med_c = np.median(pos[band], axis=0)       # 该带中性候选的正片中位
+        np.median(pos[band], axis=0)       # 该带中性候选的正片中位
         # 反解回 z：正片相等要求 k_c*z_c 相等；用中位通道值构造等效 z 样本：
         # 直接取该带像素的真实 z 中位数（逐通道）
         z = transmittance_to_z(t_rgb, np.asarray(params.dmin, np.float32))
