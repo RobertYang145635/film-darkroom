@@ -38,7 +38,13 @@ from .service import process_image
 # 时行为不变：入口快照、退出即回写，等价于旧实现。
 @dataclass
 class _FrameSnapshot:
-    """一帧导出输入在启动时刻的冻结副本（只读语义）。"""
+    """一帧导出输入在启动时刻的冻结副本（只读语义）。
+
+    frozen_annotation：几何不完整的帧，`_export_geometry` 会回读**已签字**
+    标注作交付依据（冷读 L5-② 契约）。该回读若留在 worker 里，就是快照
+    冻结后仅存的活输入通道（导出中途用户签字会改变成品几何）——冻结时
+    在主线程读盘钉死，worker 只看这个字段（冷读 2026-09-08 minor-1）。
+    """
 
     source_path: str
     source_sha256: str | None = None
@@ -51,6 +57,7 @@ class _FrameSnapshot:
     capture_fingerprint: str | None = None
     status: str | None = None
     roll_id: str | None = None
+    frozen_annotation: Any = None
 
 
 def snapshot_frame(rec: FrameRecord) -> _FrameSnapshot:
@@ -58,11 +65,23 @@ def snapshot_frame(rec: FrameRecord) -> _FrameSnapshot:
 
     geometry 深拷贝（UI 会原地改 fine_rotation/mirror_horizontal，
     浅引用挡不住）；其余字段浅拷贝即可：dict 会被 UI 整体替换而不是原地改。
+    frozen_annotation 只在几何不完整时捕获（is_complete 的帧用不到回读；
+    读盘失败按 None 处理——与 worker 逐帧读取的旧行为一致，损坏不阻断整卷）。
     """
     from ..library.models import GeometryRegions
     geo = rec.geometry
     if geo is not None:
         geo = GeometryRegions.from_dict(geo.to_dict())
+    frozen_ann = None
+    if geo is None or not geo.is_complete():
+        try:
+            from ..calibration.annotations import load_annotation
+            from ..calibration.state import is_confirmed
+            ann = load_annotation(rec.source_path)
+            if ann is not None and is_confirmed(ann):
+                frozen_ann = ann
+        except Exception:                # noqa: BLE001 —— 损坏不得阻断冻结
+            frozen_ann = None
     return _FrameSnapshot(
         source_path=rec.source_path,
         source_sha256=rec.source_sha256,
@@ -76,7 +95,8 @@ def snapshot_frame(rec: FrameRecord) -> _FrameSnapshot:
                         if rec.frame_analysis else None),
         capture_fingerprint=rec.capture_fingerprint,
         status=rec.status,
-        roll_id=rec.roll_id)
+        roll_id=rec.roll_id,
+        frozen_annotation=frozen_ann)
 
 
 def apply_status_writeback(session, items: list[dict]) -> None:
@@ -122,7 +142,10 @@ def freeze_export_inputs(session, roll_id: str | None, frames,
     batch_assumption = None
     roll_stats = None
     if session is not None:
-        batch_assumption = session.batch_encoding_assumption
+        # 拷贝而非引用（冷读 minor-2）：冻结语义不依赖"没人改这个 dict"的约定
+        batch_assumption = (
+            dict(session.batch_encoding_assumption)
+            if session.batch_encoding_assumption else None)
         tiff_encoding = (batch_assumption or {}).get("encoding")
         if roll_id:
             roll_stats = _collect_roll_stats(session, roll_id)
@@ -153,18 +176,28 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
     """
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
-    records = [snapshot_frame(r) for r in frames] if presnapshot else list(frames)
+    if presnapshot and frames and all(
+            isinstance(f, _FrameSnapshot) for f in frames):
+        # 已是冻结快照（GUI 经 freeze_export_inputs）：直接消费，不再二次
+        # 快照——否则快照字段演化（如新增只读属性）会被静默 duck-typing 掉
+        # （冷读 nit：double-snapshot）。
+        records = list(frames)
+    elif presnapshot:
+        records = [snapshot_frame(r) for r in frames]
+    else:
+        records = list(frames)
     if presnapshot:
-        # 快照模式：卷统计与批次编码假设用调用方冻结的值；
-        # 未冻结则兜底收集（仅同步快照调用会走到）。
+        # 快照模式：卷统计与批次编码假设**只**用调用方冻结的值；
+        # session 一律不透传（worker 结构性零访问活对象，冷读 nit：
+        # 原兜底分支会在 worker 里读 session——已删除）。
         batch_assumption = frozen_batch_assumption
         roll_stats = frozen_roll_stats
-        if roll_stats is None and session is not None and roll_id:
-            roll_stats = _collect_roll_stats(session, roll_id)
+        session_for_worker = None
     else:
         batch_assumption = (session.batch_encoding_assumption
                             if session is not None else None)
         roll_stats = None
+        session_for_worker = session
     items: list[dict] = []
     counts = {"ok": 0, "needs_review": 0, "failed": 0, "cancelled": 0}
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -176,7 +209,8 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
         if progress:
             progress(f"导出 {Path(rec.source_path).name} …")
         try:
-            entry = _export_one(rec, outdir, session=session, roll_id=roll_id,
+            entry = _export_one(rec, outdir, session=session_for_worker,
+                                roll_id=roll_id,
                                 intent_resolver=intent_resolver,
                                 tiff_assumption=tiff_assumption,
                                 jpeg_quality=jpeg_quality,
@@ -275,10 +309,24 @@ def _export_geometry(rec):
     process_image 走自动检测 —— 于是用户上个会话签过字的几何被**静默忽略**，
     与 user-quickstart §5「确认标注会影响导出」的承诺相反。这里在几何不完整时
     回读确认标注：确认优先于草稿，只有签字基线才是可交付依据。
+
+    快照模式（rec 是 _FrameSnapshot）：标注在**主线程冻结时**读盘钉死
+    （snapshot_frame.frozen_annotation，可能为 None=冻结时刻盘上没有），
+    worker 不再读盘——否则导出中途用户签字会改变后续帧的成品几何
+    （冷读 minor-1，2026-09-08）。is_confirmed 已在冻结时把关。
+    同步模式（CLI/测试，普通 FrameRecord）：保持逐帧读盘，行为不变。
     """
     geo = rec.geometry
     if geo is not None and geo.is_complete():
         return geo
+    if isinstance(rec, _FrameSnapshot):
+        ann = rec.frozen_annotation
+        if ann is None:
+            return geo                       # 冻结时刻盘上就没有可用的确认标注
+        if (getattr(ann, "source_sha256", "") and rec.source_sha256
+                and ann.source_sha256 != rec.source_sha256):
+            return geo                       # 源图已换，标定不再适用
+        return _geometry_from_annotation(ann)
     try:
         from ..calibration.annotations import load_annotation
         from ..calibration.state import is_confirmed
@@ -290,6 +338,10 @@ def _export_geometry(rec):
     if (getattr(ann, "source_sha256", "") and rec.source_sha256
             and ann.source_sha256 != rec.source_sha256):
         return geo                           # 源图已换，标定不再适用
+    return _geometry_from_annotation(ann)
+
+
+def _geometry_from_annotation(ann):
     from ..library.models import GeometryRegions
     return GeometryRegions(
         rotation_degrees=ann.rotation_degrees,
@@ -342,7 +394,8 @@ def _export_one(rec, outdir: Path, *, session, roll_id,
     intent = intent_resolver(rec) if intent_resolver else RenderIntent()
     candidate = rec.chosen_candidate or None
     # v6.1 §4：导出链路必须传当前帧的用户选择；不得在导出层自己裁切数组
-    pr = process_image(loaded.rgb, geometry=_export_geometry(rec),
+    pr = process_image(loaded.rgb,
+                       geometry=_export_geometry(rec),
                        roll_analysis=roll_analysis, render_intent=intent,
                        candidate=candidate, capture_fingerprint=fp,
                        keep_rebate=bool(getattr(rec, "keep_rebate", False)))

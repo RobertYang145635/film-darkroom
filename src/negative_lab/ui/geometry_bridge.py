@@ -22,9 +22,9 @@ from ..library.models import FrameRecord, FrameStatus, GeometryRegions
 from ..pipeline.geometry import OrientTransform
 from . import theme
 from .preview_view import RoiKind
-from .state_store import (ENABLE_HD_PREVIEW, MAX_PREVIEW_DIM, _CANVAS_STALE,
-                          _frame_status_text, _geometry_for_job, _qrect,
-                          _shape_hw, _unscale_geometry, ui_process_image)
+from .state_store import (MAX_PREVIEW_DIM, _CANVAS_STALE, _frame_status_text,
+                          _geometry_for_job, _qrect, _shape_hw,
+                          _unscale_geometry, ui_process_image)
 
 KIND_LABELS = {RoiKind.OUTPUT_CROP: "输出裁切",
                RoiKind.IMAGE_AREA: "有效画面",
@@ -363,7 +363,11 @@ class GeometryBridgeMixin:
             return
         self.lbl_zoom.setText(f'{zoom * 100:.0f}%')
         self.lbl_zoom.setVisible(True)
-        if not ENABLE_HD_PREVIEW:
+        # 经 main_window 解析开关（冷读 minor-4，2026-09-08）：拆分后本模块
+        # 的 by-value import 不再受 mw.ENABLE_HD_PREVIEW monkeypatch 控制；
+        # 拆分前该 patch 点有效，恢复同一契约（延迟导入避免 import 期成环）。
+        from .main_window import ENABLE_HD_PREVIEW as _hd_enabled
+        if not _hd_enabled:
             return
         # ---- 以下为高清替换路径（默认不启用；重新启用前必须满足 §3
         # 全部要求：同尺寸 tile、generation 防竞态、worker 解包契约）----

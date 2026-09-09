@@ -104,10 +104,14 @@ class ExportCoordinatorMixin:
             if isinstance(rep0, dict) and isinstance(rep0.get("items"), list):
                 apply_status_writeback(self.session, rep0["items"])
         if not ok:
+            # 冷读 minor-3（2026-09-08）：顶层异常发生在 mkdir/报告写盘等
+            # 非逐帧段——此时部分成品可能已落盘且状态未回写，「已回滚」
+            # 在这个窗口是假话。如实说，并指引重新导出补齐。
             err = res.get("error") if isinstance(res, dict) else str(res)
-            QMessageBox.critical(self, "导出失败（已回滚）",
-                                 f"{err}\n源文件未改动")
-            self._set_banner("整卷导出失败（已回滚，源文件未改动）", "danger")
+            QMessageBox.critical(self, "导出中断",
+                                 f"{err}\n\n已完成的成品保留在输出目录；"
+                                 "各帧状态未回写，可重新整卷导出补齐。")
+            self._set_banner("整卷导出中断（详见弹窗）", "danger")
             return
         rep = res.get("value") or {}
         cancelled = int(rep.get("cancelled") or 0)

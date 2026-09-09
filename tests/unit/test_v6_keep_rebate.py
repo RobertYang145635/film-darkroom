@@ -147,7 +147,9 @@ def _win(monkeypatch, tmp_path, t, keep_first: bool):
     from negative_lab.ui.main_window import MainWindow
 
     monkeypatch.setattr(annmod, "ANNOTATIONS_DIR", tmp_path / "ann")
-    mw._DRAFTS_DIR = tmp_path / "drafts"
+    # 经 monkeypatch 改道草稿目录（直接赋值会永久污染后续测试：
+    # 本测试暴露过 test_review_fixes 的损坏草稿被该残留吞掉的顺序耦合）
+    monkeypatch.setattr(mw, "_DRAFTS_DIR", tmp_path / "drafts")
     rec = FrameRecord(source_path="synthetic/kr.tif",
                       source_sha256="0" * 64,
                       input_facts={"abs_path": "synthetic/kr.tif",
