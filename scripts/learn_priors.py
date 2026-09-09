@@ -26,9 +26,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from negative_lab.calibration.base import robust_dmin  # noqa: E402
 from negative_lab.calibration.border import detect_regions  # noqa: E402
 from negative_lab.calibration.neutral import estimate_exponent_ratios  # noqa: E402
-from negative_lab.calibration.neutral_stats import find_neutral_z_samples  # noqa: E402
 from negative_lab.io.images import load_linear_rgb  # noqa: E402
 from negative_lab.pipeline.density import transmittance_to_z  # noqa: E402
+from negative_lab.pipeline.neutral_stats import find_neutral_z_samples  # noqa: E402
 from negative_lab.pipeline.params import InvertParams  # noqa: E402
 from negative_lab.profiles.profile import FilmProfile, save_profile  # noqa: E402
 

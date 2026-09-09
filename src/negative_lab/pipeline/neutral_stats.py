@@ -4,14 +4,19 @@
 真实中性物体（灰岩、云、路面）。它们的通道残差即整体色偏方向。
 这是 gray-world 的受限版（只取近中性+中调，排除饱和色/剪裁/高光/暗部），
 置信度必须低于人工取点，且警告必须可见——不得伪装成正式标定结果。
+
+历史：本模块原本在 calibration/neutral_stats.py，但它直接调用管线核心
+`invert`，构成 calibration(下层) -> pipeline(上层) 的反向依赖（分层门禁
+ALLOW 待办，2026-09-08 消除）。凡需要跑反相的统计属于管线层；现唯一
+调用方是研发脚本 scripts/learn_priors.py（已同步改 import）。
 """
 
 from __future__ import annotations
 
 import numpy as np
 
-from ..pipeline.density import invert, transmittance_to_z
-from ..pipeline.params import InvertParams
+from .density import invert, transmittance_to_z
+from .params import InvertParams
 
 
 def find_neutral_z_samples(t_rgb: np.ndarray, params: InvertParams,
@@ -39,7 +44,6 @@ def find_neutral_z_samples(t_rgb: np.ndarray, params: InvertParams,
         frac_total += frac
         if frac < 0.0005:
             continue
-        np.median(pos[band], axis=0)       # 该带中性候选的正片中位
         # 反解回 z：正片相等要求 k_c*z_c 相等；用中位通道值构造等效 z 样本：
         # 直接取该带像素的真实 z 中位数（逐通道）
         z = transmittance_to_z(t_rgb, np.asarray(params.dmin, np.float32))

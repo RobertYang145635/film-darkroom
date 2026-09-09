@@ -146,28 +146,7 @@ def get_backend(name: str):
     return BACKENDS[name]
 
 
-def fit_decrosstalk_supervised(measured_z: np.ndarray,
-                               target_density: np.ndarray,
-                               ridge: float = 1e-3) -> dict:
-    """监督解混拟合（研发用：已知目标密度的色卡等价物）。闭式岭回归。
-
-    min_A ||Z A^T - T||² + λ||A - I||²。
-    样本须跨 ≥3 个独立方向（多色相×多密度）；秩不足 -> 单位阵+警告
-    （可辨识性见 docs/algorithm-notes.md §2.3）。
-    """
-    Z = np.asarray(measured_z, np.float64)
-    T = np.asarray(target_density, np.float64)
-    out = {"matrix": np.eye(3, dtype=np.float32).ravel().tolist(),
-           "confidence": 0.0, "n_samples": int(Z.shape[0]), "warnings": []}
-    if Z.ndim != 2 or Z.shape[0] < 6 or Z.shape != T.shape:
-        out["warnings"].append("监督样本不足（<6 或形状不匹配）：保持单位阵")
-        return out
-    S = np.linalg.svd(Z - Z.mean(axis=0), compute_uv=False)
-    if S[0] <= 0 or S[2] / S[0] < 0.05:
-        out["warnings"].append("样本方向秩不足：保持单位阵")
-        return out
-    G = Z.T @ Z + ridge * np.eye(3)
-    A = np.linalg.solve(G, Z.T @ T + ridge * np.eye(3))
-    out.update({"matrix": A.T.astype(np.float32).ravel().tolist(),
-                "confidence": 1.0, "warnings": []})
-    return out
+# 监督解混拟合是纯 numpy 线性代数，已下沉到叶子 metrics.py
+# （消除 calibration/rollcalib -> pipeline 的反向依赖，2026-09-08）。
+# 显式自别名重导出：ruff 在 ignore=[] 下会把普通 import 当未用而 --fix 删掉。
+from ..metrics import fit_decrosstalk_supervised as fit_decrosstalk_supervised  # noqa: E402,F401

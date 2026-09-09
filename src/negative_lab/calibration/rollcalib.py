@@ -86,7 +86,7 @@ def build_from_neutral_samples(roll: str, film_type: str,
     - 仅中性样本 -> 指数比值/白平衡（user-points），解混保持单位阵
       （单射线不可辨识，v3 F-ALG-5，见 backends.fit_decrosstalk）
     """
-    from ..pipeline.backends import fit_decrosstalk_supervised
+    from ..metrics import fit_decrosstalk_supervised
     Z = np.asarray(measured_z, np.float64)
     T = None if target_density is None else np.asarray(target_density, np.float64)
     cal = RollCalibration(roll=roll, film_type=film_type,

@@ -19,17 +19,11 @@ SRC = pathlib.Path("src/negative_lab")
 #: 允许反向依赖的 (模块, 被依赖的上层包)。**每一项都是待办，不是豁免证**；
 #: 修好后必须删掉对应条目，否则 test_scanner_actually_detects_the_known_debts 会红。
 #:
-#: 清点说明：既往三轮审查都记「5 处反向依赖」，但那是按 grep 关键词数出来的。
-#: 本测试用 AST 全量扫描后实测至少 7 处（按符号）/ 以下 6 个模块（按文件）仍依赖上层，
-#: 其中 4 处从未被任何一轮审查列出 —— 这正是把「清点」变成「门禁」的价值。
-#: 已消除的 2 处（GENERIC_PRIOR、channel_clip_ratios）不在此列：扫描确认它们已不违规。
+#: 2026-09-08 Round 6 清账：io/sidecar→pipeline.render（RenderIntent 整体下沉
+#: library/render.py）、calibration/rollcalib→pipeline.backends（监督拟合是纯
+#: numpy 线性代数，下沉叶子 metrics.py）、calibration/neutral_stats→pipeline
+#: （模块整体搬到 pipeline/neutral_stats.py）三项已消除，ALLOW 相应删除。
 ALLOW = {
-    # 待办：sidecar 用 pipeline.render.RenderIntent 做 legacy schema 迁移
-    ("io/sidecar.py", "pipeline"),
-    # 待办：rollcalib 调 pipeline.backends.fit_decrosstalk_supervised -> 注入拟合器
-    ("calibration/rollcalib.py", "pipeline"),
-    # 待办（本轮新发现）：neutral_stats.py 同上
-    ("calibration/neutral_stats.py", "pipeline"),
     # 半误报：profile -> pipeline.params，而 params.py 只 import dataclasses，
     # 属「放错目录」而非依赖倒置；要根治得连 params.py 一起搬家（高风险零收益）。
     # 登记在此是为了让扫描器口径统一，勿据此去改 profile.py 的逻辑。

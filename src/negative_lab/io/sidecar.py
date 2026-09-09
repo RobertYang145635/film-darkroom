@@ -166,7 +166,8 @@ def build_sidecar_v4(pr, *, source_sha256: str, source_path: str = "",
 
 
 def _generic_asset():
-    from ..pipeline.roll_analysis import GENERIC_PRIOR
+    # 叶子模块（消除 io -> pipeline 反向依赖，2026-09-08）；值同一份真源。
+    from ..constants import GENERIC_PRIOR
     return dict(GENERIC_PRIOR)
 
 
@@ -223,7 +224,7 @@ def migrate_v3_to_v4(doc: dict) -> dict:
     area = rss.get("image_area_roi") or crop
     base = rss.get("base_roi") or rss.get("base")
     tech = src.get("technical_parameters") or src.get("parameters") or {}
-    from ..pipeline.render import RenderIntent
+    from ..library.render import RenderIntent
     ri = src.get("render_intent")
     if ri:
         intent = RenderIntent.from_dict(ri).to_dict()
