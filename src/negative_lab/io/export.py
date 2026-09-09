@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 import uuid
@@ -83,8 +82,10 @@ def export_triplet(outdir: Path, stem: str, positive_linear: np.ndarray,
                        sources=sources)
         if _inject_fail == "sidecar":
             raise OSError("注入故障：sidecar")
-        side.write_text(json.dumps(sidecar_payload, ensure_ascii=False,
-                                   indent=2), encoding="utf-8")
+        from .atomic import atomic_write_bytes    # 原子写：报告/配方与成品同等对待
+        atomic_write_bytes(side, json.dumps(sidecar_payload, ensure_ascii=False,
+                                           indent=2).encode("utf-8"),
+                           overwrite=True)
 
         # ---- 重读校验（写完不验证 = 没写）
         if tif is not None:

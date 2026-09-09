@@ -11,14 +11,15 @@
 
 from __future__ import annotations
 
+from .. import storage
+
 import json
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
-CALIB_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "calibrations"
+CALIB_DIR = storage.repo_path("fixtures", "calibrations")
 SCHEMA = 1
 
 
@@ -63,8 +64,10 @@ class RollCalibration:
         d = directory or CALIB_DIR
         d.mkdir(parents=True, exist_ok=True)
         p = d / f"{self.roll}.calib.json"
-        p.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2),
-                     encoding="utf-8")
+        from ..io.atomic import atomic_write_bytes    # 原子写（v6.2 审查批次 3）
+        atomic_write_bytes(p, json.dumps(self.to_dict(), ensure_ascii=False,
+                                         indent=2).encode("utf-8"),
+                           overwrite=True)
         return p
 
     @classmethod

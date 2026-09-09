@@ -18,6 +18,7 @@ import numpy as np
 from ..color.management import (
     InputEncoding, OutputEncoding, TiffClassification, classify_tiff,
     decode_linear, decode_raw, encode_output, icc_sha256, srgb_icc_bytes)
+from ..color.management import linear_to_srgb   # 唯一 sRGB 编码实现
 
 RASTER_EXTS = {".tif", ".tiff", ".png", ".jpg", ".jpeg", ".bmp"}
 RAW_EXTS = {".nef", ".cr2", ".cr3", ".arw", ".raf", ".orf", ".rw2", ".dng", ".raw"}
@@ -239,7 +240,7 @@ def load_thumbnail(path: str | Path, max_dim: int = 128,
         if enc == InputEncoding.UNKNOWN:
             enc = InputEncoding(tiff_encoding or "srgb")
         lin = decode_linear(np.clip(norm, 0.0, 1.0), enc)
-        arr = (np.clip(linear_to_srgb_local(lin), 0, 1) * 255 + 0.5).astype(np.uint8)
+        arr = (np.clip(linear_to_srgb(lin), 0, 1) * 255 + 0.5).astype(np.uint8)
     else:
         from PIL import Image
 
@@ -250,12 +251,6 @@ def load_thumbnail(path: str | Path, max_dim: int = 128,
     h, w, _ = arr.shape
     img = QImage(arr.data, w, h, 3 * w, QImage.Format_RGB888)
     return img.copy()
-
-
-def linear_to_srgb_local(x):
-    from ..color.management import linear_to_srgb
-
-    return linear_to_srgb(x)
 
 
 # ---------------------------------------------------------------- 导出

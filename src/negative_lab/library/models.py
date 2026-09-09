@@ -16,8 +16,7 @@
 from __future__ import annotations
 
 import json
-import os
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field   # os 随原子写改造后不再需要
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -64,19 +63,53 @@ def _roi(value):
     return tuple(seq)
 
 
-def _roi_error(name: str, roi) -> str | None:
-    """单个 ROI 的结构校验（ASCII 错误信息，供 validate 汇总）。"""
+#: ROI 结构判定的**唯一实现**。此前 library/models._roi_error 与
+#: calibration.annotations._check_roi 各写一份，且已经漂移：models 版不查
+#: str/bytes 与非有限数，纯数字字符串 "1234" 会被当成合法 ROI（实测漏洞）。
+#: 两处现在共用判据，但各自**保留原有错误文案**，不改用户可见信息。
+ROI_OK = "ok"
+ROI_BAD_TYPE = "bad_type"
+ROI_NEGATIVE = "negative"
+ROI_REVERSED = "reversed"
+
+
+def roi_facts(roi):
+    """返回 (判定, (y0,x0,y1,x1) 或 None, 元素个数或 -1)。不生成文案。"""
     if roi is None:
-        return None
+        return ROI_OK, None, -1
+    if isinstance(roi, (str, bytes)):
+        return ROI_BAD_TYPE, None, -1
     try:
-        y0, x0, y1, x1 = (int(v) for v in roi)
+        vals = list(roi)
+    except TypeError:
+        return ROI_BAD_TYPE, None, -1
+    n = len(vals)
+    if n != 4:
+        return ROI_BAD_TYPE, None, n
+    try:
+        nums = [float(v) for v in vals]          # 容忍 numpy 标量（含 np.int64）
     except (TypeError, ValueError):
-        return f"{name} must be (y0,x0,y1,x1) integers, got {roi!r}"
+        return ROI_BAD_TYPE, None, n
+    if any(v != v or v in (float("inf"), float("-inf")) for v in nums):
+        return ROI_BAD_TYPE, None, n
+    y0, x0, y1, x1 = (int(v) for v in vals)
     if min(y0, x0, y1, x1) < 0:
-        return f"{name} has negative coordinates: {roi!r}"
+        return ROI_NEGATIVE, (y0, x0, y1, x1), n
     if y1 <= y0 or x1 <= x0:
+        return ROI_REVERSED, (y0, x0, y1, x1), n
+    return ROI_OK, (y0, x0, y1, x1), n
+
+
+def _roi_error(name: str, roi) -> str | None:
+    """单个 ROI 的结构校验（ASCII 错误信息，供 validate 汇总）。文案不变。"""
+    kind, _coords, _n = roi_facts(roi)
+    if kind is ROI_OK:
+        return None
+    if kind is ROI_NEGATIVE:
+        return f"{name} has negative coordinates: {roi!r}"
+    if kind is ROI_REVERSED:
         return f"{name} is empty or reversed: {roi!r}"
-    return None
+    return f"{name} must be (y0,x0,y1,x1) integers, got {roi!r}"
 
 
 def _jsonable(obj: Any) -> Any:
@@ -372,6 +405,8 @@ class FrameRecord:
     status: str = FrameStatus.IMPORTED.value
     roll_id: str | None = None
     warnings: list = field(default_factory=list)
+    #: v6.1 §4：当前帧「保留片边」的用户选择（导出链路的唯一数据源）。
+    keep_rebate: bool = False
 
     def key(self) -> str:
         return f"{self.source_path}#{self.source_sha256[:16]}"
@@ -401,12 +436,16 @@ class FrameRecord:
             "status": self.status,
             "roll_id": self.roll_id,
             "warnings": list(self.warnings),
+            "keep_rebate": bool(self.keep_rebate),      # v6.1 §4 显式布尔
         })
 
     @classmethod
     def from_dict(cls, d: dict) -> "FrameRecord":
-        known = set(cls.__dataclass_fields__) - {"geometry"}
+        known = set(cls.__dataclass_fields__) - {"geometry", "keep_rebate"}
         kw = {k: v for k, v in d.items() if k in known}
+        kr = d.get("keep_rebate", False)
+        # v6.1 §4：非 bool 值不能静默当真；旧文件默认 False
+        kw["keep_rebate"] = kr if isinstance(kr, bool) else False
         kw["geometry"] = GeometryRegions.from_dict(d.get("geometry") or {})
         return cls(**kw)
 
@@ -589,11 +628,13 @@ class ImportSession:
         if errs:
             raise ValueError("session 不可保存：" + "; ".join(errs[:8]))
         path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
-        tmp.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2),
-                       encoding="utf-8")
-        os.replace(tmp, path)
+        # 审查修复（2026-09-08）：此前是「固定名 .tmp + write_text + os.replace」——
+        # 既无 fsync（断电后会话文件可能 0 字节/半截 JSON），临时名又固定
+        # （重入/并发相撞），失败还不清理残留。统一走 io.atomic 的正解。
+        from ..io.atomic import atomic_write_bytes
+        atomic_write_bytes(path, json.dumps(self.to_dict(), ensure_ascii=False,
+                                            indent=2).encode("utf-8"),
+                           overwrite=True)
         return path
 
     @classmethod

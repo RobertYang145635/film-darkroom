@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+from .. import storage
+
 import hashlib
 import json
 import time
@@ -21,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-ASSET_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "models"
+ASSET_DIR = storage.repo_path("fixtures", "models")
 SCHEMA = 1
 MAX_CURVE_NODES = 7          # v5 §6.3：节点数受限
 MATRIX_COND_LIMIT = 1e6
@@ -130,8 +132,10 @@ def save_asset(asset: ModelAsset, directory: Path | None = None) -> Path:
     d = directory or ASSET_DIR
     d.mkdir(parents=True, exist_ok=True)
     out = d / f"{asset.asset_version}.model.json"
-    out.write_text(json.dumps(asset.to_dict(), ensure_ascii=False, indent=2),
-                   encoding="utf-8")
+    from ..io.atomic import atomic_write_bytes        # 原子写（v6.2 审查批次 3）
+    atomic_write_bytes(out, json.dumps(asset.to_dict(), ensure_ascii=False,
+                                       indent=2).encode("utf-8"),
+                       overwrite=True)
     return out
 
 

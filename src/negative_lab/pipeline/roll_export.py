@@ -8,12 +8,13 @@
 
 from __future__ import annotations
 
+from .. import storage
+
 import json
 import threading
 import time
 from pathlib import Path
 
-import numpy as np
 
 from .. import __version__
 from ..io.export import ExportError, export_triplet
@@ -34,15 +35,21 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
                        jpeg_quality: int = 95, export_tiff: bool = True,
                        export_jpeg: bool = True, cancel: threading.Event | None = None,
                        progress=None) -> dict:
-    """导出一卷。返回 {"ok","needs_review","failed","items","report_path"}。"""
+    """导出一卷。返回 {"ok","needs_review","failed","cancelled","items","report_path"}。
+
+    四类计数之和恒等于 len(frames)：取消的帧也必须出现在报告里，
+    否则"整卷导出完成"会在静默丢帧的情况下显示为成功（v6.2 §6.6）。
+    items 一并返回，使导出面板能够跳到失败帧。
+    """
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)
     items: list[dict] = []
-    counts = {"ok": 0, "needs_review": 0, "failed": 0}
+    counts = {"ok": 0, "needs_review": 0, "failed": 0, "cancelled": 0}
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     for rec in frames:
         if cancel is not None and cancel.is_set():
             items.append({"file": rec.source_path, "status": "cancelled"})
+            counts["cancelled"] += 1
             continue
         if progress:
             progress(f"导出 {Path(rec.source_path).name} …")
@@ -77,14 +84,54 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
         "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "outdir": outdir.as_posix(),
         "roll": roll_id,
-        "summary": counts,
+        "summary": dict(counts),
+        "summary_complete": sum(counts.values()) == len(frames),
         "items": items,
     }
     rp = outdir / "roll-report.json"
-    rp.write_text(json.dumps(report, ensure_ascii=False, indent=2),
-                  encoding="utf-8")
-    counts["report_path"] = rp.as_posix()
-    return counts
+    from ..io.atomic import atomic_write_bytes    # 原子写（workers.py 契约）
+    atomic_write_bytes(rp, json.dumps(report, ensure_ascii=False, indent=2)
+                       .encode("utf-8"), overwrite=True)
+    result = dict(counts)
+    result["items"] = items
+    # 审查修复：summary_complete 此前只写进落盘报告，返回体里没有
+    # -> UI 想如实提示「计数不完整」也读不到。补进返回值。
+    result["summary_complete"] = sum(counts.values()) == len(frames)
+    result["report_path"] = rp.as_posix()
+    return result
+
+
+def _export_geometry(rec):
+    """导出前必须尊重**已落盘的用户标定**（冷读审查 L5-②，2026-09-08）。
+
+    本会话没打开过的帧，rec.geometry 还是导入期的空值，此前直接交给
+    process_image 走自动检测 —— 于是用户上个会话签过字的几何被**静默忽略**，
+    与 user-quickstart §5「确认标注会影响导出」的承诺相反。这里在几何不完整时
+    回读确认标注：确认优先于草稿，只有签字基线才是可交付依据。
+    """
+    geo = rec.geometry
+    if geo is not None and geo.is_complete():
+        return geo
+    try:
+        from ..calibration.annotations import load_annotation
+        from ..calibration.state import is_confirmed
+        ann = load_annotation(rec.source_path)
+    except Exception:                        # 损坏不得阻断整卷导出
+        return geo
+    if ann is None or not is_confirmed(ann):
+        return geo
+    if (getattr(ann, "source_sha256", "") and rec.source_sha256
+            and ann.source_sha256 != rec.source_sha256):
+        return geo                           # 源图已换，标定不再适用
+    from ..library.models import GeometryRegions
+    return GeometryRegions(
+        rotation_degrees=ann.rotation_degrees,
+        fine_rotation_degrees=float(
+            getattr(ann, "fine_rotation_degrees", 0.0) or 0.0),
+        mirror_horizontal=bool(getattr(ann, "mirror_horizontal", False)),
+        output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
+        image_area_roi=ann.image_area_roi,
+        base_sample_rois=list(ann.base_sample_rois or []))
 
 
 def _export_one(rec: FrameRecord, outdir: Path, *, session, roll_id,
@@ -118,9 +165,11 @@ def _export_one(rec: FrameRecord, outdir: Path, *, session, roll_id,
             roll_analysis = analyze_roll(stats, fingerprint=fp.value)
     intent = intent_resolver(rec) if intent_resolver else RenderIntent()
     candidate = rec.chosen_candidate or None
-    pr = process_image(loaded.rgb, geometry=rec.geometry,
+    # v6.1 §4：导出链路必须传当前帧的用户选择；不得在导出层自己裁切数组
+    pr = process_image(loaded.rgb, geometry=_export_geometry(rec),
                        roll_analysis=roll_analysis, render_intent=intent,
                        candidate=candidate, capture_fingerprint=fp,
+                       keep_rebate=bool(getattr(rec, "keep_rebate", False)),
                        film_type="unknown")
     if pr.gate.blocks_export:
         rec.status = FrameStatus.PROCESSING_ERROR.value
@@ -164,4 +213,4 @@ def _abs(path: str, rec: FrameRecord | None = None) -> Path:
     p = Path(path)
     if p.is_absolute():
         return p
-    return Path(__file__).resolve().parents[3] / path
+    return storage.repo_path(*Path(path).parts)

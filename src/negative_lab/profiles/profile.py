@@ -107,8 +107,10 @@ def save_profile(prof: FilmProfile, directory: Path | None = None) -> Path:
     directory.mkdir(parents=True, exist_ok=True)
     prof.modified_utc = _utc_now()
     out = directory / f"{prof.name}.profile.json"
-    out.write_text(json.dumps(prof.to_dict(), ensure_ascii=False, indent=2),
-                   encoding="utf-8")
+    from ..io.atomic import atomic_write_bytes        # 原子写（v6.2 审查批次 3）
+    atomic_write_bytes(out, json.dumps(prof.to_dict(), ensure_ascii=False,
+                                       indent=2).encode("utf-8"),
+                       overwrite=True)
     return out
 
 

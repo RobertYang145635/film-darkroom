@@ -40,6 +40,12 @@ def atomic_write_bytes(dst: Path, data: bytes, overwrite: bool = False) -> None:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
+        # 注意（2026-09-08 审查自纠）：这里的 exists() 分支看似多余（os.replace
+        # 两平台都能原子覆盖），但它是**故障注入的接缝**——
+        # tests/unit/test_export_safety.py 通过 patch os.rename 模拟写盘失败，
+        # 验证「失败时不留半成品、目标不存在」。合并成一行会让那条安全测试
+        # 静默失去着力点（实测：改掉后该用例立刻失败）。故保留分支，两条落盘
+        # 路径各自可注入、各自有测试。
         if dst.exists():  # overwrite=True 时替换既有目标（仍非源文件，已由调用方校验）
             os.replace(tmp, dst)
         else:

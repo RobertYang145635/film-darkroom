@@ -17,7 +17,6 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import numpy as np
 
 from .. import __version__
 from ..io.images import load_linear_rgb
@@ -227,8 +226,10 @@ class BatchJob:
 
     def write_report(self) -> Path:
         out = self.outdir / "batch-report.json"
-        out.write_text(json.dumps(self.report(), ensure_ascii=False, indent=2),
-                       encoding="utf-8")
+        from ..io.atomic import atomic_write_bytes    # 原子写（v6.2 审查批次 3）
+        atomic_write_bytes(out, json.dumps(self.report(), ensure_ascii=False,
+                                           indent=2).encode("utf-8"),
+                           overwrite=True)
         doc = self.report()
         lines = [f"批处理报告  {out}",
                  f"总计 {len(self.items)} 张：",
@@ -237,8 +238,8 @@ class BatchJob:
         for it in self.items:
             if it.status == "failed":
                 lines.append(f"  失败 {it.path.name}: {it.error}")
-        (self.outdir / "batch-report.txt").write_text("\n".join(lines),
-                                                      encoding="utf-8")
+        atomic_write_bytes(self.outdir / "batch-report.txt",
+                           "\n".join(lines).encode("utf-8"), overwrite=True)
         return out
 
 

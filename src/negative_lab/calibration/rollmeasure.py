@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from .. import storage
+
 import json
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from ..calibration.base import robust_dmin
 from ..calibration.border import detect_regions
 from ..calibration.flatfield import fit_base_surface
 
-MEASUREMENTS_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "measurements"
+MEASUREMENTS_DIR = storage.repo_path("fixtures", "measurements")
 
 
 def measure_roll(roll: str, frames: list[tuple[str, np.ndarray]],
@@ -77,5 +79,7 @@ def measure_roll(roll: str, frames: list[tuple[str, np.ndarray]],
 def write_measurement(doc: dict) -> Path:
     MEASUREMENTS_DIR.mkdir(parents=True, exist_ok=True)
     p = MEASUREMENTS_DIR / f"{doc['roll']}.measure.json"
-    p.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    from ..io.atomic import atomic_write_bytes        # 原子写（v6.2 审查批次 3）
+    atomic_write_bytes(p, json.dumps(doc, ensure_ascii=False, indent=2)
+                       .encode("utf-8"), overwrite=True)
     return p
