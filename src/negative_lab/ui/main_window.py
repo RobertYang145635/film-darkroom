@@ -17,7 +17,7 @@ import numpy as np
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtWidgets import (
     QApplication, QHBoxLayout, QLabel,
-    QMainWindow, QPushButton, QVBoxLayout, QWidget)
+    QMainWindow, QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
 from .. import __version__
 from ..calibration.annotations import (Annotation, ann_path_for,  # noqa: F401 重导出（测试引用 mw.ann_path_for）
@@ -552,10 +552,14 @@ class MainWindow(ExportCoordinatorMixin, IntentControllerMixin,
 
     # ---------------------------------------------------------------- 提示
     def closeEvent(self, ev):
-        """关窗前把防抖窗口里的最后一次几何编辑落盘（冷读审查 L2-③）。
+        """关窗前：草稿防抖落盘（冷读审查 L2-③）+ 导出进行中必须显式确认
+        （冷读 B 轴，2026-09-08）。
 
         拖动 ROI 只改内存并起 600ms 单次定时器；在那段窗口内直接关窗，
         那次编辑就永久丢失。落盘失败只提示，不阻塞退出。
+        整卷导出在 daemon 线程里跑，进程退出会直接丢弃它——此前关窗
+        **静默**杀掉未完成的帧；现在给出显式选择，并在用户坚持退出时
+        置 cancel 让当前帧完成后尽快收尾（事务机制保证不出错误成品）。
         """
         try:
             if self._draft_flush_timer.isActive():
@@ -564,7 +568,25 @@ class MainWindow(ExportCoordinatorMixin, IntentControllerMixin,
         except Exception as e:  # noqa: BLE001 —— 退出不得被保存卡住
             self._set_banner(f"退出前草稿落盘失败：{type(e).__name__}: {e}",
                              "danger")
+        if getattr(self, "_export_running", False):
+            if not self._confirm_close_during_export():
+                ev.ignore()
+                self._set_banner("整卷导出仍在进行：先取消导出或等待完成",
+                                 "warning")
+                return
+            self._export_cancel.set()
         super().closeEvent(ev)
+
+    def _confirm_close_during_export(self) -> bool:
+        """导出进行中关窗的确认框。返回 True = 用户坚持立即退出。"""
+        box = QMessageBox(self)
+        box.setWindowTitle("导出进行中")
+        box.setText("整卷导出仍在后台进行。\n"
+                    "现在退出将放弃未完成的帧（已写出的成品不受影响）。")
+        box.addButton("继续等待导出完成", QMessageBox.AcceptRole)
+        quit_btn = box.addButton("取消剩余帧并退出", QMessageBox.DestructiveRole)
+        box.exec()
+        return box.clickedButton() is quit_btn
 
     def _set_status(self, text: str):
         self.status.setText(text)
