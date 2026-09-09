@@ -92,7 +92,7 @@ def _run(rel: str):
                                        or ([ann.base_roi] if ann.base_roi else [])))
                           if r])
     pr = process_image(small, geometry=geo, ann=None, prior=prior,
-                       film_type="unknown")
+                       )
     return t, ann, pr, step
 
 
@@ -181,7 +181,7 @@ def test_rebate_independence(e, ann):
         output_crop_roi=(0, 0, sh, sw),
         base_sample_rois=[r for r in base_rois if r])
     full = process_image(t[::step, ::step, :], geometry=geo_keep,
-                         keep_rebate=True, film_type="unknown")
+                         keep_rebate=True, )
     assert full.gate.technical_preclip["low"] == pr.gate.technical_preclip["low"]
     assert full.gate.technical_preclip["high"] == pr.gate.technical_preclip["high"]
     assert full.gate.output_clip == pr.gate.output_clip

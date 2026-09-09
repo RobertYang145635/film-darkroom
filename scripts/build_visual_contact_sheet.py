@@ -132,7 +132,7 @@ def process_roll_sheet(roll: str, frames: list[dict], out_dir: Path,
         records.append(rec)
         images.append(small)
         ctxs.append({"fp": fp, "step": step})
-    ra, results = process_roll(list(zip(records, images)), film_type="unknown")
+    ra, results = process_roll(list(zip(records, images)))
     for fr, rec, small, pr, ctx in zip(frames, records, images, results, ctxs):
         cs = pr.candidates
         renders = {c.name: candidate_positive(pr, c.name) for c in cs} \

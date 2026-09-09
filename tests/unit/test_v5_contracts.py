@@ -61,7 +61,7 @@ class TestNoCalibrationBlocking:
         s, t = synth_pair
         area, base = _rois(s, t)
         pr = process_image(t, output_crop_source=area, image_area_source=area,
-                           base_roi_source=base, film_type="unknown")
+                           base_roi_source=base)
         assert pr.gate.status not in ("needs_calibration", "needs_regions"), \
             f"缺色卡/缺校准仍在阻断普通路径：{pr.gate.status}"
         assert pr.gate.blocks_export is False, pr.gate.failures

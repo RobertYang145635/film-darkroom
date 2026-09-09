@@ -85,7 +85,7 @@ def main() -> int:
         try:
             t0f = time.time()
             loaded = load_linear_rgb(f)
-            pr = process_image(loaded.rgb, film_type="unknown")
+            pr = process_image(loaded.rgb)
             pos = pr.result.positive_linear
             # 渲染默认候选（preserve = 恒等；取 sidecar 口径的默认候选）
             chosen = pr.chosen_candidate or "preserve"

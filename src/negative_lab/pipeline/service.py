@@ -233,15 +233,20 @@ def process_image(t_source: np.ndarray, *,
                   render_intent: RenderIntent | None = None,
                   candidate: str | None = None,
                   make_candidates: bool = True,
-                  film_type: str = "unknown",
                   frame_id: str | None = None,
                   capture_fingerprint: CaptureFingerprint | str | None = None,
                   model_asset=None,
-                  calibration=None,                # 研发兼容：不参与门禁
                   dust_mask: np.ndarray | None = None,
                   dust_auto: bool = False,
                   points_space: str = "oriented") -> ProcessResult:
-    """执行 v5 固定顺序管线。ROI 参数可给 SOURCE 或 ORIENTED 坐标。"""
+    """执行 v5 固定顺序管线。ROI 参数可给 SOURCE 或 ORIENTED 坐标。
+
+    2026-09-08 死参数清理（交接 §4-2，AST 全量核实）：`film_type` 与
+    `calibration` 两形参在函数体内从未被读取（34 形参中仅有的两个死参），
+    全仓 43 处调用点、11 处传参全部为无效果的仪式性实参，已随形参一并移除。
+    「未知胶片型号不阻断导出」（v5 §6.3）本就是门禁的既有行为，
+    film_type 宣称若将来需要，应走 sidecar 字段而非管线形参。
+    """
     if rotation_degrees not in (0, 90, 180, 270):
         raise ValueError(f"rotation_degrees 必须 0|90|180|270，得到 {rotation_degrees}")
     t_source = np.asarray(t_source)
@@ -502,7 +507,6 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
                  render_intent: RenderIntent | None = None,
                  candidate: str | None = None,
                  flat_mode: str = "strip",
-                 film_type: str = "unknown",
                  make_candidates: bool = True,
                  capture_fingerprints: dict | None = None,
                  on_frame=None) -> tuple[RollAnalysis, list[ProcessResult]]:
@@ -523,7 +527,7 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
         fps.append(fp.value if fp else "")
         pr = process_image(img, geometry=rec.geometry, ann=None, prior=prior,
                            render_intent=None, make_candidates=False,
-                           flat_mode=flat_mode, film_type=film_type,
+                           flat_mode=flat_mode,
                            capture_fingerprint=fp)
         pr.meta["input_facts"] = dict(rec.input_facts or {})
         first.append(pr)
@@ -558,7 +562,7 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
                            roll_analysis=shared,
                            render_intent=render_intent, candidate=candidate,
                            make_candidates=make_candidates,
-                           flat_mode=flat_mode, film_type=film_type,
+                           flat_mode=flat_mode,
                            frame_id=rec.source_path,
                            capture_fingerprint=fp)
         pr.meta["input_facts"] = dict(rec.input_facts or {})

@@ -64,7 +64,7 @@ def main() -> int:
         t = loaded.rgb[::STEP, ::STEP, :].copy()
         ann = load_annotation(rel)
         pr = process_image(t, rotation_degrees=ann.rotation_degrees if ann else 0,
-                           ann=ann, film_type="unknown")
+                           ann=ann)
         rec = {
             "file": rel,
             "input_encoding": loaded.meta.get("input_encoding"),

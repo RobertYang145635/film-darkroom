@@ -177,7 +177,7 @@ class TestEntryWiring:
         pr = process_image(t, output_crop_source=(0, 0, t.shape[0], bx0),
                            image_area_source=(0, 0, t.shape[0], bx0),
                            base_roi_source=(0, bx0, t.shape[0], bx1),
-                           film_type="unknown")
+                           )
         assert pr.gate.status in ("ok", "warn", "needs_review")
         assert pr.gate.blocks_export is False
         assert pr.rendered_positive_linear is not None

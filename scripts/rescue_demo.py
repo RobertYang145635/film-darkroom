@@ -32,7 +32,7 @@ def main() -> int:
 
     path = ROOT / rel
     loaded = load_linear_rgb(path)
-    pr = process_image(loaded.rgb, film_type="unknown")
+    pr = process_image(loaded.rgb)
     pos = pr.result.positive_linear
     h, w = pos.shape[:2]
     # 取输出裁切内的画面

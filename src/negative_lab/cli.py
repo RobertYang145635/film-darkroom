@@ -114,7 +114,7 @@ def cmd_invert(args) -> int:
         render_intent=_intent_from_args(args), candidate=args.candidate,
         blank=blank, flat_mode=args.flat_mode,
         force_params=force_params,   # v6.2 审查：此前解析完从未传入，--params 是死开关
-        capture_fingerprint=fp, film_type=args.film_type)
+        capture_fingerprint=fp)
 
     if pr.gate.blocks_export:
         print("FAILED: 质量门禁阻断导出：", file=sys.stderr)

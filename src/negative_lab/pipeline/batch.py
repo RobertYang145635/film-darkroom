@@ -77,8 +77,10 @@ class BatchJob:
                  render_intent: RenderIntent | None = None,
                  candidate: str | None = None,
                  roll_analysis=None,
-                 batch_assumption: dict | None = None,
-                 film_type: str = "unknown"):
+                 batch_assumption: dict | None = None):
+        # 2026-09-08 死参数清理：film_type 构造参数此前只转发给
+        # process_image 的死形参（从未参与任何行为），随签名一并移除；
+        # sidecar 的 film_type 字段仍按 v5 口径写（prior 命名或 unknown）。
         self.items = [BatchItem(path=Path(f)) for f in files]
         self.outdir = Path(outdir)
         self.prior = prior
@@ -93,7 +95,6 @@ class BatchJob:
         self.render_intent = render_intent
         self.candidate = candidate
         self.roll_analysis = roll_analysis
-        self.film_type = film_type
         self._cancel = threading.Event()
         self.started_utc = ""
 
@@ -159,8 +160,7 @@ class BatchJob:
             prior=self.prior.to_initial_params() if self.prior else None,
             roll_analysis=self.roll_analysis,
             render_intent=self.render_intent, candidate=self.candidate,
-            capture_fingerprint=fp,
-            film_type=(self.prior.film_type if self.prior else self.film_type))
+            capture_fingerprint=fp)
         if self.cancelled:
             it.status = "cancelled"
             return

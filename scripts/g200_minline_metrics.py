@@ -16,8 +16,7 @@ ann = load_annotation(rel)
 t = load_linear_rgb(ROOT / rel).rgb
 pf = ROOT / "fixtures/priors/KodakGold200-Z8-led.profile.json"
 prior = load_profile(pf).to_initial_params() if pf.exists() else None
-pr = process_image(t, rotation_degrees=ann.rotation_degrees, ann=ann, prior=prior,
-                   film_type="C-41")
+pr = process_image(t, rotation_degrees=ann.rotation_degrees, ann=ann, prior=prior)
 tech = pr.result.positive_linear
 vm = pr.valid_mask
 reg = tech[vm] if vm is not None else tech.reshape(-1, 3)

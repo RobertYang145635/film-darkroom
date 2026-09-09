@@ -199,7 +199,7 @@ class FrameLoaderMixin:
                       if seed_geo is not None else None),
             ann=None, roll_analysis=roll,
             render_intent=self._intent, candidate=self._candidate,
-            keep_rebate=True, capture_fingerprint=fp, film_type="unknown")
+            keep_rebate=True, capture_fingerprint=fp)
         return {"rec": rec, "rgb": loaded.rgb, "meta": loaded.meta,
                 "fingerprint": fp, "annotation": ann, "roll": roll,
                 "preview": pr, "small": small, "scale": k,

@@ -50,8 +50,7 @@ class GeometryBridgeMixin:
                       if rec.geometry.is_complete() else None),
             ann=None, roll_analysis=self.roll_analysis,
             render_intent=self._intent, candidate=self._candidate,
-            keep_rebate=True, capture_fingerprint=self._fingerprint,
-            film_type="unknown")
+            keep_rebate=True, capture_fingerprint=self._fingerprint)
         self._positive_full = self.pr.result.positive_linear
         if seed:
             src_geo = _unscale_geometry(self.pr.geometry.roi_source_space,
@@ -154,7 +153,7 @@ class GeometryBridgeMixin:
                 ann=None, roll_analysis=roll,
                 render_intent=intent_snapshot, candidate=cand_snapshot,
                 keep_rebate=True,          # 整幅技术正片（裁切走即时合成）
-                capture_fingerprint=fp, film_type="unknown")
+                capture_fingerprint=fp)
 
         def done(result: dict):
             self._busy_leave("preview")
@@ -402,7 +401,7 @@ class GeometryBridgeMixin:
                 pr = ui_process_image(
                     loaded.rgb, geometry=rec.geometry,
                     render_intent=self._intent, candidate=self._candidate,
-                    keep_rebate=True, film_type="unknown")
+                    keep_rebate=True)
                 arr = pr.result.positive_linear
         else:
             arr = tr.apply(loaded.rgb)

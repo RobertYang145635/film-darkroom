@@ -349,8 +349,7 @@ def _export_one(rec, outdir: Path, *, session, roll_id,
     pr = process_image(loaded.rgb, geometry=_export_geometry(rec),
                        roll_analysis=roll_analysis, render_intent=intent,
                        candidate=candidate, capture_fingerprint=fp,
-                       keep_rebate=bool(getattr(rec, "keep_rebate", False)),
-                       film_type="unknown")
+                       keep_rebate=bool(getattr(rec, "keep_rebate", False)))
     if pr.gate.blocks_export:
         raise ExportError("质量门禁阻断：" + "; ".join(pr.gate.failures))
     meta = dict(loaded.meta)
