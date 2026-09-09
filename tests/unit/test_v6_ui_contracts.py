@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtWidgets import (
-    QApplication, QPushButton, QStackedWidget, QToolButton, QWidget)
+    QApplication)
 
 ROOT = Path(__file__).resolve().parents[2]
 

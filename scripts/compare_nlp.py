@@ -20,7 +20,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from negative_lab.diagnostics.colorimetry import delta_e_2000, srgb_to_lab  # noqa: E402
-from negative_lab.io.images import load_linear_rgb  # noqa: E402
 
 BATCH_DIR = ROOT / "outputs" / "batch_1298"
 NLP_DIR = ROOT / "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP"

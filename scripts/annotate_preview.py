@@ -30,7 +30,7 @@ def image_area_candidate(t: np.ndarray, frame: tuple[int, int, int, int]) -> tup
     step = max(1, max(H, W) // 600)
     s = sub[::step, ::step]
     col_var = s.var(axis=0)
-    col_med = np.median(s, axis=0)
+    np.median(s, axis=0)
     # 画面 = 高方差列的连续段；片基条带方差低且亮；黑边方差低且暗
     thr = np.median(col_var[col_var > 0]) * 0.5 if (col_var > 0).any() else 0
     ok = col_var > thr

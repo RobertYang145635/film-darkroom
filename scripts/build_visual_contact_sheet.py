@@ -103,14 +103,9 @@ def _geometry(frame: dict) -> GeometryRegions:
         base_sample_rois=[tuple(x) for x in r["base_sample_rois"]])
 
 
-def _roll_analysis(frames: list[dict], stats: list[dict], fp: str) -> RollAnalysis:
-    return analyze_roll(stats, fingerprint=fp)
-
-
 def process_roll_sheet(roll: str, frames: list[dict], out_dir: Path,
                        *, max_dim: int) -> dict:
     """整卷走**生产服务** `process_roll`（§0.3.4：联系表不得有第二条管线）。"""
-    from negative_lab.calibration.annotations import load_annotation
     from negative_lab.library.models import FrameRecord
 
     out_dir.mkdir(parents=True, exist_ok=True)

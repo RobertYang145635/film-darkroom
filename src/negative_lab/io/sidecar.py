@@ -18,6 +18,8 @@ v4 必须记录（缺一不可，全部来自实际执行事实，不写猜测�
 
 from __future__ import annotations
 
+from .. import storage
+
 import subprocess
 import time
 from pathlib import Path
@@ -25,7 +27,7 @@ from pathlib import Path
 SCHEMA_VERSION = 4
 LEGACY_READABLE = (1, 2, 3)
 
-_ROOT = Path(__file__).resolve().parents[3]
+_ROOT = storage.repo_path()
 _commit_cache: str | None = None
 
 

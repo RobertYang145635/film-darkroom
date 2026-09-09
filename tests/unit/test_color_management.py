@@ -7,10 +7,10 @@ import pytest
 import tifffile
 
 from negative_lab.color.management import (
-    InputEncoding, OutputEncoding, TiffClassification, WORKING_SPACE,
+    InputEncoding, OutputEncoding, WORKING_SPACE,
     classify_tiff, decode_linear, encode_output, icc_sha256, linear_to_srgb,
     raw_decode_params, srgb_icc_bytes, srgb_to_linear)
-from negative_lab.io.images import ReadError, load_linear_rgb, save_tiff16
+from negative_lab.io.images import ReadError, load_linear_rgb
 
 
 class TestTransferFunctions:
@@ -78,7 +78,7 @@ class TestTiffClassification:
         assert "tiff_encoding" in str(ei.value)          # 给出显式选项
         res = load_linear_rgb(p, tiff_encoding="linear")  # 显式假设放行
         assert res.meta["input_encoding"] == "linear"
-        assert "假设" in res.meta["input_encoding_detail"] or True
+        assert "假设" in res.meta["input_encoding_detail"]
 
     def test_srgb_icc_tiff_classified(self, tmp_path):
         p = tmp_path / "srgb.tif"

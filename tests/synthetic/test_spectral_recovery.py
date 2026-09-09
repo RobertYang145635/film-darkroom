@@ -60,7 +60,7 @@ class TestChroma:
         pos, _ = _positive(spec)
         hues = [float(hue_angle(_patch_mean(pos, spec, n))) for n in PATCH_ORDER]
         # sRGB hue: red~0, orange~30, yellow~60, green~120, cyan~180, blue~240, purple~300
-        expected_order = sorted(range(len(hues)), key=lambda i: hues[i])
+        sorted(range(len(hues)), key=lambda i: hues[i])
         # red 必须与 green/blue 分离；次序沿色环单调（允许 ±1 邻居交换容忍度=0）
         assert hues[0] < 40 or hues[0] > 330, f"red hue 漂移: {hues}"
         assert 90 < hues[3] < 170, f"green hue 漂移: {hues}"

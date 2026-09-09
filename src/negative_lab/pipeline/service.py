@@ -28,7 +28,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .. import __version__
 from ..calibration.annotations import Annotation
 from ..calibration.border import detect_regions
 from ..diagnostics.quality_gate import QualityGate
@@ -36,11 +35,10 @@ from ..library.fingerprint import CaptureFingerprint, capture_fingerprint
 from ..library.models import (CandidateSet, FrameRecord, GeometryRegions,
                               RollAnalysis, RollGroup)
 from .auto import AutoReport, auto_analyze
-from .backends import get_backend
 from .candidates import build_candidates
 from .density import InvertResult, invert_chunked, preclip_ratios
 from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
-                       clamp_roi, quad_mask, rect_mask)
+                       clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
 from .render import RenderIntent, apply_render

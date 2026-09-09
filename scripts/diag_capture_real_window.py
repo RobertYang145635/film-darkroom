@@ -3,7 +3,6 @@
 import ctypes
 import ctypes.wintypes as wt
 import sys
-import time
 
 from PIL import Image
 

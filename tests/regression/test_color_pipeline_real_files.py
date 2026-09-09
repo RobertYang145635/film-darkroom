@@ -10,7 +10,7 @@ import tifffile
 from PIL import Image
 
 from negative_lab.color.management import (
-    OutputEncoding, icc_sha256, raw_decode_params, srgb_icc_bytes)
+    OutputEncoding, icc_sha256, srgb_icc_bytes)
 from negative_lab.io.images import load_linear_rgb, save_jpeg8, save_tiff16
 
 ROOT = Path(__file__).resolve().parents[2]

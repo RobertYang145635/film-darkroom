@@ -14,7 +14,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import tempfile
 import threading
 from pathlib import Path
 
@@ -23,8 +22,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-import numpy as np  # noqa: E402
-from PySide6.QtCore import QPoint, Qt, QRectF  # noqa: E402
+from PySide6.QtCore import QPoint, Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -72,12 +70,14 @@ def main() -> int:
         print(f"样片不存在：{folder}")
         return 1
     EVIDENCE.mkdir(parents=True, exist_ok=True)
-    # 标注重定向到临时目录：冒烟中的“用户确认标注”不能污染真实 fixtures，
-    # 更不能替真实样片产生未经用户签字的 verified 记录
-    import negative_lab.calibration.annotations as annmod
+    # v6.2 §3 阶段 A：标注 **和 GUI 草稿** 一起改道到临时根。
+    # 此前只重定向标注目录，冒烟里画的框会写进真实 outputs/drafts/，
+    # 给真实样片留下从未发生的手工工作稿（v6.1 审计 F6 实锤）。
+    # 也不能替真实样片产生未经用户签字的 verified 记录。
+    from negative_lab import storage
 
-    ann_tmp = tempfile.TemporaryDirectory(prefix="v6-smoke-ann-")
-    annmod.ANNOTATIONS_DIR = Path(ann_tmp.name)
+    _storage_ctx = storage.isolated_storage()   # 显式 enter：进程退出即释放
+    _storage_ctx.__enter__()
     app = QApplication([])
     from negative_lab.ui import theme
 

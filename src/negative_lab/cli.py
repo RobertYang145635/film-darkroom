@@ -17,10 +17,7 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
 
-from . import __version__
-from .color.management import OutputEncoding
 from .io.images import ReadError, load_linear_rgb
 from .library.fingerprint import capture_fingerprint
 from .library.models import FrameRecord, GeometryRegions, ImportSession
@@ -116,6 +113,7 @@ def cmd_invert(args) -> int:
         roll_analysis=_load_roll_analysis(args.roll_analysis),
         render_intent=_intent_from_args(args), candidate=args.candidate,
         blank=blank, flat_mode=args.flat_mode,
+        force_params=force_params,   # v6.2 审查：此前解析完从未传入，--params 是死开关
         capture_fingerprint=fp, film_type=args.film_type)
 
     if pr.gate.blocks_export:

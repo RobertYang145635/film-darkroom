@@ -161,7 +161,7 @@ class QualityGate:
 
         # ---- RenderIntent 剪裁：单独提示，不改写技术门禁（§8.2）
         if rendered_clip is None and rendered_positive is not None:
-            from ..pipeline.density import channel_clip_ratios
+            from ..metrics import channel_clip_ratios   # 叶子（上轮声称已改，实未落地）
             rendered_clip = channel_clip_ratios(rendered_positive, valid_mask)
         if rendered_clip:
             g.rendered_clip = {k: ([float(v) for v in val] if isinstance(val, list)

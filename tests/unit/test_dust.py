@@ -1,7 +1,6 @@
 """§7 除尘/划痕测试：保守检测、可回退修复、修复失败不阻断导出。"""
 
 import numpy as np
-import pytest
 
 from negative_lab.pipeline.density import invert
 from negative_lab.pipeline.params import InvertParams

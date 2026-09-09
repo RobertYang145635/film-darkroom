@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from .. import storage
+
 import time
 from pathlib import Path
 
@@ -37,7 +39,7 @@ def make_frame_record(path: Path, *, root: Path | None = None,
     供 UI/导出在没有会话根信息时精确定位。
     """
     path = Path(path)
-    repo_root = Path(__file__).resolve().parents[3]
+    repo_root = storage.repo_path()
     rel = path.as_posix()
     base_root = Path(root).resolve() if root else repo_root
     try:

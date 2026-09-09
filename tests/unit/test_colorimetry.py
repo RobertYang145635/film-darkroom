@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from negative_lab.diagnostics.colorimetry import (delta_e_2000,
                                                   linear_srgb_to_lab,

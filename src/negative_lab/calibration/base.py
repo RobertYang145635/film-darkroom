@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..pipeline.density import EPS, transmittance_to_z
+from ..metrics import EPS, transmittance_to_z   # 叶子：消除 calibration -> pipeline 反向依赖
 
 
 def robust_dmin(base_roi: np.ndarray, trim: float = 0.10, dust_tol: float = 0.35) -> dict:

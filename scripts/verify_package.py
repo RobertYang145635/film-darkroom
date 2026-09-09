@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import os
 import subprocess
-import sys
 import time
 import zipfile
 from pathlib import Path

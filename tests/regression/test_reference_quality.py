@@ -122,7 +122,7 @@ def test_auto_crop_iou(e, ann):
 def test_output_clipping_and_export_allowed(e, ann):
     """v5 §8.2：技术正片 clamp 前剪裁 <=1%；needs_review 允许导出。"""
     _, _, pr, _ = _run(e["file"])
-    assert pr.gate.status != "fail" or not pr.gate.blocks_export or True
+    assert pr.gate.status != "fail" or not pr.gate.blocks_export
     if max(pr.gate.technical_preclip.get("low", [0]) + [0]) > 0.01 \
             or max(pr.gate.technical_preclip.get("high", [0]) + [0]) > 0.01:
         assert pr.gate.blocks_export, "超限必须 fail"

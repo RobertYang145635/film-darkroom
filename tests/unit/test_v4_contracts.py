@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 
 import numpy as np
 import pytest
@@ -11,7 +10,6 @@ import tifffile
 
 from negative_lab.calibration.rollcalib import RollCalibration
 from negative_lab.pipeline import service as svc
-from negative_lab.pipeline.backends import fit_decrosstalk_supervised
 from negative_lab.pipeline.density import invert, invert_chunked
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.render import RenderIntent, apply_render

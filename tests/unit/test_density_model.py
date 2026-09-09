@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from negative_lab.pipeline.density import (EPS, channel_exponents, invert,
+from negative_lab.pipeline.density import (channel_exponents, invert,
                                            sanitize_dmax, transmittance_to_z)
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.testing.synthetic import ORANGE_BASE, make_synthetic_negative

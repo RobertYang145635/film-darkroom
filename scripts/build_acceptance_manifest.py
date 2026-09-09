@@ -25,7 +25,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from negative_lab.calibration.annotations import load_annotation  # noqa: E402
-from negative_lab.io.probe import probe_file  # noqa: E402
 from negative_lab.library.fingerprint import capture_fingerprint  # noqa: E402
 
 OUT = ROOT / "fixtures" / "acceptance" / "manifest.json"

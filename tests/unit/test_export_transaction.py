@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 import numpy as np
@@ -62,7 +61,6 @@ def test_partial_commit_rollback_preserves_prior_files(tmp_path, data):
 def test_rollback_delete_failure_reports_leftover(tmp_path, data, monkeypatch):
     """§9.3：回滚删除失败 -> 异常必须含残留路径，不得静默吞掉。"""
     out = tmp_path / "o"
-    import negative_lab.io.export as exp
 
     orig_unlink = Path.unlink
 

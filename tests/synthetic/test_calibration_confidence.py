@@ -2,8 +2,7 @@
 
 import numpy as np
 
-from negative_lab.calibration.base import (base_roi_sanity_check, estimate_dmax_offset,
-                                           robust_dmin)
+from negative_lab.calibration.base import (base_roi_sanity_check, robust_dmin)
 from negative_lab.pipeline.auto import auto_analyze
 from negative_lab.testing.synthetic import make_synthetic_negative
 

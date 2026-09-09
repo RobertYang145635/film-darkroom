@@ -27,6 +27,11 @@ a = Analysis(
     hiddenimports=[
         "negative_lab.app",
         "negative_lab.ui.main_window",
+        # batch_panel 去留决定（2026-09-08 结构审计）：本模块生产代码 0 处
+        # import（v6 改单工作区后批处理队列面板没接进来），但引擎
+        # pipeline/batch.py 的 BatchJob 仍在用且有单测。故**保留面板**：
+        # 删掉等于替产品砍掉一个待接的批处理入口，成本 170 行、可逆。
+        # 待办：接进单工作区（或产品明确废弃后，连同本行一起删除）。
         "negative_lab.ui.batch_panel",
         "tifffile.tifffile",
     ],
