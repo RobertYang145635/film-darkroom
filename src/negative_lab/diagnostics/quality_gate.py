@@ -44,6 +44,8 @@ class QualityGate:
     input_clip: dict = field(default_factory=dict)
     output_clip: dict = field(default_factory=dict)
     technical_preclip: dict = field(default_factory=dict)
+    #: 高端剪裁中"输入端已死"与"软件新引入"的逐通道拆分（不改判定，只补归因）
+    clip_attribution: dict = field(default_factory=dict)
     rendered_clip: dict = field(default_factory=dict)
     nonfinite_input: int = 0
     nonfinite_output: int = 0
@@ -113,18 +115,34 @@ class QualityGate:
 
             # ---- 技术正片 clamp 前剪裁（§8.2 硬门禁口径）
             g.technical_preclip = dict(technical_preclip or {})
+            g.clip_attribution = _clip_attribution(t_in, positive_linear, valid_mask)
             for side, label, advice in (
                     ("low", "暗部", "请检查片基取样区或降低 Dmax"),
                     ("high", "高光", "请检查片基取样区或调整曝光起点")):
                 for ch, frac in _iter(g.technical_preclip, side):
+                    if frac > clip_fail_frac or frac > clip_warn_frac:
+                        attr = (g.clip_attribution.get(ch) or {})
+                        tail = ""
+                        if side == "high" and attr.get("high_total") is not None:
+                            inh = float(attr["high_inherited"])
+                            intro = float(attr["high_introduced"])
+                            if frac > 0 and inh / max(frac, 1e-12) >= 0.8:
+                                tail = (f"；其中 {inh:.2%} 在输入端已是死数据"
+                                        f"（软件新引入 {intro:.2%}）"
+                                        "—— 采集端就已丢失，重扫/重拍才能根治，"
+                                        "调算法补不回来")
+                            elif intro > clip_warn_frac:
+                                tail = (f"；其中软件新引入 {intro:.2%}"
+                                        f"（输入端死数据 {inh:.2%}）"
+                                        "—— 这部分才是本软件能改的")
                     if frac > clip_fail_frac:
                         g.failures.append(
                             f"技术正片{label}剪裁超限(FAIL)：通道 {ch} {frac:.2%} > "
-                            f"{clip_fail_frac:.1%}（{advice}）")
+                            f"{clip_fail_frac:.1%}（{advice}）{tail}")
                     elif frac > clip_warn_frac:
                         g.warnings.append(
                             f"技术正片{label}剪裁：通道 {ch} {frac:.2%} > "
-                            f"{clip_warn_frac:.1%}（{advice}）")
+                            f"{clip_warn_frac:.1%}（{advice}）{tail}")
             above = float(g.technical_preclip.get("above_base", 0.0))
             if above > 0.0:
                 g.notes.append(f"透射率超过片基的像素比例 {above:.2%}"
@@ -221,6 +239,7 @@ class QualityGate:
             "input_clip": self.input_clip,
             "output_clip": self.output_clip,
             "technical_preclip": self.technical_preclip,
+            "clip_attribution": self.clip_attribution,
             "rendered_clip": self.rendered_clip,
             "nonfinite_input": self.nonfinite_input,
             "nonfinite_output": self.nonfinite_output,
@@ -275,6 +294,44 @@ def _validate_mask(mask: np.ndarray, *arrays) -> None:
         if a is not None and mask.shape != a.shape[:2]:
             raise ValueError(f"valid_mask 形状 {mask.shape} 与图像 "
                              f"{a.shape[:2]} 不符")
+
+
+def _clip_attribution(t_in: np.ndarray | None, positive: np.ndarray | None,
+                      mask: np.ndarray | None) -> dict:
+    """技术正片的高光剪裁里，有多少**在输入端就已经是死数据**。
+
+    为什么需要它（2026-09-09 实测）：全语料 21/169 帧因技术正片 B 通道高端
+    剪裁 >1% 被 FAIL 挡住导出，但翻拍端的输入剪裁（`t_in <= CLIP_TOL`）
+    本身就常常好几 percent —— 现在这条 FAIL 里**有多少是软件造成的**没人说得出，
+    用户只能猜是"软件把高光推爆了"还是"相机本来就没拍到"。
+
+    物理对应关系是确定的（负片）：负片越密（`t_in` 越小）→ 正片越亮。
+    所以**正片高端** ↔ **输入低端**，`t_in <= CLIP_TOL` 就是采集端已丢失的数据。
+    低端反过来对应"透射率超过片基"(above_base)，那是另一个口径、
+    本函数不掺和（见 gate 里已有的 `above_base` 提示），故 `low` 一律返回 None。
+    """
+    if t_in is None or positive is None or t_in.shape != positive.shape:
+        return {}
+    ti = t_in[mask] if mask is not None else t_in.reshape(-1, 3)
+    po = positive[mask] if mask is not None else positive.reshape(-1, 3)
+    if ti.size == 0 or po.size == 0:
+        return {}
+    out: dict = {}
+    for i, ch in enumerate(CHANNELS):
+        hi = po[:, i] >= 1.0 - CLIP_TOL          # 正片高光
+        dead = ti[:, i] <= CLIP_TOL              # 输入端低端已死
+        n = float(hi.size)
+        total = float(hi.mean())
+        inherited = float((hi & dead).sum()) / n
+        out[ch] = {
+            "high_total": round(total, 6),
+            "high_inherited": round(inherited, 6),
+            "high_introduced": round(total - inherited, 6),
+            "low": None,
+            "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），"
+                          "不在本函数口径内，不假装能归因",
+        }
+    return out
 
 
 def _clip(img: np.ndarray, mask: np.ndarray | None = None) -> dict:

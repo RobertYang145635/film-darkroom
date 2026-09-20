@@ -4,6 +4,44 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 归因轮：谁弄坏了高光，谁弄丢了片基（开发版，未发布）— 2026-09-09 Round 9
+
+本轮只问"这数字是谁造成的"，给 `build_verdict_kit.py --measure` 加了片基侧证据
+（`base_dmin` / `base_contamination` / `base_black_level` / `input_clip` / `dmax`，
+metrics `schema_version` → 2，重测 169 帧 / 1254 s），量出两个硬结论。
+
+- **被挡导出的 21 帧，软件的高光罪行为零**。21/169 帧因技术正片 B 通道高端剪裁
+  >1% 被 §8.2 判 FAIL，但逐帧看 `input_clip.low[B]` 与 `technical_preclip.high[B]`
+  **完全相等**（负片越密→正片越亮，对应关系是确定的物理事实）：
+  剪裁 100% 继承自采集端，最差 CN400-3 的 11.0% 是相机当场丢的。
+  → 门禁新增 `clip_attribution`（逐通道 `high_inherited`/`high_introduced`），
+  FAIL 文案改成说得出归因（"其中 4.26% 在输入端已是死数据（软件新引入 0.00%）
+  ——采集端就已丢失，重扫/重拍才能根治"）。**判定一个字没改**，>1% 仍 FAIL；
+  低端明确**不假装能归因**（其输入端对应量是 above_base，返回 None + 原因）。
+  是否该继续硬挡导出记入 `docs/blockers.md` **B-6**（§8.2 两条规则在
+  "剪裁全部继承"时互相冲突，属产品决定）。
+- **44% 帧退回通用先验，是 B 通道一票否决**。74/169 帧 `generic_prior`，
+  报表统一写 `contamination=1.000 / confidence=0.000`，看着像"片基全脏"；
+  实测（`scripts/diagnose_base_fallback.py`）取样区**量到了东西**
+  （1 万像素、污染 25%、中位透射率 `[0.244, 0.093, 0.026]`），
+  而 `rel_spread` 取**三通道 MAD 的最大值**，橙罩下 B 透射率最低、噪声最大
+  （逐通道 MAD `[R 0.018, G 0.048, B 0.076]`）→ `spread_score 0.298
+  < min_base_confidence 0.45` → 整区作废。**R/G 干净，B 一个通道否掉整帧片基。**
+  本轮只修"报不出真相"：`_roi_stats` 写出三项分项 `scores`，
+  拒绝路径带出 `best_rejected_region`（真实污染/保留率/散布/中位透射率 +
+  `binding_score`，并标注"未参与任何计算"）。
+  放宽容差**没有做**：`TOLERANCE` 受 v5 §4.4 冻结约束，且一改就等于改变约 44%
+  帧的颜色与反差，必须走版本提升 + 视觉签字 —— 记入 **B-5**。
+  注意 `contamination=1.0` 是 **load-bearing** 的（卷级模型靠它排除帧），
+  所以本轮测试明确锁住"聚合值不许顺手改成真实值"。
+- **回归锁 9 项**：`tests/unit/test_clip_attribution.py`（全继承→文案点名采集端、
+  软件引入→文案点名软件、**归因不是放宽门禁的后门**、低端不编造、输入缺失不崩）；
+  `tests/unit/test_base_rejection_reported.py`（干净区必须被接受以免样张空转、
+  被拒区判定不改但要报真相、`binding_score` 必须等于三项最小值——不硬编码阈值、
+  没有取样区时不许凭空造一个被拒区）。
+- 基线：**477 passed**（468 + 5 + 4）· ruff 无豁免全绿 ·
+  `metrics.json` schema 2 已重测入库。
+
 ## 自动中和从不生效的机制修复（开发版，未发布）— 2026-09-09 Round 8
 
 **这是本仓库迄今最像"产品其实没在工作"的发现**：全语料 169 帧里

@@ -97,6 +97,26 @@ def _density_range(transmittance: np.ndarray) -> float:
 
 
 # ------------------------------------------------------------------ measure
+def _plain(value):
+    """把管线里的 numpy 标量/数组/嵌套结构变成可 JSON 化的普通值。
+
+    判据测量要能随手写进文件，不能因为某个字段是 ndarray 就整个跑挂；
+    转换只降表示形式，不改变数值。
+    """
+    if value is None or isinstance(value, (bool, str)):
+        return value
+    if isinstance(value, np.ndarray):
+        return [_plain(v) for v in value.reshape(-1).tolist()]
+    if isinstance(value, (list, tuple)):
+        return [_plain(v) for v in value]
+    if isinstance(value, dict):
+        return {str(k): _plain(v) for k, v in value.items()}
+    try:
+        return round(float(value), 6)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
     frames = _load_manifest()
     if only_roll:
@@ -170,6 +190,16 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
                 },
                 "base_source": pr.base_source,
                 "base_confidence": pr.base_confidence,
+                # 片基侧证据（2026-09-09 追加）。为什么必须一起量：
+                # 回退 generic_prior 的 74 帧只有 1.4% 被高端剪裁挡住导出，
+                # 而**真的量到片基**的 95 帧却有 21.1% 被挡 —— 一头死灰、一头死白，
+                # 两头其实是同一个 Dmin 估计问题。光看 base_source 判不了案。
+                "base_dmin": _plain(pr.frame_base.get("dmin")),
+                "base_contamination": _plain(pr.frame_base.get("contamination")),
+                "base_black_level": _plain(pr.frame_base.get("black_level")),
+                "base_spatial_trend": _plain(pr.frame_base.get("spatial_trend")),
+                "input_clip": _plain(pr.gate.input_clip),
+                "dmax": _plain(getattr(pr.report.params, "dmax", None)),
                 "gate": pr.gate.status,
                 "blocks_export": pr.gate.blocks_export,
                 "chosen_candidate": pr.chosen_candidate,
@@ -179,7 +209,7 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
             })
         print(f"  measured {roll}: {len(kept)} 帧", flush=True)
     doc = {
-        "schema_version": 1,
+        "schema_version": 2,          # v2：加入片基侧证据（dmin/污染/黑电平/输入端剪裁）
         "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "max_dim": max_dim,
         "note": ("分层标记为**显示编码(sRGB)域**上的像素统计（代理指标，非场景真值）；"

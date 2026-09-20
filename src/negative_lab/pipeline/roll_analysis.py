@@ -106,6 +106,11 @@ def _roi_stats(seg: np.ndarray) -> dict:
     purity_score = float(np.clip((kept_frac - 0.20) / 0.60, 0.0, 1.0))
     spread_score = float(np.clip((0.10 - rel_spread) / 0.08, 0.0, 1.0))
     out["confidence"] = round(min(size_score, purity_score, spread_score), 3)
+    # 三项分项原样写出来：置信度是 min(三项)，光看一个 0.30 分不清是
+    # "样本太少"还是"太脏"还是"颗粒太散"（2026-09-09 实测：44% 帧退回通用
+    # 先验，全部是 spread_score 被 B 通道噪声压死，但报表上只有一个 0.00）。
+    out["scores"] = {"size": round(size_score, 3), "purity": round(purity_score, 3),
+                     "spread": round(spread_score, 3)}
     if n_nonfinite:
         out["warnings"].append(f"片基取样区含 {n_nonfinite} 个非有限值，已剔除")
     if kept_frac < 1.0 - TOLERANCE["max_contamination"]:
@@ -174,11 +179,31 @@ def frame_base_stats(t_oriented: np.ndarray, base_rois: list,
             continue
         used.append(st)
     if not used:
-        return {"dmin": None, "confidence": 0.0, "n_regions_used": 0,
-                "regions": regions, "contamination": 1.0,
-                "spatial_trend": (0.0, 0.0), "black_level": None,
-                "warnings": warnings or ["没有可用的片基取样区"],
-                "rejected": [r["roi"] for r in regions]}
+        out = {"dmin": None, "confidence": 0.0, "n_regions_used": 0,
+               "regions": regions, "contamination": 1.0,
+               "spatial_trend": (0.0, 0.0), "black_level": None,
+               "warnings": warnings or ["没有可用的片基取样区"],
+               "rejected": [r["roi"] for r in regions]}
+        # 把**被拒绝的那个区的真实数字**带出来（判定一个字不改：dmin 仍是
+        # None、contamination 仍是 1.0 —— 后者是 load-bearing 的，卷级模型
+        # 靠它把不可靠帧排除在外）。以前这里一律报 contamination=1.000 /
+        # confidence=0.000，于是"根本没量到片基"和"片基 100% 脏"在报表、
+        # sidecar、判定条上长成同一个样子，用户与后续审查都无从分辨。
+        best = max(regions, key=lambda r: r["confidence"], default=None)
+        if best is not None and best.get("median") is not None:
+            scores = best.get("scores") or {}
+            binding = min(scores, key=scores.get) if scores else None
+            out["best_rejected_region"] = {
+                "roi": best["roi"], "confidence": best["confidence"],
+                "contamination": best["contamination"],
+                "kept_frac": best["kept_frac"],
+                "rel_spread": best.get("rel_spread"),
+                "scores": scores, "binding_score": binding,
+                "median_transmittance": [round(float(v), 6)
+                                         for v in best["median"]],
+                "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断",
+            }
+        return out
     meds = np.array([r["median"] for r in used], np.float64)
     confs = np.array([r["confidence"] for r in used], np.float64)
     # 多区合并：取各区中位数的中位数（对单区被齿孔/边码污染稳健）

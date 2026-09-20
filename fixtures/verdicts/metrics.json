@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "generated_utc": "2026-09-20T19:31:35Z",
+  "schema_version": 2,
+  "generated_utc": "2026-09-20T20:33:07Z",
   "max_dim": 1200,
   "note": "分层标记为**显示编码(sRGB)域**上的像素统计（代理指标，非场景真值）；数字全部来自生产服务 process_roll，无第二条管线。",
   "strata_legend": {
@@ -15,7 +15,7 @@
     "low_base_confidence": "片基 Dmin 置信度低：来源可能是回退而非实测",
     "no_nlp_reference": "没有同源 NLP 参考：只能用于稳健性，不得进对标集"
   },
-  "seconds": 1252.6,
+  "seconds": 1254.0,
   "frames": [
     {
       "id": "1298_G200::G200-1",
@@ -66,6 +66,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.893,
+      "base_dmin": [
+        0.286045,
+        0.11005,
+        0.03147
+      ],
+      "base_contamination": 0.0786,
+      "base_black_level": 0.025808,
+      "base_spatial_trend": [
+        -0.0372,
+        0.0924
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.050715
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.115328,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -126,6 +150,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.89,
+      "base_dmin": [
+        0.232762,
+        0.08928,
+        0.025894
+      ],
+      "base_contamination": 0.0403,
+      "base_black_level": 0.011691,
+      "base_spatial_trend": [
+        -0.0477,
+        0.013
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.038941
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.01565,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -186,6 +234,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 1.0,
+      "base_dmin": [
+        0.261987,
+        0.100909,
+        0.029093
+      ],
+      "base_contamination": 0.1848,
+      "base_black_level": 0.023031,
+      "base_spatial_trend": [
+        -0.0034,
+        -0.0127
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.038125
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.015865,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -246,6 +318,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 1.0,
+      "base_dmin": [
+        0.383851,
+        0.147544,
+        0.043173
+      ],
+      "base_contamination": 0.0442,
+      "base_black_level": 0.023371,
+      "base_spatial_trend": [
+        -0.0431,
+        0.0022
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.123352
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.183973,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -306,6 +402,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 1.0,
+      "base_dmin": [
+        0.273658,
+        0.104896,
+        0.030326
+      ],
+      "base_contamination": 0.0447,
+      "base_black_level": 0.022453,
+      "base_spatial_trend": [
+        -0.0405,
+        0.0036
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.094845
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.22801,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -366,6 +486,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.949,
+      "base_dmin": [
+        0.308564,
+        0.11901,
+        0.03534
+      ],
+      "base_contamination": 0.0282,
+      "base_black_level": 0.007632,
+      "base_spatial_trend": [
+        0.0366,
+        0.004
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.421642
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.418877,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -426,6 +570,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 1.0,
+      "base_dmin": [
+        0.314232,
+        0.120887,
+        0.034641
+      ],
+      "base_contamination": 0.0664,
+      "base_black_level": 0.027612,
+      "base_spatial_trend": [
+        -0.0292,
+        0.0116
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.125844
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.193699,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -486,6 +654,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.94,
+      "base_dmin": [
+        0.311932,
+        0.119765,
+        0.034529
+      ],
+      "base_contamination": 0.1947,
+      "base_black_level": 0.039859,
+      "base_spatial_trend": [
+        -0.0068,
+        -0.0009
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.001931
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.794512,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -546,6 +738,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.982,
+      "base_dmin": [
+        0.27408,
+        0.104104,
+        0.030348
+      ],
+      "base_contamination": 0.0432,
+      "base_black_level": 0.019544,
+      "base_spatial_trend": [
+        -0.098,
+        0.0129
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.170617
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.247863,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -606,6 +822,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.096615
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.163354,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -666,6 +902,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.923,
+      "base_dmin": [
+        0.307562,
+        0.118139,
+        0.03485
+      ],
+      "base_contamination": 0.0418,
+      "base_black_level": 0.00365,
+      "base_spatial_trend": [
+        -0.1332,
+        0.0034
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.013228
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.956728,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -726,6 +986,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.88,
+      "base_dmin": [
+        0.239133,
+        0.091618,
+        0.026658
+      ],
+      "base_contamination": 0.0302,
+      "base_black_level": 0.014588,
+      "base_spatial_trend": [
+        -0.0482,
+        -0.0005
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.013203
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.910369,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -786,6 +1070,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          1.4e-05,
+          1e-06,
+          0.484592
+        ],
+        "high": [
+          0.002933,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.104237,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -846,6 +1150,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.567,
+      "base_dmin": [
+        0.267158,
+        0.102488,
+        0.028955
+      ],
+      "base_contamination": 0.4599,
+      "base_black_level": 0.00443,
+      "base_spatial_trend": [
+        -0.0183,
+        0.3201
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.054555
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.200094,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -906,6 +1234,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.878,
+      "base_dmin": [
+        0.196749,
+        0.076432,
+        0.022092
+      ],
+      "base_contamination": 0.2752,
+      "base_black_level": 0.004301,
+      "base_spatial_trend": [
+        0.0328,
+        0.0739
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.078607
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.194241,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -966,6 +1318,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.281705
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.33792,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1026,6 +1398,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          1e-06,
+          0.0,
+          0.111576
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.23687,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1086,6 +1478,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.146377
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.206603,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1146,6 +1558,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.223926
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.281213,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1206,6 +1638,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          1.3e-05,
+          0.0,
+          0.196925
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.216549,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1266,6 +1718,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          3e-06,
+          0.0,
+          0.137804
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.223083,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1326,6 +1798,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.139469
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.405657,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -1386,6 +1878,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.517974,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -1446,6 +1958,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.706,
+      "base_dmin": [
+        0.197557,
+        0.088549,
+        0.015412
+      ],
+      "base_contamination": 0.0114,
+      "base_black_level": 0.026299,
+      "base_spatial_trend": [
+        0.0307,
+        -0.0005
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.034129
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.815201,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -1506,6 +2042,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.616,
+      "base_dmin": [
+        0.240989,
+        0.085721,
+        0.018447
+      ],
+      "base_contamination": 0.0148,
+      "base_black_level": 0.032402,
+      "base_spatial_trend": [
+        0.0575,
+        -0.0017
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.005254
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.65465,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -1566,6 +2126,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.602,
+      "base_dmin": [
+        0.199324,
+        0.08724,
+        0.01627
+      ],
+      "base_contamination": 0.0296,
+      "base_black_level": 0.000137,
+      "base_spatial_trend": [
+        0.0158,
+        -0.0019
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          1e-06,
+          0.042619
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.845457,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -1626,6 +2210,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.862,
+      "base_dmin": [
+        0.238682,
+        0.082219,
+        0.018503
+      ],
+      "base_contamination": 0.0015,
+      "base_black_level": 0.021257,
+      "base_spatial_trend": [
+        0.001,
+        -0.0002
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.01004
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.717049,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -1686,6 +2294,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.693,
+      "base_dmin": [
+        0.199706,
+        0.086791,
+        0.015613
+      ],
+      "base_contamination": 0.0196,
+      "base_black_level": 0.000142,
+      "base_spatial_trend": [
+        -0.026,
+        -0.0012
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          3e-06,
+          0.078785
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.834136,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -1746,6 +2378,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.755,
+      "base_dmin": [
+        0.243188,
+        0.083404,
+        0.018302
+      ],
+      "base_contamination": 0.0137,
+      "base_black_level": 0.026687,
+      "base_spatial_trend": [
+        -0.0087,
+        0.0001
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.021462
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.736748,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -1806,6 +2462,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.985,
+      "base_dmin": [
+        0.225258,
+        0.096475,
+        0.021146
+      ],
+      "base_contamination": 0.0147,
+      "base_black_level": 0.023386,
+      "base_spatial_trend": [
+        -0.0319,
+        -0.0036
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.312233
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.214752,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -1866,6 +2546,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.864,
+      "base_dmin": [
+        0.257938,
+        0.088247,
+        0.021599
+      ],
+      "base_contamination": 0.0015,
+      "base_black_level": 0.02506,
+      "base_spatial_trend": [
+        -0.0455,
+        0.0004
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.048614
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.989606,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -1926,6 +2630,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.806,
+      "base_dmin": [
+        0.211655,
+        0.091473,
+        0.018499
+      ],
+      "base_contamination": 0.0151,
+      "base_black_level": 8.3e-05,
+      "base_spatial_trend": [
+        -0.0712,
+        -0.0008
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.011258
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.804687,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "neutral",
@@ -1986,6 +2714,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.758,
+      "base_dmin": [
+        0.24466,
+        0.084488,
+        0.020314
+      ],
+      "base_contamination": 0.0271,
+      "base_black_level": 0.027408,
+      "base_spatial_trend": [
+        -0.116,
+        0.0001
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.001407
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.688621,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2046,6 +2798,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.061251
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.241078,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2106,6 +2878,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.567,
+      "base_dmin": [
+        0.226752,
+        0.071083,
+        0.015795
+      ],
+      "base_contamination": 0.0133,
+      "base_black_level": 0.02886,
+      "base_spatial_trend": [
+        -0.1049,
+        -0.0006
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002812
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.69074,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2166,6 +2962,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002749
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.931778,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2226,6 +3042,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.591,
+      "base_dmin": [
+        0.221589,
+        0.075505,
+        0.015623
+      ],
+      "base_contamination": 0.0086,
+      "base_black_level": 0.026439,
+      "base_spatial_trend": [
+        0.1097,
+        0.0001
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000754
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.671731,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2286,6 +3126,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.638,
+      "base_dmin": [
+        0.21309,
+        0.093218,
+        0.017315
+      ],
+      "base_contamination": 0.0183,
+      "base_black_level": 9.3e-05,
+      "base_spatial_trend": [
+        0.0276,
+        -0.0017
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.006392
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.74617,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2346,6 +3210,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.695,
+      "base_dmin": [
+        0.25091,
+        0.086701,
+        0.019277
+      ],
+      "base_contamination": 0.0253,
+      "base_black_level": 0.03111,
+      "base_spatial_trend": [
+        0.0432,
+        -0.0017
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000903
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.610751,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2406,6 +3294,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.594,
+      "base_dmin": [
+        0.2081,
+        0.090609,
+        0.016746
+      ],
+      "base_contamination": 0.0307,
+      "base_black_level": 9.8e-05,
+      "base_spatial_trend": [
+        0.0727,
+        -0.0017
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          1e-06,
+          0.003218
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.479436,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2466,6 +3378,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.732,
+      "base_dmin": [
+        0.246193,
+        0.084567,
+        0.018648
+      ],
+      "base_contamination": 0.018,
+      "base_black_level": 0.030572,
+      "base_spatial_trend": [
+        0.079,
+        -0.0014
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000445
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.460247,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2526,6 +3462,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.1009
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.403569,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2586,6 +3542,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.013707
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.270317,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -2646,6 +3622,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.968,
+      "base_dmin": [
+        0.181054,
+        0.078456,
+        0.015234
+      ],
+      "base_contamination": 0.0123,
+      "base_black_level": 0.030908,
+      "base_spatial_trend": [
+        0.0001,
+        0.0314
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.024486
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.771369,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "neutral",
@@ -2706,6 +3706,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.779,
+      "base_dmin": [
+        0.217237,
+        0.074586,
+        0.01764
+      ],
+      "base_contamination": 0.0014,
+      "base_black_level": 0.035042,
+      "base_spatial_trend": [
+        -0.0001,
+        0.0044
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002579
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.618415,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2766,6 +3790,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.546,
+      "base_dmin": [
+        0.237628,
+        0.106876,
+        0.019276
+      ],
+      "base_contamination": 0.034,
+      "base_black_level": 0.038197,
+      "base_spatial_trend": [
+        -0.0253,
+        0.0055
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.032189
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.756008,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -2826,6 +3874,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.873,
+      "base_dmin": [
+        0.282375,
+        0.099279,
+        0.021297
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.037264,
+      "base_spatial_trend": [
+        -0.025,
+        -0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.003475
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.664845,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2886,6 +3958,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.063185
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.127277,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -2946,6 +4038,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.007339
+        ],
+        "high": [
+          0.00659,
+          0.003298,
+          0.0
+        ]
+      },
+      "dmax": 1.102897,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -3006,6 +4118,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.755,
+      "base_dmin": [
+        0.203118,
+        0.088782,
+        0.016851
+      ],
+      "base_contamination": 0.0239,
+      "base_black_level": 0.022212,
+      "base_spatial_trend": [
+        0.0095,
+        0.0025
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.102589
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.041536,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -3066,6 +4202,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.952,
+      "base_dmin": [
+        0.239557,
+        0.082218,
+        0.018848
+      ],
+      "base_contamination": 0.0004,
+      "base_black_level": 0.025102,
+      "base_spatial_trend": [
+        -0.0099,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.011835
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.853629,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -3126,6 +4286,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          3e-06,
+          0.037133
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.183236,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3186,6 +4366,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.004446
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.275505,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -3246,6 +4446,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.016057
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.066368,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3306,6 +4526,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002971
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.000092,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3366,6 +4606,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.019004
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.091599,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3426,6 +4686,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.005308
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.987534,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3486,6 +4766,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          1.1e-05,
+          1.3e-05,
+          0.081092
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.223939,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3546,6 +4846,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.02653
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.45657,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -3606,6 +4926,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.49,
+      "base_dmin": [
+        0.197054,
+        0.091486,
+        0.017679
+      ],
+      "base_contamination": 0.0583,
+      "base_black_level": 0.008664,
+      "base_spatial_trend": [
+        -0.0515,
+        0.0027
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.041473
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.81422,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -3666,6 +5010,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.676,
+      "base_dmin": [
+        0.224367,
+        0.084004,
+        0.019291
+      ],
+      "base_contamination": 0.008,
+      "base_black_level": 0.012115,
+      "base_spatial_trend": [
+        -0.0809,
+        0.0016
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002889
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.80347,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -3726,6 +5094,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.671,
+      "base_dmin": [
+        0.202335,
+        0.088271,
+        0.016624
+      ],
+      "base_contamination": 0.0972,
+      "base_black_level": 0.000133,
+      "base_spatial_trend": [
+        -0.024,
+        0.0062
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.036135
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.763522,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -3786,6 +5178,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.783,
+      "base_dmin": [
+        0.241856,
+        0.083348,
+        0.018712
+      ],
+      "base_contamination": 0.0054,
+      "base_black_level": 0.015247,
+      "base_spatial_trend": [
+        0.0294,
+        0.0006
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.01255
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.876968,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -3846,6 +5262,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.819,
+      "base_dmin": [
+        0.202701,
+        0.088447,
+        0.016651
+      ],
+      "base_contamination": 0.1004,
+      "base_black_level": 0.021157,
+      "base_spatial_trend": [
+        -0.036,
+        0.0285
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.026468
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.722871,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -3906,6 +5346,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.812,
+      "base_dmin": [
+        0.241115,
+        0.083287,
+        0.018629
+      ],
+      "base_contamination": 0.0232,
+      "base_black_level": 0.020642,
+      "base_spatial_trend": [
+        -0.0227,
+        0.0156
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.00582
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.763025,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -3966,6 +5430,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.793,
+      "base_dmin": [
+        0.166046,
+        0.076406,
+        0.016828
+      ],
+      "base_contamination": 0.042,
+      "base_black_level": 0.000125,
+      "base_spatial_trend": [
+        -0.0099,
+        0.0091
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.009265
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.689078,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4026,6 +5514,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.878,
+      "base_dmin": [
+        0.234819,
+        0.080543,
+        0.017475
+      ],
+      "base_contamination": 0.0512,
+      "base_black_level": 0.020661,
+      "base_spatial_trend": [
+        -0.0244,
+        0.0428
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.006743
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.595596,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4086,6 +5598,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.54,
+      "base_dmin": [
+        0.199416,
+        0.087884,
+        0.016342
+      ],
+      "base_contamination": 0.0375,
+      "base_black_level": 0.000137,
+      "base_spatial_trend": [
+        -0.0244,
+        0.0157
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          1e-06,
+          0.110048
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.777383,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -4146,6 +5682,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.877,
+      "base_dmin": [
+        0.227252,
+        0.081629,
+        0.019418
+      ],
+      "base_contamination": 0.0651,
+      "base_black_level": 0.032728,
+      "base_spatial_trend": [
+        -0.0646,
+        0.0093
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.017358
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.715495,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -4206,6 +5766,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.744,
+      "base_dmin": [
+        0.189205,
+        0.084648,
+        0.016074
+      ],
+      "base_contamination": 0.0128,
+      "base_black_level": 0.023816,
+      "base_spatial_trend": [
+        -0.0249,
+        0.0016
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.059746
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.870588,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -4266,6 +5850,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.96,
+      "base_dmin": [
+        0.222592,
+        0.076027,
+        0.017223
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.024089,
+      "base_spatial_trend": [
+        -0.0404,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.023107
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.872837,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -4326,6 +5934,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.762,
+      "base_dmin": [
+        0.164044,
+        0.071795,
+        0.01319
+      ],
+      "base_contamination": 0.026,
+      "base_black_level": 9.7e-05,
+      "base_spatial_trend": [
+        -0.0195,
+        -0.0067
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          3e-06,
+          0.045166
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.008798,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4386,6 +6018,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.827,
+      "base_dmin": [
+        0.196926,
+        0.068432,
+        0.015044
+      ],
+      "base_contamination": 0.0001,
+      "base_black_level": 0.012973,
+      "base_spatial_trend": [
+        -0.0281,
+        -0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.011453
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.971193,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4446,6 +6102,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.055415
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.245829,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4506,6 +6182,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.657,
+      "base_dmin": [
+        0.263947,
+        0.090869,
+        0.021482
+      ],
+      "base_contamination": 0.0298,
+      "base_black_level": 0.031519,
+      "base_spatial_trend": [
+        -0.1889,
+        0.0017
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.003648
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.804862,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4566,6 +6266,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.739,
+      "base_dmin": [
+        0.258753,
+        0.110578,
+        0.022399
+      ],
+      "base_contamination": 0.0716,
+      "base_black_level": 0.026098,
+      "base_spatial_trend": [
+        -0.0847,
+        0.0032
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.437664
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.231541,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4626,6 +6350,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.684,
+      "base_dmin": [
+        0.291166,
+        0.099991,
+        0.025113
+      ],
+      "base_contamination": 0.0544,
+      "base_black_level": 0.02915,
+      "base_spatial_trend": [
+        -0.1163,
+        0.0016
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.044377
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.922122,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4686,6 +6434,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          2e-06,
+          2e-06,
+          0.013968
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.905205,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "neutral",
@@ -4746,6 +6514,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002252
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.790012,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4806,6 +6594,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.022621
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.077699,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4866,6 +6674,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002242
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.958738,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4926,6 +6754,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.462,
+      "base_dmin": [
+        0.196388,
+        0.08595,
+        0.016995
+      ],
+      "base_contamination": 0.0731,
+      "base_black_level": 0.000171,
+      "base_spatial_trend": [
+        -0.0363,
+        0.0117
+      ],
+      "input_clip": {
+        "low": [
+          2e-06,
+          9e-06,
+          0.003785
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.504787,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4986,6 +6838,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.555,
+      "base_dmin": [
+        0.226847,
+        0.077286,
+        0.016817
+      ],
+      "base_contamination": 0.0276,
+      "base_black_level": 0.050509,
+      "base_spatial_trend": [
+        -0.1105,
+        0.0082
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000373
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.3,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5046,6 +6922,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.493,
+      "base_dmin": [
+        0.181877,
+        0.080824,
+        0.014744
+      ],
+      "base_contamination": 0.0528,
+      "base_black_level": 6.1e-05,
+      "base_spatial_trend": [
+        -0.0294,
+        0.0021
+      ],
+      "input_clip": {
+        "low": [
+          1e-06,
+          1e-06,
+          0.008265
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.710882,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5106,6 +7006,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.698,
+      "base_dmin": [
+        0.208366,
+        0.072594,
+        0.016289
+      ],
+      "base_contamination": 0.0205,
+      "base_black_level": 0.017601,
+      "base_spatial_trend": [
+        -0.063,
+        -0.0052
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.001739
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.640492,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5166,6 +7090,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          1e-06,
+          0.039448
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.068467,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5226,6 +7170,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.718,
+      "base_dmin": [
+        0.234906,
+        0.082633,
+        0.018333
+      ],
+      "base_contamination": 0.0618,
+      "base_black_level": 0.019276,
+      "base_spatial_trend": [
+        -0.0742,
+        0.054
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.005582
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.908843,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5286,6 +7254,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          1e-06,
+          0.057942
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.375443,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5346,6 +7334,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.522,
+      "base_dmin": [
+        0.209235,
+        0.076958,
+        0.01789
+      ],
+      "base_contamination": 0.0277,
+      "base_black_level": 0.014339,
+      "base_spatial_trend": [
+        -0.1623,
+        0.0075
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.009259
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.992623,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5406,6 +7418,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.877,
+      "base_dmin": [
+        0.184236,
+        0.082645,
+        0.016606
+      ],
+      "base_contamination": 0.032,
+      "base_black_level": 8e-05,
+      "base_spatial_trend": [
+        -0.0043,
+        0.0061
+      ],
+      "input_clip": {
+        "low": [
+          1e-06,
+          3e-06,
+          0.000314
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.496127,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5466,6 +7502,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.877,
+      "base_dmin": [
+        0.219458,
+        0.077147,
+        0.018247
+      ],
+      "base_contamination": 0.0012,
+      "base_black_level": 0.030441,
+      "base_spatial_trend": [
+        0.0002,
+        -0.0039
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          1.1e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.52218,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5526,6 +7586,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.904,
+      "base_dmin": [
+        0.246935,
+        0.10859,
+        0.017687
+      ],
+      "base_contamination": 0.0345,
+      "base_black_level": 0.031134,
+      "base_spatial_trend": [
+        -0.0012,
+        -0.0241
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.075137
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.893922,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5586,6 +7670,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.781,
+      "base_dmin": [
+        0.296607,
+        0.102522,
+        0.021246
+      ],
+      "base_contamination": 0.0002,
+      "base_black_level": 0.035757,
+      "base_spatial_trend": [
+        -0.0,
+        0.0241
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.015645
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.752647,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "neutral",
@@ -5646,6 +7754,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.029303
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.081392,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5706,6 +7834,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.547,
+      "base_dmin": [
+        0.212057,
+        0.07955,
+        0.018722
+      ],
+      "base_contamination": 0.0426,
+      "base_black_level": 0.033396,
+      "base_spatial_trend": [
+        0.1189,
+        -0.0081
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.004678
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.625829,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5766,6 +7918,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.518,
+      "base_dmin": [
+        0.207404,
+        0.09605,
+        0.017424
+      ],
+      "base_contamination": 0.0634,
+      "base_black_level": 0.037617,
+      "base_spatial_trend": [
+        0.0725,
+        -0.0034
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.037871
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.740202,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -5826,6 +8002,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.59,
+      "base_dmin": [
+        0.260404,
+        0.095072,
+        0.020708
+      ],
+      "base_contamination": 0.0229,
+      "base_black_level": 0.041922,
+      "base_spatial_trend": [
+        0.1328,
+        -0.009
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.005796
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.608608,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5886,6 +8086,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.994,
+      "base_dmin": [
+        0.69073,
+        0.388218,
+        0.227786
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.044405,
+      "base_spatial_trend": [
+        -0.0,
+        -0.0052
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          4e-06
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.123532,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -5946,6 +8170,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.142109,
+          0.000429,
+          0.000429
+        ]
+      },
+      "dmax": 1.048258,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6006,6 +8250,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          6.1e-05,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.082325,
+          7e-06,
+          0.001246
+        ]
+      },
+      "dmax": 1.046877,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6066,6 +8330,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.591,
+      "base_dmin": [
+        0.736227,
+        0.495955,
+        0.33575
+      ],
+      "base_contamination": 0.0662,
+      "base_black_level": 0.023936,
+      "base_spatial_trend": [
+        -0.5082,
+        -0.0894
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.012985,
+          0.001821,
+          0.001817
+        ]
+      },
+      "dmax": 1.378488,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6126,6 +8414,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.050418,
+          0.002419,
+          0.000732
+        ]
+      },
+      "dmax": 1.050061,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6186,6 +8494,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.002056,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.589857,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6246,6 +8574,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.001899,
+          0.004031,
+          0.0
+        ]
+      },
+      "dmax": 1.311871,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6306,6 +8654,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.213776,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6366,6 +8734,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          1.1e-05
+        ],
+        "high": [
+          0.001776,
+          0.001776,
+          0.002259
+        ]
+      },
+      "dmax": 1.977725,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6426,6 +8814,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.935,
+      "base_dmin": [
+        0.577668,
+        0.321699,
+        0.166864
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.017848,
+      "base_spatial_trend": [
+        0.0001,
+        -0.0393
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.000152,
+          0.000152,
+          0.000159
+        ]
+      },
+      "dmax": 1.653853,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6486,6 +8898,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.807,
+      "base_dmin": [
+        0.494063,
+        0.264916,
+        0.13631
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.022145,
+      "base_spatial_trend": [
+        0.0495,
+        -0.0003
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.38988,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6546,6 +8982,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.000497,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.500772,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6606,6 +9062,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.949,
+      "base_dmin": [
+        0.555126,
+        0.369242,
+        0.214789
+      ],
+      "base_contamination": 0.0005,
+      "base_black_level": 0.025632,
+      "base_spatial_trend": [
+        0.0,
+        0.1267
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          2.2e-05
+        ],
+        "high": [
+          0.0,
+          1.5e-05,
+          8e-06
+        ]
+      },
+      "dmax": 1.377125,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6666,6 +9146,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.792,
+      "base_dmin": [
+        0.584009,
+        0.401319,
+        0.282768
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.011852,
+      "base_spatial_trend": [
+        0.2002,
+        -0.0004
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.842185,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6726,6 +9230,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.723,
+      "base_dmin": [
+        0.474316,
+        0.250784,
+        0.104962
+      ],
+      "base_contamination": 0.0783,
+      "base_black_level": 0.016467,
+      "base_spatial_trend": [
+        0.0026,
+        0.0236
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000389
+        ],
+        "high": [
+          0.001253,
+          0.001253,
+          0.00127
+        ]
+      },
+      "dmax": 1.332655,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6786,6 +9314,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.836,
+      "base_dmin": [
+        0.805596,
+        0.489252,
+        0.248457
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.058125,
+      "base_spatial_trend": [
+        -0.156,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          1.9e-05
+        ],
+        "high": [
+          6.6e-05,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.055001,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6846,6 +9398,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.001926,
+          0.001777,
+          0.002066
+        ]
+      },
+      "dmax": 1.237157,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -6906,6 +9478,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.771,
+      "base_dmin": [
+        0.525368,
+        0.304297,
+        0.146909
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.02597,
+      "base_spatial_trend": [
+        0.0053,
+        -0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.27461,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6966,6 +9562,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.472,
+      "base_dmin": [
+        0.503567,
+        0.297228,
+        0.176182
+      ],
+      "base_contamination": 0.0575,
+      "base_black_level": 0.031715,
+      "base_spatial_trend": [
+        -0.1119,
+        0.1007
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          1.1e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.063554,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7026,6 +9646,30 @@
       },
       "base_source": "frame",
       "base_confidence": 1.0,
+      "base_dmin": [
+        0.702972,
+        0.459323,
+        0.306544
+      ],
+      "base_contamination": 0.0005,
+      "base_black_level": 0.046751,
+      "base_spatial_trend": [
+        0.0001,
+        -0.0161
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.009586,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7086,6 +9730,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.795,
+      "base_dmin": [
+        0.553524,
+        0.244071,
+        0.11184
+      ],
+      "base_contamination": 0.0933,
+      "base_black_level": 0.025558,
+      "base_spatial_trend": [
+        0.0157,
+        -0.0836
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000179
+        ],
+        "high": [
+          0.001776,
+          0.001795,
+          0.001805
+        ]
+      },
+      "dmax": 1.192295,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7146,6 +9814,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.887,
+      "base_dmin": [
+        0.647047,
+        0.295406,
+        0.133313
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.037345,
+      "base_spatial_trend": [
+        0.0373,
+        -0.0003
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002983
+        ],
+        "high": [
+          0.001776,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.146531,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7206,6 +9898,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.184578,
+          0.041628,
+          0.00217
+        ]
+      },
+      "dmax": 0.879324,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7266,6 +9978,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.917,
+      "base_dmin": [
+        0.509526,
+        0.201316,
+        0.09277
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.037381,
+      "base_spatial_trend": [
+        0.0,
+        -0.0605
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.001776,
+          0.001776,
+          0.001776
+        ]
+      },
+      "dmax": 0.932509,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7326,6 +10062,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.84,
+      "base_dmin": [
+        0.781344,
+        0.335045,
+        0.197658
+      ],
+      "base_contamination": 0.0,
+      "base_black_level": 0.017114,
+      "base_spatial_trend": [
+        -0.0,
+        0.0036
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          2.7e-05
+        ],
+        "high": [
+          0.000151,
+          0.000148,
+          0.000148
+        ]
+      },
+      "dmax": 1.758254,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -7386,6 +10146,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.58,
+      "base_dmin": [
+        0.660942,
+        0.282328,
+        0.158557
+      ],
+      "base_contamination": 0.0186,
+      "base_black_level": 0.01123,
+      "base_spatial_trend": [
+        -0.2406,
+        -0.0059
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.00014
+        ],
+        "high": [
+          0.001805,
+          0.00181,
+          0.001819
+        ]
+      },
+      "dmax": 1.757209,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -7446,6 +10230,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          2.6e-05
+        ],
+        "high": [
+          0.13004,
+          0.00144,
+          0.001438
+        ]
+      },
+      "dmax": 1.478007,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7506,6 +10310,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.000127
+        ],
+        "high": [
+          0.000941,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.923543,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7566,6 +10390,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.807,
+      "base_dmin": [
+        0.636595,
+        0.271991,
+        0.154484
+      ],
+      "base_contamination": 0.0001,
+      "base_black_level": 0.048088,
+      "base_spatial_trend": [
+        0.0345,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          3.3e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.134847,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7626,6 +10474,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          6.1e-05
+        ],
+        "high": [
+          0.157757,
+          0.002078,
+          0.002064
+        ]
+      },
+      "dmax": 1.152005,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -7686,6 +10554,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.524,
+      "base_dmin": [
+        0.793415,
+        0.379459,
+        0.179314
+      ],
+      "base_contamination": 0.001,
+      "base_black_level": 0.064132,
+      "base_spatial_trend": [
+        -0.0001,
+        -0.0323
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.001015
+        ],
+        "high": [
+          0.060417,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.389927,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -7746,6 +10638,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.124903,
+          0.000927,
+          0.009072
+        ]
+      },
+      "dmax": 1.119138,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7806,6 +10718,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.01281
+        ],
+        "high": [
+          0.002038,
+          5.7e-05,
+          0.0
+        ]
+      },
+      "dmax": 1.917209,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7866,6 +10798,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.253191,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7926,6 +10878,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.00247,
+          0.001438,
+          0.0012
+        ]
+      },
+      "dmax": 1.25575,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -7986,6 +10958,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.724,
+      "base_dmin": [
+        0.429008,
+        0.231586,
+        0.11354
+      ],
+      "base_contamination": 0.0014,
+      "base_black_level": 0.020919,
+      "base_spatial_trend": [
+        -0.0012,
+        -0.0117
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.00015,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.241452,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8046,6 +11042,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          1e-06,
+          0.0,
+          0.0
+        ],
+        "high": [
+          0.000214,
+          0.000215,
+          0.000218
+        ]
+      },
+      "dmax": 1.560659,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8106,6 +11122,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.047162
+        ],
+        "high": [
+          0.000543,
+          0.000557,
+          0.000562
+        ]
+      },
+      "dmax": 1.197505,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8166,6 +11202,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.014178
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.38249,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8226,6 +11282,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.010858
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.309809,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8286,6 +11362,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.605,
+      "base_dmin": [
+        0.533625,
+        0.250074,
+        0.056959
+      ],
+      "base_contamination": 0.0471,
+      "base_black_level": 0.012719,
+      "base_spatial_trend": [
+        0.0066,
+        0.1043
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.036063
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.60182,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8346,6 +11446,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.013285
+        ],
+        "high": [
+          2.4e-05,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.20415,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8406,6 +11526,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.070099
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.172417,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8466,6 +11606,30 @@
       },
       "base_source": "frame+roll",
       "base_confidence": 0.59,
+      "base_dmin": [
+        0.535219,
+        0.332303,
+        0.058826
+      ],
+      "base_contamination": 0.0271,
+      "base_black_level": 0.01914,
+      "base_spatial_trend": [
+        0.0123,
+        0.0734
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.080914
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.366199,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8526,6 +11690,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.193069
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.729791,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8586,6 +11770,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.177857
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.726133,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8646,6 +11850,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.516,
+      "base_dmin": [
+        0.466899,
+        0.279499,
+        0.047365
+      ],
+      "base_contamination": 0.1006,
+      "base_black_level": 0.012653,
+      "base_spatial_trend": [
+        0.0654,
+        -0.1384
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.053982
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.167034,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8706,6 +11934,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.010596
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.538192,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8766,6 +12014,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.046625
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.550388,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8826,6 +12094,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.626,
+      "base_dmin": [
+        0.433498,
+        0.209014,
+        0.042351
+      ],
+      "base_contamination": 0.0337,
+      "base_black_level": 0.01002,
+      "base_spatial_trend": [
+        -0.0146,
+        0.04
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.084281
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.537157,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8886,6 +12178,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.461,
+      "base_dmin": [
+        0.458425,
+        0.184207,
+        0.032474
+      ],
+      "base_contamination": 0.211,
+      "base_black_level": 0.007238,
+      "base_spatial_trend": [
+        -0.1145,
+        -0.2199
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.059478
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.541576,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -8946,6 +12262,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.467,
+      "base_dmin": [
+        0.418136,
+        0.191586,
+        0.045218
+      ],
+      "base_contamination": 0.0799,
+      "base_black_level": 0.016941,
+      "base_spatial_trend": [
+        -0.0521,
+        0.1522
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          2.3e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.012614,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9006,6 +12346,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.472,
+      "base_dmin": [
+        0.389668,
+        0.175925,
+        0.037108
+      ],
+      "base_contamination": 0.038,
+      "base_black_level": 0.016322,
+      "base_spatial_trend": [
+        -0.0356,
+        0.1438
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          3.9e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.061348,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9066,6 +12430,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          3.3e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.375946,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9126,6 +12510,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          7.2e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.798856,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9186,6 +12590,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          6.2e-05
+        ],
+        "high": [
+          0.0,
+          0.000444,
+          0.000438
+        ]
+      },
+      "dmax": 0.833451,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9246,6 +12670,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.558,
+      "base_dmin": [
+        0.288424,
+        0.175407,
+        0.034811
+      ],
+      "base_contamination": 0.0481,
+      "base_black_level": 0.031661,
+      "base_spatial_trend": [
+        0.2067,
+        -0.0104
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002068
+        ],
+        "high": [
+          0.000381,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 0.878105,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9306,6 +12754,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002014
+        ],
+        "high": [
+          0.001498,
+          0.000462,
+          0.000462
+        ]
+      },
+      "dmax": 1.037307,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9366,6 +12834,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002006
+        ],
+        "high": [
+          0.000472,
+          0.000451,
+          0.0
+        ]
+      },
+      "dmax": 0.928202,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9426,6 +12914,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.050494
+        ],
+        "high": [
+          0.002787,
+          0.001455,
+          0.001449
+        ]
+      },
+      "dmax": 1.69332,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9486,6 +12994,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.712,
+      "base_dmin": [
+        0.448768,
+        0.26101,
+        0.054512
+      ],
+      "base_contamination": 0.0148,
+      "base_black_level": 0.038314,
+      "base_spatial_trend": [
+        0.0069,
+        0.0763
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          1.1e-05
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.027138,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9546,6 +13078,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.662,
+      "base_dmin": [
+        0.427585,
+        0.218423,
+        0.02522
+      ],
+      "base_contamination": 0.1026,
+      "base_black_level": 0.018732,
+      "base_spatial_trend": [
+        -0.0837,
+        -0.0993
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.081498
+        ],
+        "high": [
+          0.0,
+          0.001314,
+          0.001316
+        ]
+      },
+      "dmax": 1.308846,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9606,6 +13162,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.057063
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.537233,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9666,6 +13242,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.082285
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.485138,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9726,6 +13322,30 @@
       },
       "base_source": "frame",
       "base_confidence": 0.826,
+      "base_dmin": [
+        0.507064,
+        0.304407,
+        0.04399
+      ],
+      "base_contamination": 0.2062,
+      "base_black_level": 0.004295,
+      "base_spatial_trend": [
+        -0.1039,
+        0.0286
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.001248
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.430882,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9786,6 +13406,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.221865
+        ],
+        "high": [
+          0.0,
+          0.001245,
+          0.0
+        ]
+      },
+      "dmax": 1.308214,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -9846,6 +13486,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.050685
+        ],
+        "high": [
+          0.001214,
+          0.001214,
+          0.001214
+        ]
+      },
+      "dmax": 1.60907,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9906,6 +13566,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.026295
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.627659,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9966,6 +13646,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.034975
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.749985,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -10026,6 +13726,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.075933
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.656177,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -10086,6 +13806,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002505
+        ],
+        "high": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.224501,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -10146,6 +13886,26 @@
       },
       "base_source": "generic_prior",
       "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
+      "base_spatial_trend": [
+        0.0,
+        0.0
+      ],
+      "input_clip": {
+        "low": [
+          0.0,
+          0.0,
+          0.002777
+        ],
+        "high": [
+          0.000249,
+          0.0,
+          0.0
+        ]
+      },
+      "dmax": 1.400613,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
