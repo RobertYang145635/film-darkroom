@@ -36,10 +36,15 @@
   **反向对照**锁住"按旧判据这一帧确实会被否掉"（防止样张太好做而自证）；
   `conf=0.50/0.55/0.71 且 trusted=True` 必须 neutral（0.72 那道坎不许回来）；
   分歧过大仍 preserve；`diagnostics` 必须自述置信度口径。
-- **⚠ 待用户视觉签字**：本改动改变了**默认导出内容**（更多帧会自动中和）。
-  判定条必须按新默认重新生成（`build_verdict_kit.py --sheets`）再请用户判；
-  `scripts/verify_verdicts.py` 现在判**不通过**（0/48 已签）——
-  在签字之前，"效果更好"只是机制上的推断，不是证据。
+- **全语料实测效果**（`fixtures/verdicts/metrics.json` 重测 169 帧）：
+  默认候选 `preserve 162 / neutral 7` → **`preserve 96 / neutral 73`**，
+  即 43.2% 的帧开始真正自动中和；`neutral` 置信度中位数 0.456（校正后口径）。
+  片基侧不受影响（`generic_prior` 仍 74 帧 —— 那是另一个问题，见 B-5/待办），
+  被门禁挡住的帧数不变（21 帧 B 通道高端剪裁 >1%）。
+- **⚠ 待用户视觉签字**：本改动改变了**默认导出内容**。判定条已按新默认重新生成
+  （`build_verdict_kit.py --sheets`，48 张）；`scripts/verify_verdicts.py`
+  现在判**不通过**（0/48 已签）——签字之前，"效果更好"只是机制上的推断，
+  不是证据。若用户判下来 neutral 更差，回滚点是 `_choose_default` 一处。
 - `pyproject.toml`：`addopts` 加 `-X faulthandler`。全量跑偶发在 fixture setup
   阶段硬崩（三次全量崩过一次），日志里只有 C 栈没有 Python 栈，无法定位；
   这是让故障**可诊断**，不是把 flaky 藏起来。
