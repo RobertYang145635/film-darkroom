@@ -33,6 +33,7 @@ from __future__ import annotations
 from typing import Iterable, Mapping
 
 import numpy as np
+import pathlib
 
 # 剪裁警告线复用质量门禁的常量：分层"踩到剪裁"和门禁"警告剪裁"必须是同一口径
 from negative_lab.diagnostics.quality_gate import CLIP_WARN_FRAC
@@ -271,6 +272,39 @@ def select_stratified(candidates: Iterable[Mapping], *,
 
 
 # ------------------------------------------------------------------ 判定文件
+def sheet_integrity(entries: Iterable[Mapping], *, root=None) -> dict:
+    """判定条目与判定条图片的对应关系体检（**只读**，不改动任何判定）。
+
+    实测（2026-09-09）：改键后 `--select` 生成的 48 条 `sheet` 全空，
+    而当时 `--sheets` **一张都没渲染却退出 0**。那种状态下就算签了字，
+    验收报告也只读 JSON 里的判定字段——**没人能复核"这条判的是哪张图"**。
+    所以验收环节必须能看出"判定与证据图片脱钩"。
+
+    只报告、**不翻判定**：`outputs/` 不入库，用户清一次缓存
+    不该把已经签下的判定作废；但那必须**大声说出来**。
+    """
+    rows = [f for f in (entries or []) if isinstance(f, Mapping)]
+    missing = signed_missing = 0
+    samples: list = []
+    for f in rows:
+        sheet = str(f.get("sheet") or "").strip()
+        ok = bool(sheet)
+        if ok and root is not None:
+            ok = (root / sheet).exists() if not pathlib.Path(sheet).is_absolute() \
+                else pathlib.Path(sheet).exists()
+        elif ok:
+            ok = pathlib.Path(sheet).exists()
+        if not ok:
+            missing += 1
+            if _is_signed(f):
+                signed_missing += 1
+            if len(samples) < 3:
+                samples.append(f"{uid_of(f) or f.get('id')}："
+                               f"{'sheet 为空' if not sheet else '图片不存在 ' + sheet}")
+    return {"entries": len(rows), "missing_sheet": missing,
+            "signed_missing_sheet": signed_missing, "samples": samples}
+
+
 def blank_verdict(frame: Mapping) -> dict:
     """一条待用户填写的判定（所有判定字段一律为 None，脚本不得填）。"""
     return {

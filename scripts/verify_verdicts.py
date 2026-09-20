@@ -25,7 +25,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from negative_lab.diagnostics.verdicts import summarize_verdicts  # noqa: E402
+from negative_lab.diagnostics.verdicts import (  # noqa: E402
+    sheet_integrity, summarize_verdicts)
 from negative_lab.io.sidecar import git_commit  # noqa: E402
 
 DECISIONS = ROOT / "fixtures" / "verdicts" / "decisions.json"
@@ -86,6 +87,16 @@ def main() -> int:
         return 2
     doc = json.loads(DECISIONS.read_text(encoding="utf-8"))
     s = summarize_verdicts(doc)
+    # 判定与证据图片必须能对上：本会话实测过 48 条 sheet 全空 + `--sheets`
+    # 渲染 0 张却退出 0 的组合，那时若签了字，验收报告只看 JSON 一样"通过"，
+    # 但已经没人能复核"这条判的是哪张图"。
+    integ = sheet_integrity(doc.get("frames") or [], root=ROOT)
+    s["sheet_integrity"] = integ
+    if integ["missing_sheet"]:
+        print(f"⚠ {integ['missing_sheet']}/{integ['entries']} 条判定**缺判定条图片**"
+              f"（其中已签 {integ['signed_missing_sheet']} 条）：判定与证据图片已脱钩，"
+              "先跑 scripts/build_verdict_kit.py --sheets 补齐再签收。样例：\n   "
+              + "\n   ".join(integ["samples"]), file=sys.stderr)
     if not s["signed"]:
         print("❌ 判定一条都没签 —— 视觉门禁**未通过**（不是「待办」，是没有证据）。\n"
               f"   请打开 {DECISIONS}，对照 outputs/verdicts/sheets/ 里的判定条逐帧填写。",
