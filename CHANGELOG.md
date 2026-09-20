@@ -4,6 +4,47 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 人工视觉判定基准集（开发版，未发布）— 2026-09-09 Round 7
+
+依据：`docs/用户痛点调研与能力差距分析_20260905.md` §6 第一优先级
+（"建立可复现的人眼基准"，两份调研都把它列为一切改进的前置条件）。
+
+- **为什么不是又一份联系表**：`fixtures/acceptance/manifest.json` 的 decision 字段
+  自 2026-09-02 起全空。原因不是用户懒：旧联系表把 169 帧堆成每张 300px 高的长图，
+  判一张要横滚 7 格、纵翻 169 行；而它写的判定落在
+  `outputs/quality/<run-id>/rolls/<卷>/decisions.json` —— `outputs/` 被 gitignore
+  且 run-id 每次新生成，**签了也不保留**；且 `accepted: bool` 表达不了
+  "微调可救 + 花了几步"，调研的验收判据根本算不出来。
+- **新增判定内核** `diagnostics/verdicts.py`（23 项回归锁）：
+  `frame_strata()` 分层阈值优先**复用管线自己的数字**
+  （`neutral_frac<0.12`、`hue_concentration>0.7`、`dark_frac>0.5` 抄自
+  `candidates.scene_confidence` 与 `service` 的 scene_flags；剪裁复用
+  `quality_gate.CLIP_WARN_FRAC`），只有天空/低反差两个是像素代理且写明适用条件；
+  `select_stratified()` 确定性分层抽样（无随机数、平局按 id，同输入必得同输出）；
+  `merge_decisions()` 三条硬规则：**已签判定永远保留、绝不覆盖**，
+  未签且未抽中的才退休并记入 `retired_ids`；
+  `summarize_verdicts()` 汇总成判据，**没签满直接判不通过**，
+  分母为 0 的判据标 ⚪「无法判定」而非打勾（0/0 打勾是假绿）。
+- **新增两个脚本**：`scripts/build_verdict_kit.py`
+  （`--measure` 整卷走生产服务 `process_roll` 测 169 帧 / 23.6 分钟；
+  `--select` 抽 48 帧合并进 `fixtures/verdicts/decisions.json`；
+  `--sheets` 每帧一张判定条 / 368 秒）与 `scripts/verify_verdicts.py`
+  （判据逐项 + 覆盖率 + 退出码 0/1/2，写 `outputs/verdicts/verdict-report.md`）。
+  实测：48 张判定条全部生成、非空白（std≈87）、路径写回，且**没有任何判定被填写**。
+- **全量量出来的三个事实**（`fixtures/verdicts/metrics.json`，169 帧）：
+  1. **98/169 帧片基置信度 <0.60**，其中 74 帧 `base_source=generic_prior`
+     （非物理先验）—— 卷内一致的机制性漏洞，1299_G200 是 9/11 帧回退；
+  2. **21/169 帧因 B 通道高端剪裁 >1% 被门禁 FAIL 挡住导出**（最差 11.0%，CN400-3）：
+     门禁符合 v5 §8.2，但"每 8 帧导不出 1 帧"是真实吞吐问题；
+  3. **语料覆盖不了调研点名的场景**：`night_like` 全库 1 帧、`shadow_clip` 0 帧
+     → 基准集必须**先补采**（夜景/暗场、明显欠曝薄负片、第二设备）再签。
+- **结论校正（就地标注，不重写历史）**：两份调研都写"没有中性点取色器"——
+  **已实现**（`pipeline/rescue.py` + 画布拾点 + 撤销 + 可信度警告）；
+  09-06 §4"没有一致性数字"部分过时（右栏卷级片基一致性 +
+  `roll_consistency.py` 落盘逐帧实际施加值）。
+- `docs/visual-acceptance.md` 从 25 行空表重写为可执行流程
+  （三步命令、六个判定字段含义、判据表、真实覆盖率表、agent 不得代签）。
+
 ## 冷读审查第二轮（开发版，未发布）— 2026-09-09
 
 依据：`质量审查报告_20260909.md`。原计划四路独立冷读，但本会话 subagent 的

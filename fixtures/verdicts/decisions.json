@@ -1,0 +1,1318 @@
+{
+  "schema_version": 1,
+  "criteria": {
+    "min_usable_fraction": 0.7,
+    "min_not_unusable_fraction": 0.95,
+    "min_rescued_fraction": 0.8,
+    "max_rescue_steps": 2,
+    "min_reference_products": 20,
+    "min_frames": 40,
+    "max_frames": 60
+  },
+  "strata_legend": {
+    "few_neutral_surfaces": "画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+    "hue_concentrated": "色相高度集中：单色光源/舞台灯",
+    "saturated_dominant": "高饱和主导：中和最容易把颜色做死",
+    "night_like": "夜景/暗场（候选层 dark_frac 判据）",
+    "bright_uniform_top": "画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+    "low_result_contrast": "成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+    "highlight_clip": "技术正片高端剪裁超警告线（采集或白点问题）",
+    "shadow_clip": "技术正片低端剪裁超警告线（片基或 Dmax 问题）",
+    "low_base_confidence": "片基 Dmin 置信度低：来源可能是回退而非实测",
+    "no_nlp_reference": "没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+  },
+  "signing_rule": "判定字段（verdict / tweak_steps / issue_tags / reference_product / note / signed_by）只能由用户本人填写；执行 agent 与脚本不得代签（v5 §10.2）。",
+  "frames": [
+    {
+      "id": "1298_G200::G200-12",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-12.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_result_contrast"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-12.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1298_G200::G200-3",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-3.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_result_contrast"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-3.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1298_G200::G200-4",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-4.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_result_contrast"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-4.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1298_G200::G200-5",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-5.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "highlight_clip"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-5.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1298_G200::G200-7",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-7.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-7.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1298_G200::G200-9",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-9.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "highlight_clip"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-9.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-1",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-1.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-1.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-10",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-10.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-10.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-2",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-2.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-2.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-3",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-3.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-3.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-4",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-4.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-4.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-5",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-5.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-5.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-7",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-7.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-7.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-8",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-8.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-8.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1299_G200::G200-9",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-9.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "few_neutral_surfaces",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-9.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-1",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-1.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "highlight_clip"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-1.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-12",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-12.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-12.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-14",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-14.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-14.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-15",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-15.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-15.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-18",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-18.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-18.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-19",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-19.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "highlight_clip"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-19.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-2",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-2.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-2.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-20",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-20.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-20.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-22",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-22.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-22.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-23",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-23.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-23.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-25",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-25.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-25.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-26",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-26.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-26.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-3",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-3.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-3.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-34",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-34.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "highlight_clip",
+        "low_base_confidence",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-34.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-35",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-35.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-35.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-36",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-36.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "night_like",
+        "low_base_confidence",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "night_like：夜景/暗场（候选层 dark_frac 判据）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-36.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-8",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-8.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "hue_concentrated",
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-8.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "1300_CN400::CN400-9",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-9.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-9.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5207::5207-10",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-10.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-10.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5207::5207-11",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-11.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-11.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5207::5207-12",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-12.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-12.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5207::5207-13",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-13.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "few_neutral_surfaces",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-13.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5207::5207-14",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-14.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "bright_uniform_top",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-14.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5207::5207-18",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-18.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "few_neutral_surfaces",
+        "bright_uniform_top"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-18.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-13",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-13.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-13.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-14",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-14.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-14.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-16",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-16.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "bright_uniform_top",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-16.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-19",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-19.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-19.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-27",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-27.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-27.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-29",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-29.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "highlight_clip",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-29.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-32",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-32.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-32.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-33",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-33.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "hue_concentrated",
+        "saturated_dominant",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-33.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    },
+    {
+      "id": "ECN2_5219::5219-35",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-35.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "few_neutral_surfaces",
+        "saturated_dominant",
+        "bright_uniform_top",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
+        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-35.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null
+    }
+  ],
+  "retired_ids": [],
+  "selection": {
+    "requested": 48,
+    "selected": 48,
+    "population": 169,
+    "strata": {
+      "few_neutral_surfaces": {
+        "selected": 41,
+        "available": 116
+      },
+      "hue_concentrated": {
+        "selected": 23,
+        "available": 36
+      },
+      "saturated_dominant": {
+        "selected": 17,
+        "available": 23
+      },
+      "night_like": {
+        "selected": 1,
+        "available": 1
+      },
+      "bright_uniform_top": {
+        "selected": 28,
+        "available": 62
+      },
+      "low_result_contrast": {
+        "selected": 20,
+        "available": 33
+      },
+      "highlight_clip": {
+        "selected": 12,
+        "available": 44
+      },
+      "shadow_clip": {
+        "selected": 0,
+        "available": 0
+      },
+      "low_base_confidence": {
+        "selected": 39,
+        "available": 98
+      }
+    },
+    "strata_without_discrimination": [],
+    "rolls": {
+      "1298_G200": 6,
+      "1299_G200": 9,
+      "1300_CN400": 18,
+      "ECN2_5207": 6,
+      "ECN2_5219": 9
+    },
+    "nlp_reference": 42
+  }
+}
