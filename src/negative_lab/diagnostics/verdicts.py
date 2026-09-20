@@ -292,6 +292,71 @@ def blank_verdict(frame: Mapping) -> dict:
     }
 
 
+def merge_metrics(existing: dict | None, fresh: dict, *, partial: bool) -> dict:
+    """把一次测量的结果**并入** metrics；局部跑不许覆盖整份语料。
+
+    实测教训（2026-09-09，本会话自己踩的）：为验证新字段跑了一次
+    `build_verdict_kit.py --measure --roll 1298_G200`，169 帧语料被**整份覆盖成
+    12 帧**。下游（分层抽样、判定条覆盖率、验收报告）读的都是这个文件，
+    语料缩水不报错，只会让覆盖率看起来"变好了"——假绿的另一种形态。
+
+    规则：
+    - `partial=True`（带了 `--roll` 或 `--limit`）：按帧 id 并入，本次同 id 覆盖旧值，
+      其余原样保留；
+    - 全量跑：整份替换，但**必须报出消失的 id 数**（语料收缩要可见，不能静默）；
+    - 两种情况都写 `coverage`，让下游一眼看出这是全量还是局部。
+    """
+    prev_list = list((existing or {}).get("frames") or [])
+    prev = {uid_of(f): f for f in prev_list}
+    fresh_frames = list(fresh.get("frames") or [])
+    replaced = sum(1 for f in fresh_frames if uid_of(f) in prev)
+    if partial and prev:
+        pooled = dict(prev)
+        pooled.update({uid_of(f): f for f in fresh_frames})
+        frames = [pooled[k] for k in sorted(pooled)]
+    else:
+        frames = sorted(fresh_frames, key=lambda f: uid_of(f))
+    doc = dict(fresh)
+    doc["frames"] = frames
+    doc["coverage"] = {
+        "frames": len(frames),
+        "rolls": len({str(f.get("roll")) for f in frames}),
+        "this_run_frames": len(fresh_frames),
+        "partial_run": bool(partial and prev),
+        "replaced_ids": replaced,
+        "kept_from_previous": len(frames) - len(fresh_frames),
+        # 全量跑时语料收缩必须可见（以前是静默覆盖）。
+        # 注意这是**唯一键**计数：169 帧若只有 132 个唯一键，
+        # 说明有 37 帧在 id 层面互相覆盖（见 uid_of 的实测说明）。
+        "dropped_keys": 0 if (partial and prev) else max(len(prev) - replaced, 0),
+        "unique_keys": len({uid_of(f) for f in frames}),
+    }
+    return doc
+
+
+def uid_of(frame: Mapping | None) -> str:
+    """帧的**唯一键**：`id` 在语料里不唯一。
+
+    2026-09-09 实测：`fixtures/acceptance/manifest.json` 的 169 个 required 帧
+    只有 **132 个不同 id** —— 37 个 id 各出现两次（同一卷的 `翻拍/` 与
+    `翻拍2/翻拍/` 两次拍摄，`source_sha256` 不同）。凡是按 id 合并/查找的地方
+    都会把两次拍摄合成一帧：`src_of()` 会拿错 NLP 参考（实测同一 id 一帧有参考、
+    另一帧没有，于是判定条上可能显示**不属于本帧**的参考成品），
+    判定文件会把用户签在 A 上的签名刷新成 B，两张判定条的图片文件名还会互相覆盖。
+
+    唯一键 = `id#sha256前8位`；没有 sha 时退回 `id`
+    （宁可可见地合并，也不要静默错配到别的文件）。
+    """
+    if not isinstance(frame, Mapping):
+        return ""
+    if frame.get("uid"):
+        return str(frame["uid"])
+    sha = str(frame.get("source_sha256") or "")
+    if sha:
+        return f"{frame.get('id')}#{sha[:8]}"
+    return str(frame.get("id"))
+
+
 def merge_decisions(existing: Mapping | None, selected: Iterable[Mapping]) -> dict:
     """把新的抽样合并进既有判定文件，**判定内容一律以既有为准**。
 
@@ -307,25 +372,31 @@ def merge_decisions(existing: Mapping | None, selected: Iterable[Mapping]) -> di
             if not isinstance(f, Mapping) or f.get("id") is None:
                 continue
             if _is_signed(f) or str(f.get("verdict") or "") in VALID_VERDICTS:
-                keep[str(f["id"])] = dict(f)   # 用户填过的，原样保留
+                # 按**唯一键**保留：按 id 会把两次拍摄合成一帧，
+                # 于是"签在 A 上"和"刷新成 B"变成同一件事
+                keep[uid_of(f)] = dict(f)   # 用户填过的，原样保留
     entries: dict = dict(keep)
     for frame in selected:
-        fid = str(frame.get("id"))
-        if fid in entries:
-            base = dict(entries[fid])          # 保留判定内容，只刷新元数据
+        key = uid_of(frame)
+        if key in entries:
+            base = dict(entries[key])          # 保留判定内容，只刷新元数据
             for meta in ("strata", "stratum_notes", "sheet", "has_nlp_reference"):
                 if meta in frame:
                     base[meta] = frame[meta]
             base["file"] = frame.get("file", base.get("file"))
             base["roll"] = frame.get("roll", base.get("roll"))
-            entries[fid] = base
+            base["uid"] = key
+            entries[key] = base
         else:
-            entries[fid] = blank_verdict(frame)
-    # 未签且这次没抽中的条目：从模板里退掉，但把 id 记进 retired_ids，
+            new = blank_verdict(frame)
+            new["uid"] = key
+            entries[key] = new
+    # 未签且这次没抽中的条目：从模板里退掉，但把键记进 retired_ids，
     # 免得"重跑一次判定悄悄少了几帧"这种事再次无声发生。
     retired = sorted(
-        {str(f.get("id")) for f in ((existing or {}).get("frames") or [])
-         if f.get("id") is not None and str(f["id"]) not in entries}
+        {uid_of(f) for f in ((existing or {}).get("frames") or [])
+         if isinstance(f, Mapping) and f.get("id") is not None
+         and uid_of(f) not in entries}
         | set((existing or {}).get("retired_ids") or []))
     return {
         "schema_version": SCHEMA_VERSION,

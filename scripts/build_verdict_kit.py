@@ -49,7 +49,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from PIL import Image  # noqa: E402
 
 from negative_lab.diagnostics.verdicts import (  # noqa: E402
-    ACCEPTANCE_CRITERIA, STRATA, frame_strata, merge_decisions, select_stratified)
+    ACCEPTANCE_CRITERIA, STRATA, frame_strata, merge_decisions,
+    merge_metrics, select_stratified, uid_of)
 from negative_lab.diagnostics.explain import (  # noqa: E402
     base_fallback_note, clip_note)
 from negative_lab.io.atomic import atomic_write_bytes  # noqa: E402
@@ -178,6 +179,8 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
             top = luma[: max(1, luma.shape[0] // 3)]
             out_frames.append({
                 "id": fr["id"], "file": fr["file"], "roll": roll, "status": "ok",
+                # 唯一键：manifest 里 169 帧只有 132 个 id，按 id 合并会静默合成一帧
+                "uid": uid_of(fr), "source_sha256": fr.get("source_sha256"),
                 "strata": {k: bool(v) for k, v in strata.items()},
                 "audit": {
                     "median_luma": round(float(np.median(luma)), 4),
@@ -213,7 +216,7 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
             })
         print(f"  measured {roll}: {len(kept)} 帧", flush=True)
     doc = {
-        "schema_version": 2,          # v2：加入片基侧证据（dmin/污染/黑电平/输入端剪裁）
+        "schema_version": 3,   # v3：coverage（局部跑不再覆盖整份语料，见 merge_metrics）
         "generated_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "max_dim": max_dim,
         "note": ("分层标记为**显示编码(sRGB)域**上的像素统计（代理指标，非场景真值）；"
@@ -222,8 +225,25 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
         "seconds": round(time.perf_counter() - t0, 1),
         "frames": sorted(out_frames, key=lambda f: str(f["id"])),
     }
+    # 局部跑（--roll / --limit）**并入**已有语料：本会话曾因为一次
+    # `--measure --roll 1298_G200` 把 169 帧覆盖成 12 帧，而下游毫无察觉。
+    partial = bool(only_roll or limit)
+    existing = (json.loads(METRICS.read_text(encoding="utf-8"))
+                if METRICS.exists() else None)
+    doc = merge_metrics(existing, doc, partial=partial)
     _write_json(METRICS, doc)
-    print(f"写入 {METRICS}（{len(out_frames)} 帧，{doc['seconds']}s）")
+    cov = doc["coverage"]
+    print(f"写入 {METRICS}（本次 {cov['this_run_frames']} 帧 / "
+          f"文件内共 {cov['frames']} 帧、{cov['rolls']} 卷，{doc['seconds']}s）")
+    if cov["partial_run"]:
+        print(f"  ⚠ 局部跑：已并入旧语料（覆盖同 id {cov['replaced_ids']} 帧、"
+              f"保留其它 {cov['kept_from_previous']} 帧），未覆盖整份")
+    elif cov["dropped_keys"]:
+        print(f"  ⚠ 全量跑后语料收缩：{cov['dropped_keys']} 个唯一键不再存在"
+              "（manifest 变化？请确认不是取样范围写错）")
+    if cov["unique_keys"] != cov["frames"]:
+        print(f"  ⚠ 唯一键 {cov['unique_keys']} < 帧 {cov['frames']}："
+              "有帧在 uid 层面互相覆盖（同 id 同 sha？检查 manifest 是否重复登记）")
     return doc
 
 
@@ -261,7 +281,11 @@ def render_sheets() -> dict:
         raise SystemExit(f"缺少 {METRICS}；先跑 --measure")
     doc = json.loads(DECISIONS.read_text(encoding="utf-8"))
     metrics = {f["id"]: f for f in json.loads(METRICS.read_text(encoding="utf-8"))["frames"]}
-    manifest = {f["id"]: f for f in _load_manifest()}   # 只读一次（325KB）
+    # 按**唯一键**索引：manifest 的 169 个 required 帧只有 132 个 id
+    # （同卷 `翻拍/` 与 `翻拍2/翻拍/` 两次拍摄同名），按 id 索引会把两次拍摄
+    # 合成一条，实测其中一条有 NLP 参考、另一条没有 —— 于是判定条可能显示
+    # **不属于本帧**的参考成品。查不到就宁可没有参考，也不要拿错。
+    manifest = {uid_of(f): f for f in _load_manifest()}   # 只读一次（325KB）
     by_roll: dict = {}
     for f in doc["frames"]:
         by_roll.setdefault(str(f.get("roll")), []).append(f)
@@ -300,7 +324,7 @@ def render_sheets() -> dict:
             renders = {c.name: _to_img(encode_srgb(candidate_positive(pr, c.name)))
                        for c in cs} if cs else {}
             nlp = None
-            ref = src_of(manifest, m["id"]).get("nlp_reference")
+            ref = src_of(manifest, m.get("uid") or m["id"]).get("nlp_reference")
             if ref and (ROOT / ref).exists():
                 nlp = Image.open(str(ROOT / ref)).convert("RGB")
             tags = " ".join(entry.get("strata") or []) or "（无特殊分层）"
@@ -328,7 +352,12 @@ def render_sheets() -> dict:
                        done + 1, f"{Path(m['file']).name}  [{tags}]  "
                                  f"片基={m['base_source']} conf={m['base_confidence']}"
                                  f"{short}")
-            out = SHEETS / str(roll) / f"{Path(str(m['file'])).stem}.jpg"
+            stem = Path(str(m["file"])).stem
+            uid_tag = str(m.get("uid") or "")
+            if "#" in uid_tag:
+                # 同 id 的两次拍摄（翻拍/ 与翻拍2/）文件名相同会**互相覆盖**判定条
+                stem = f"{stem}__{uid_tag.split('#', 1)[1]}"
+            out = SHEETS / str(roll) / f"{stem}.jpg"
             out.parent.mkdir(parents=True, exist_ok=True)
             row.save(out, quality=88)
             entry["sheet"] = out.relative_to(ROOT).as_posix()

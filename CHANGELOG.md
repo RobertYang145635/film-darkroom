@@ -4,6 +4,41 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 帧 id 根本不唯一：判定可以签在另一张拍摄上（开发版，未发布）— 2026-09-09 Round 11
+
+发现过程本身就是一个缺陷的产物：给 `--measure` 加"局部跑并入"之后，
+一次 `--measure --roll 1298_G200` 让 `metrics.json` 报出 **132 帧**而不是预期的 169。
+按 id 合并为什么会少 37 帧？——**因为 id 本来就不唯一**。
+
+- **实测**：`fixtures/acceptance/manifest.json` 的 169 个 required 帧只有
+  **132 个不同 id**：37 个 id 各出现两次（同一卷的 `翻拍/` 与 `翻拍2/翻拍/`
+  两次拍摄，`source_sha256` 不同）。受影响的帧占 **74/169 = 44%**。
+- **后果（不是理论风险，逐条查过）**：
+  1. `render_sheets()` 里 `manifest = {f["id"]: f}` —— 同 id 的两次拍摄**只剩最后一条**；
+  2. 实测 `1300_CN400::CN400-1` 的两条：一条**有 NLP 参考**、另一条**没有** ⇒
+     判定条上可能显示**不属于本帧**的参考成品，用户据此打分；
+  3. `merge_decisions()` 按 id 合并 ⇒ 用户签在 A 上的签名，
+     下次 `--select` 会把 `file/sheet/nlp` 刷新成 B —— **签名跑到另一张拍摄上**；
+  4. 判定条文件名 `<stem>.jpg` 只取决于文件名 ⇒ 两张判定条**互相覆盖**。
+- **修**：内核新增 `uid_of(frame) = "id#sha256前8位"`（无 sha 时退回 id，
+  宁可可见地合并也不静默错配到别的文件）；`merge_decisions`、`merge_metrics`
+  全部改按 uid 合并；manifest 索引改按 uid（查不到就没有 NLP 参考——
+  **宁缺勿错**）；判定条文件名带 `__<sha8>` 后缀，杜绝互相覆盖；
+  metrics 条目写入 `uid` 与 `source_sha256`。
+- **顺带修**：`--measure --roll/--limit` 以前会把整份语料**覆盖**成本次帧数
+  （本会话真踩了：169 → 12）。新增内核 `merge_metrics()`：局部跑并入、
+  全量跑替换但把 `dropped_keys` 写进 `coverage`（语料收缩必须可见），
+  并新增 `coverage.unique_keys` 让"id 层面互相覆盖"这类事再出现时一眼可见。
+  metrics `schema_version` → 3。
+- ⚠ **待重跑**：仓库里的 `metrics.json` 目前是修复前那次局部跑的降级状态
+  （132 帧 / 132 唯一键，文件内 `coverage` 自带说明）。要让修复真正生效，
+  需要 `--measure`（全量，约 21 min）+ `--select` + `--sheets` 重生成，
+  届时帧数应恢复到 **169**、`unique_keys == frames`。
+  判定文件仍是 **0 签**，趁现在没有签名迁移 id→uid 代价为零。
+- 回归锁 5 项 `tests/unit/test_metrics_merge.py`（局部跑不许让语料缩水、
+  同 id 用本次新值、没跑到的卷原样保留、全量替换要报出收缩、
+  没有旧文件时不算"已并入"）。
+
 ## 把归因送到眼前（开发版，未发布）— 2026-09-09 Round 10
 
 上一轮门禁与片基估计器有了证据（`clip_attribution` / `best_rejected_region` /
