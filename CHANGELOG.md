@@ -4,6 +4,47 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 自动中和从不生效的机制修复（开发版，未发布）— 2026-09-09 Round 8
+
+**这是本仓库迄今最像"产品其实没在工作"的发现**：全语料 169 帧里
+**默认候选 `preserve`（保留氛围，等于不去色罩）占 162 帧 = 95.9%**，
+`neutral` 只被选中 7 次。三候选在实践上是一候选 —— 用户抱怨的
+"色罩没除干净"不是调参问题，是判定逻辑本身把治疗锁死了。
+
+- **根因（可复现）**：`build_candidates()` 的 `trusted` 判据用的
+  `scene_confidence(ctx.technical_positive, …)`，喂进去的是**还没去色罩的技术正片**。
+  橙色片基自己就把 `sat_pen`（高饱和）和 `neutral_pen`（几乎没有中性面，最多 ×0.325）
+  打满 —— **用症状证明"不该治疗"**。实测（`scripts/experiment_trust_domain.py`，
+  跨 5 卷 20 帧）：同一帧 conf **0.163→0.952 / 0.131→0.955**，
+  `neutral_frac` 0.044→0.507，**trusted 4/20 → 14/20**。
+- **第二道坎**：`_choose_default` 旧代码是
+  `trusted and conf >= 0.72` 或 `roll_confidence >= 0.7 and trusted`。
+  `trusted` 本身就是 `conf >= 0.5`，在同一把尺子上再放 0.72；实测有
+  **4 帧 `trusted=True` 仍因这道坎被判 `preserve`**。第二支在卷级片基回退
+  `generic_prior` 时永远不成立，而回退帧恰恰最需要明确的中性起点。
+- **改法**：可信度改判在**校正后**的画面（技术正片 × 本帧自己的 `correction_gain`，
+  即 von Kries 增益域，与 neutral 候选施加的是同一个方向与幅度）；
+  `_choose_default` 收敛成一条 `trusted -> neutral`；
+  校正**前**的统计与置信度**继续写进 diagnostics**
+  （`scene_before_correction` / `confidence_before_correction` /
+  `confidence_measured_on`），换判据不许把旧证据藏掉，也不许让新旧数字被混着比。
+  **保留的防线**：估计器分歧 `spread > MAX_ESTIMATOR_SPREAD` 仍强制 `preserve`；
+  真正的夜景/单色/高饱和场景在校正后依然低分（同批 G200-10 0.50、5207-11 0.13
+  仍判不可信），v5 §6.6 的降权意图没有丢。
+- **回归锁 5 项** `tests/unit/test_candidate_trust_domain.py`：
+  合成"本有中性面 + 片基色罩"样张必须默认 neutral；
+  **反向对照**锁住"按旧判据这一帧确实会被否掉"（防止样张太好做而自证）；
+  `conf=0.50/0.55/0.71 且 trusted=True` 必须 neutral（0.72 那道坎不许回来）；
+  分歧过大仍 preserve；`diagnostics` 必须自述置信度口径。
+- **⚠ 待用户视觉签字**：本改动改变了**默认导出内容**（更多帧会自动中和）。
+  判定条必须按新默认重新生成（`build_verdict_kit.py --sheets`）再请用户判；
+  `scripts/verify_verdicts.py` 现在判**不通过**（0/48 已签）——
+  在签字之前，"效果更好"只是机制上的推断，不是证据。
+- `pyproject.toml`：`addopts` 加 `-X faulthandler`。全量跑偶发在 fixture setup
+  阶段硬崩（三次全量崩过一次），日志里只有 C 栈没有 Python 栈，无法定位；
+  这是让故障**可诊断**，不是把 flaky 藏起来。
+- 测试基线：**468 passed**（440 + 23 判定内核 + 5 可信度）· ruff 无豁免全绿。
+
 ## 人工视觉判定基准集（开发版，未发布）— 2026-09-09 Round 7
 
 依据：`docs/用户痛点调研与能力差距分析_20260905.md` §6 第一优先级

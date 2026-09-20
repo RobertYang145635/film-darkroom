@@ -25,7 +25,11 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-addopts = "-ra"
+# -X faulthandler：本仓库全量跑**偶发在 fixture setup 阶段硬崩**（2026-09-09 三次
+# 全量里崩过一次，退出码 1，日志里只有 C 栈、没有 Python 栈，无法定位）。
+# 崩溃时 faulthandler 会把 Python 层的现场打出来，下一次复发才查得动。
+# 这是让故障可诊断，不是把 flaky 藏起来：真复发必须按现场修。
+addopts = "-ra -X faulthandler"
 
 # ---- 静态门禁（2026-09-08 审查：此前无任何 ruff 配置，425 项存量无人守）----
 # 策略：day-1 必须是绿的，否则 CI 会被直接关掉。因此先只锁「会真炸」的类别：

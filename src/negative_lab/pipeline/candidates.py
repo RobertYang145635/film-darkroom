@@ -286,9 +286,12 @@ def build_candidates(result_or_context, *, roll_analysis=None,
     ctx = _as_context(result_or_context)
     est = estimate_illuminants(ctx.technical_positive, ctx.valid_mask,
                                ctx.oriented_image)
-    conf, stats = scene_confidence(ctx.technical_positive, ctx.valid_mask, est)
+    # 校正**前**的场景统计：只留档诊断，不再参与可信度判定（理由见下方 trusted 处）
+    conf_before, stats_before = scene_confidence(ctx.technical_positive,
+                                                 ctx.valid_mask, est)
     if not est:
-        return _all_preserve(ctx, conf, stats, "有效画面内没有可用统计像素")
+        return _all_preserve(ctx, conf_before, stats_before,
+                             "有效画面内没有可用统计像素")
     # 融合：以中位估计器为主，卷级起点为锚
     fused = _normalize(np.median(np.stack(list(est.values())), axis=0))
     correction_gain = _normalize(1.0 / fused)
@@ -299,12 +302,29 @@ def build_candidates(result_or_context, *, roll_analysis=None,
                                      + anchor * (0.45 * w))
     temp, tint = gain_to_temp_tint(correction_gain)
     spread, mag = estimator_agreement(est)
+    # 可信度判在**校正后**的画面。
+    # 旧实现把 `scene_confidence` 喂的是**还没去色罩的技术正片**：橙色片基色罩
+    # 自己就把"高饱和"(sat_pen) 与"几乎没有中性面"(neutral_pen，最多 ×0.325)
+    # 两项罚项打满，于是"症状"被当成"不该治疗"的证据，neutral 几乎永远不可信。
+    # 2026-09-09 实测（scripts/experiment_trust_domain.py，20 帧跨 5 卷）：
+    #   conf 0.163->0.952 / 0.131->0.955；trusted 4/20 -> 14/20；
+    #   全语料 169 帧默认候选 preserve 占 162 帧（95.9%）。
+    # 真正的夜景/单色/高饱和场景在校正后依然低分（同批 G200-10 0.50、
+    # 5207-11 0.13 仍判不可信），所以 v5 §6.6 的降权意图没有丢。
+    conf, stats = scene_confidence(
+        np.clip(np.asarray(ctx.technical_positive, np.float32)
+                * np.asarray(correction_gain, np.float32)[None, None, :], 0.0, 1.0),
+        ctx.valid_mask, est)
     trusted = (conf >= NEUTRAL_MIN_CONFIDENCE
                and spread <= MAX_ESTIMATOR_SPREAD)
     diag = {"estimators": {k: [round(float(v), 4) for v in val]
                            for k, val in est.items()},
             "correction_gain": [round(float(v), 4) for v in correction_gain],
             "scene": stats, "estimator_spread_rad": round(spread, 4),
+            # 校正前的统计仍然写出来：换了判据也不许把旧证据藏起来
+            "scene_before_correction": stats_before,
+            "confidence_before_correction": round(float(conf_before), 3),
+            "confidence_measured_on": "corrected_positive（校正后）",
             "neutral_min_confidence": NEUTRAL_MIN_CONFIDENCE,
             "max_estimator_spread": MAX_ESTIMATOR_SPREAD,
             "base_source": ctx.base_source,
@@ -386,12 +406,19 @@ def _p0_dict(intent: RenderIntent) -> dict:
 
 
 def _choose_default(preserve, neutral, warm, conf, trusted, ctx) -> str:
-    """默认候选由卷级统计与置信度决定（v5 §6.5）。"""
-    if trusted and conf >= 0.72:
-        return "neutral"
-    if ctx.roll_confidence >= 0.7 and trusted:
-        return "neutral"
-    return "preserve"
+    """默认候选规则（v5 §6.5）：`trusted` 即 neutral，否则 preserve。
+
+    2026-09-09 从两条门槛简化为一条，并说明为什么推倒旧的：
+    1. 旧第一支 `trusted and conf >= 0.72`：`trusted` 本身已经是
+       `conf >= NEUTRAL_MIN_CONFIDENCE`，在同一把尺子上再放一道 0.72，
+       而 0.72 在被色罩打满的罚项下几乎不可达 —— 实测有 4 帧
+       `trusted=True` 仍因为这道坎被判 `preserve`；
+    2. 旧第二支 `roll_confidence >= 0.7 and trusted`：卷级片基回退到
+       `generic_prior` 时 roll_confidence 永远不够，而回退帧恰恰最需要
+       一个明确的中性起点。
+    判据只留一条、且判在**校正后**的画面：写清楚比留两个魔数诚实。
+    """
+    return "neutral" if trusted else "preserve"
 
 
 def _all_preserve(ctx, conf, stats, why) -> CandidateSet:
