@@ -45,9 +45,13 @@
   （`build_verdict_kit.py --sheets`，48 张）；`scripts/verify_verdicts.py`
   现在判**不通过**（0/48 已签）——签字之前，"效果更好"只是机制上的推断，
   不是证据。若用户判下来 neutral 更差，回滚点是 `_choose_default` 一处。
-- `pyproject.toml`：`addopts` 加 `-X faulthandler`。全量跑偶发在 fixture setup
-  阶段硬崩（三次全量崩过一次），日志里只有 C 栈没有 Python 栈，无法定位；
-  这是让故障**可诊断**，不是把 flaky 藏起来。
+- **自我翻车记录（保留，勿删）**：为了查那次偶发崩溃，我给
+  `pyproject.toml` 的 `addopts` 加了 `-X faulthandler` —— **错的**：`-X` 是
+  python 解释器参数，pytest 不认，加完 `python -m pytest` 直接
+  `unrecognized arguments: -X`，而 CI 会照抄，等于**把测试命令本身弄炸**。
+  已回退为 `addopts = "-ra"`，正确姿势写在配置注释里
+  （`python -X faulthandler -m pytest -v`）。教训：改测试入口配置后必须
+  立刻跑一次真实命令验证，不能只改文件就算完。
 - 测试基线：**468 passed**（440 + 23 判定内核 + 5 可信度）· ruff 无豁免全绿。
 
 ## 人工视觉判定基准集（开发版，未发布）— 2026-09-09 Round 7

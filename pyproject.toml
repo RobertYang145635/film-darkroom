@@ -25,11 +25,15 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-# -X faulthandler：本仓库全量跑**偶发在 fixture setup 阶段硬崩**（2026-09-09 三次
-# 全量里崩过一次，退出码 1，日志里只有 C 栈、没有 Python 栈，无法定位）。
-# 崩溃时 faulthandler 会把 Python 层的现场打出来，下一次复发才查得动。
-# 这是让故障可诊断，不是把 flaky 藏起来：真复发必须按现场修。
-addopts = "-ra -X faulthandler"
+addopts = "-ra"
+# 上面这行差点被我改成 "-ra -X faulthandler"：那是**错的**，`-X` 是 python
+# 解释器参数、pytest 不认，改完 `python -m pytest` 直接 "unrecognized arguments: -X"，
+# 而且 CI 照抄 —— 等于把测试命令本身弄炸（2026-09-09 就是这么翻车的，已回退）。
+# 背景：全量跑**偶发在 fixture setup 阶段硬崩**（三次全量崩过一次，退出码 1，
+# 日志里只有半截栈、认不出是哪个测试）。要查这种崩溃，在命令行现拼：
+#   python -X faulthandler -m pytest -v          # -v 才打得出测试名
+#   python -m pytest -p faulthandler --faulthandler-timeout=120
+# 这是"让故障可诊断"的正确姿势，不是把 flaky 藏进配置里。
 
 # ---- 静态门禁（2026-09-08 审查：此前无任何 ruff 配置，425 项存量无人守）----
 # 策略：day-1 必须是绿的，否则 CI 会被直接关掉。因此先只锁「会真炸」的类别：
