@@ -4,6 +4,46 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 冷读审查第二轮（开发版，未发布）— 2026-09-09
+
+依据：`质量审查报告_20260909.md`。原计划四路独立冷读，但本会话 subagent 的
+spawn/fork **两条路径都返回 `subagent run failed`**（与交接 §7 的故障同形态），
+故为单观察者审查——覆盖面不如四路，不应当作"四路都过了"。
+基线：审查前 433 passed → 审查后 **440 passed**（+7 回归锁）· ruff 无豁免全绿。
+
+- **导入不再冻住窗口**：`load_files`（「导入文件…」与双击打开）此前在 **GUI
+  线程**逐文件 SHA-256——实测真实样片 NEF 55 MB ≈ 80 ms/张、16 位 TIFF
+  274 MB ≈ 400 ms/张，选 20 个 TIFF 约 8 秒「未响应」且横幅不重绘。
+  现默认经 `_start_import` 走后台线程，`background=False` 保留同步语义给脚本。
+- **导入忙碌守卫生效**：`load_folder` 丢弃 `_busy_enter("import")` 返回值，
+  连点两次会并发跑两遍导入、后完成的会话**无声覆盖**前一个；现在忙则拒绝并
+  横幅说明（不给不成立的承诺，与 L1-② 同口径）。
+- **CI 修正（此前从未跑过：`git remote -v` 为空）**：workflow 装了 Qt 的
+  系统库却从不装 PySide6（`-e .` 不含 extras）。实测用 `sys.meta_path`
+  屏蔽 PySide6 复现该环境：收集阶段 4 个 error，配合旧 `--maxfail=1`
+  → **一个测试都没跑**。改为 `-e ".[gui,dev]"` + 新增「GUI 测试层自检」一步
+  （extra 再被删时大声失败，而不是 12 个 Qt 测试模块静默 skip 换假绿）+
+  去掉 `--maxfail=1` + `timeout-minutes` + pip 缓存。
+- **清除区域后分析必须失效（v6.2 F2 补漏）**：F2 的规则只落在键盘删除路径
+  （`_on_roi_deleted` 的 `_changes_statistics` 判据），右栏「清除」与
+  「重置几何」同样清掉片基取样区/有效画面区却**不重算**，界面继续显示按
+  已删除区域算出的 Dmin/来源/置信度。两处统一到同一条判据。
+- **光标态**：退出「忙碌」时只认绘制模式，中性点救援的十字准星被吞成箭头
+  （拾点模式仍在，用户以为已退出）；改为同时认绘制/拾点/涂抹。
+- **死代码与假签名**（逐个 grep 证明 0 引用才动手）：
+  `RightPanel.set_fine_rotation`（只给一个从不被读取的字段赋值、从不动滑杆——
+  真正生效的是 `AnalysisSection.set_fine_rotation`，属误导性陷阱）、
+  `RightPanel.set_tone_intent`、`PreviewView.set_image(flip_y=)` 死形参、
+  `process_image` 里 `if ...: pass` 脚手架残留；`load_folder` 的假注解
+  `-> ImportSession`（实为 Thread）与 `_import_done` 未用形参改诚实。
+- **登记不修**：`docs/blockers.md` 新增 **B-4** —— 可写状态根
+  `storage.REPO_ROOT = parents[2]` 只在仓库布局下成立（`pip install .` 算到
+  `<venv>/Lib`，PyInstaller onedir 算到安装目录本身，`Program Files` 下
+  用户确认标注会写失败）。改道属产品决定，不在审查轮里静默改。
+- **自我推翻两条**（沿用交接 §5 的传统）：`slider_fine` 是 `sliderReleased`
+  才 emit，不存在"拖动期间几十次 fsync"；`neutral_pick_gain/delta/intent`
+  三兄弟是研究面 API（UI 走 `neutral_pick_intent_exact`），不是死代码。
+
 ## 结构整改清账（开发版，未发布）— 2026-09-08 Round 6
 
 依据：`docs/交接_20260908.md` §12 未完成清单全部清账；13 笔提交（门禁卫生 →

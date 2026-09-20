@@ -44,3 +44,26 @@
 
 - 见 `docs/dependency-licenses.md` 结论：无技术阻塞，但 §11 要求用户本人选择
   GPL-3.0 / MIT / Apache / 闭源免费。当前按"闭源可行"最严口径准备。
+
+## B-4（未决，打包发布前必须处理）：可写状态根依赖「仓库布局」
+
+- **现象**：`storage.REPO_ROOT = Path(__file__).resolve().parents[2]`
+  （2026-09-08「仓库根解析统一」把 11 处 `parents[3]` 收进这一处，方向是对的），
+  标注目录与 GUI 草稿目录都挂在它下面：`REPO_ROOT/fixtures/annotations`、
+  `REPO_ROOT/outputs/drafts`。
+- **只在仓库布局下成立**：
+  - 仓库内开发（当前全部测试与冒烟）：正确，且被 conftest 的写入物理隔离守着；
+  - `pip install .` 布局：`__file__` 落在 `site-packages/negative_lab/`，
+    `parents[2]` 算到 `<venv>/Lib`（Windows）一类**无意义目录**；
+  - PyInstaller onedir（`packaging/windows/negative-lab.spec`）：`_MEIPASS`
+    即 `<安装目录>/_internal`，`parents[2]` 算到**安装目录本身**——
+    装进 `C:\Program Files` 时标准用户不可写，用户确认标注会写失败。
+- **本轮为什么不动**：改道（例如退回 `%APPDATA%\negative-lab`）本身就是一次
+  「位置由环境决定」的静默变更，而本仓库刚把「环境变量改道被无声吞掉」立为
+  反面教材（交接 §2）；`profiles/profile.py` 已经在用 APPDATA，
+  两处根要不要统一、老用户已有标注怎么迁移，都是**产品决定**，
+  不该由一轮代码审查顺手拍板。
+- **建议方案（确认后再实施）**：可写根解析改为
+  **显式改道 > 环境变量 > 用户数据目录（APPDATA/XDG）> 仓库目录（仅当可写且
+  像仓库）**，并在右栏技术信息里显示生效路径——用户看得见才不会漂；
+  同步给 `app.selftest` 补一条「可写目录自检」（写一次读一次）。
