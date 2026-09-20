@@ -511,9 +511,17 @@ def summarize_verdicts(doc: Mapping, *, criteria: Mapping | None = None) -> dict
         checks.append({"ok": (True if ok is None else bool(ok)),
                        "na": ok is None, "label": label, "detail": detail})
 
+    # 已签条目里有几个**不同帧 id**：manifest 的 169 帧只有 132 个 id
+    # （同卷 `翻拍/` 与 `翻拍2/翻拍/` 两次拍摄同名），若两拍都被选中并签掉，
+    # "40–60 帧"的门槛会被**同一张照片的两拍**灌水。判定不改（那是用户的），
+    # 但报告必须把这个数摆出来。
+    n_distinct_ids = len({str(f.get("id")) for f in signed})
     check(n >= cr["min_frames"],
           f"已签帧数 ≥ {cr['min_frames']}",
-          f"{n}/{total} 已签；缺 {len(unsigned)}")
+          f"{n}/{total} 已签；缺 {len(unsigned)}"
+          + (f"；⚠ 去重后只有 {n_distinct_ids} 个不同帧 id —— "
+             f"有 {n - n_distinct_ids} 条是同 id 的多次拍摄，帧数门槛被重复样本顶着"
+             if n_distinct_ids < n else ""))
     check(not unsigned, "判定必须签满（不得用部分样本冒充整体）",
           f"未签 {len(unsigned)} 帧" + ("；另有 %d 帧填了判定但没有 signed_by" % len(partial)
                                      if partial else ""))
@@ -543,6 +551,7 @@ def summarize_verdicts(doc: Mapping, *, criteria: Mapping | None = None) -> dict
         "rescued_in_steps": len(rescued), "reference_products": refs,
         "usable_fraction": usable_frac, "not_unusable_fraction": not_bad_frac,
         "rescued_fraction": rescued_frac,
+        "signed_distinct_ids": n_distinct_ids,
         "coverage": covered,
         "checks": checks,
         "passed": all(c["ok"] for c in checks) and n > 0,
