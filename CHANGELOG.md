@@ -4,6 +4,33 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## 把归因送到眼前（开发版，未发布）— 2026-09-09 Round 10
+
+上一轮门禁与片基估计器有了证据（`clip_attribution` / `best_rejected_region` /
+分项 `scores`），但**只加字段不加出口，在用户那儿等于没修**
+（本仓库死代码审计的先例："只有 emit 没有 connect"）。
+
+- 新增 `src/negative_lab/diagnostics/explain.py`（纯函数、无 Qt、无磁盘）：
+  `base_fallback_note()` 说清片基为什么没用上实测——是被**哪一项分项**否的
+  （颗粒/背光散布 / 取样区污染 / 样本量不足）、逐通道 MAD 是多少，
+  并写明"散布取三通道最大值，**一个通道差就作废整帧测量**"；
+  没框到取样区说"没框到"，**不写"污染"**（那是编造）；用上了实测就闭嘴。
+  `clip_note()` 说清高光剪裁是采集端丢失还是软件新引入。
+- **出口两处**：右栏「技术信息」新增 `evidence` 行（`TechSection.set_info` +
+  `MainWindow._update_tech_info` 接线）；判定条标题加短标签
+  `[片基被拒:spread]` / `[高光:采集端已丢失]`，完整原话写进
+  `fixtures/verdicts/decisions.json` 的 `evidence` 字段（长文案会挤掉图，
+  所以图上短、文件里全）。
+- **回归锁 8 项**：`tests/unit/test_explain.py`（点名分项与最噪通道、
+  没框到≠污染、量到了就闭嘴、**文案与门禁失败信息同调同通道**、
+  实例与 `to_dict()` 两种读法同文）；`tests/unit/test_tech_evidence_in_ui.py`
+  （证据真的贴进 `lbl_body`；没证据不许凭空多一行"证据："；
+  用 duck-typed stub 直接调 `MainWindow._update_tech_info` 锁**接线**，
+  不拉起整个窗口）。
+- `build_verdict_kit.py --measure` 另记 `clip_attribution` /
+  `best_rejected_region`，判定条重渲染后带归因标签。
+- 基线：**485 passed**（477 + 6 + 2）· ruff 无豁免全绿。
+
 ## 归因轮：谁弄坏了高光，谁弄丢了片基（开发版，未发布）— 2026-09-09 Round 9
 
 本轮只问"这数字是谁造成的"，给 `build_verdict_kit.py --measure` 加了片基侧证据

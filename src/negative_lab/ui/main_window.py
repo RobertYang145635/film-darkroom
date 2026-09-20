@@ -26,6 +26,7 @@ from ..calibration.annotations import (Annotation, ann_path_for,  # noqa: F401 �
 from ..calibration.state import (ResolvedState, is_confirmed,  # noqa: F401
                                  resolve_state)  # noqa: F401
 from ..library.models import (FrameRecord, ImportSession, RollAnalysis)
+from ..diagnostics.explain import base_fallback_note, clip_note
 from ..pipeline.render import RenderIntent
 from ..pipeline.service import process_image  # noqa: F401 —— 测试契约：patch mw.process_image 拦截 UI 管线
 
@@ -495,7 +496,12 @@ class MainWindow(ExportCoordinatorMixin, IntentControllerMixin,
             gate=self.pr.gate.status,
             review=list(self.pr.gate.review_reasons),
             warnings=list(self.pr.report.warnings)[:4],
-            consistency=self._consistency_text())
+            consistency=self._consistency_text(),
+            # 归因：为什么没用上实测片基 / 高光剪裁是谁弄的（没有就空串）
+            evidence="\n".join(x for x in (
+                base_fallback_note(getattr(self.pr, "frame_base", None),
+                                   self.pr.base_source),
+                clip_note(self.pr.gate)) if x))
 
     def _update_histograms(self):
         """两处直方图：分析=负片；调整=当前合成正片。"""

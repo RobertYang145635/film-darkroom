@@ -357,10 +357,20 @@ class TechSection(Section):
         self.add(self.lbl_body)
 
     def set_info(self, *, base_source: str, gate: str, review: list[str],
-                 warnings: list[str], consistency: str = ""):
+                 warnings: list[str], consistency: str = "",
+                 evidence: str = ""):
+        """`evidence`：门禁/片基估计器量到的**归因原话**（diagnostics.explain）。
+
+        以前这一节只有"片基来源：generic_prior 门禁：fail"，用户看得见状态、
+        看不见原因（2026-09-09：74/169 帧回退通用先验，真因是单通道散布；
+        21/169 帧被剪裁挡导出，真因是采集端已丢失）。文案由纯函数生成，
+        这里只负责贴上去。
+        """
         lines = [f"片基来源：{base_source}   门禁：{gate}"]
         if consistency:
             lines.append(consistency)
+        if evidence:
+            lines.append("证据：\n  " + evidence.replace("\n", "\n  "))
         if review:
             lines.append("待复核：\n  " + "\n  ".join(review[:4]))
         if warnings:

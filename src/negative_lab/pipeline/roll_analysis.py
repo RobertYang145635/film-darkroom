@@ -198,6 +198,7 @@ def frame_base_stats(t_oriented: np.ndarray, base_rois: list,
                 "contamination": best["contamination"],
                 "kept_frac": best["kept_frac"],
                 "rel_spread": best.get("rel_spread"),
+                "mad": [round(float(v), 4) for v in (best.get("mad") or [])],
                 "scores": scores, "binding_score": binding,
                 "median_transmittance": [round(float(v), 6)
                                          for v in best["median"]],

@@ -50,6 +50,8 @@ from PIL import Image  # noqa: E402
 
 from negative_lab.diagnostics.verdicts import (  # noqa: E402
     ACCEPTANCE_CRITERIA, STRATA, frame_strata, merge_decisions, select_stratified)
+from negative_lab.diagnostics.explain import (  # noqa: E402
+    base_fallback_note, clip_note)
 from negative_lab.io.atomic import atomic_write_bytes  # noqa: E402
 from negative_lab.io.images import ReadError, load_linear_rgb  # noqa: E402
 from negative_lab.library.fingerprint import capture_fingerprint  # noqa: E402
@@ -199,6 +201,8 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
                 "base_black_level": _plain(pr.frame_base.get("black_level")),
                 "base_spatial_trend": _plain(pr.frame_base.get("spatial_trend")),
                 "input_clip": _plain(pr.gate.input_clip),
+                "clip_attribution": _plain(pr.gate.clip_attribution),
+                "best_rejected_region": _plain(pr.frame_base.get("best_rejected_region")),
                 "dmax": _plain(getattr(pr.report.params, "dmax", None)),
                 "gate": pr.gate.status,
                 "blocks_export": pr.gate.blocks_export,
@@ -300,6 +304,20 @@ def render_sheets() -> dict:
             if ref and (ROOT / ref).exists():
                 nlp = Image.open(str(ROOT / ref)).convert("RGB")
             tags = " ".join(entry.get("strata") or []) or "（无特殊分层）"
+            # 归因：判定条上放短标签（长文案会挤掉图像），完整原话写进 decisions.json
+            evidence = " ".join(x for x in (
+                base_fallback_note(pr.frame_base, pr.base_source),
+                clip_note(pr.gate)) if x)
+            short = ""
+            brr = (pr.frame_base or {}).get("best_rejected_region")
+            if brr:
+                short += f" [片基被拒:{brr.get('binding_score')}]"
+            note_clip = clip_note(pr.gate)
+            if note_clip:
+                short += (" [高光:采集端已丢失]" if "采集端" in note_clip
+                          else " [高光:软件引入]")
+            if evidence:
+                entry["evidence"] = evidence
             row = _row([("原始负片", _to_img(_norm_negative(small))),
                         ("preserve", renders.get("preserve")),
                         ("neutral", renders.get("neutral")),
@@ -308,7 +326,8 @@ def render_sheets() -> dict:
                          renders.get(pr.chosen_candidate or "")),
                         ("NLP 参考", nlp)],
                        done + 1, f"{Path(m['file']).name}  [{tags}]  "
-                                 f"片基={m['base_source']} conf={m['base_confidence']}")
+                                 f"片基={m['base_source']} conf={m['base_confidence']}"
+                                 f"{short}")
             out = SHEETS / str(roll) / f"{Path(str(m['file'])).stem}.jpg"
             out.parent.mkdir(parents=True, exist_ok=True)
             row.save(out, quality=88)
