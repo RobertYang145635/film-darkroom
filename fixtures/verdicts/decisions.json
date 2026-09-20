@@ -28,100 +28,14 @@
       "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-12.NEF",
       "roll": "1298_G200",
       "strata": [
-        "few_neutral_surfaces",
-        "saturated_dominant",
         "bright_uniform_top",
         "low_result_contrast"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
       ],
-      "sheet": "outputs/verdicts/sheets/1298_G200/G200-12.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null
-    },
-    {
-      "id": "1298_G200::G200-3",
-      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-3.NEF",
-      "roll": "1298_G200",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "saturated_dominant",
-        "bright_uniform_top",
-        "low_result_contrast"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
-        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
-      ],
-      "sheet": "outputs/verdicts/sheets/1298_G200/G200-3.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null
-    },
-    {
-      "id": "1298_G200::G200-4",
-      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-4.NEF",
-      "roll": "1298_G200",
-      "strata": [
-        "few_neutral_surfaces",
-        "saturated_dominant",
-        "bright_uniform_top",
-        "low_result_contrast"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
-        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
-      ],
-      "sheet": "outputs/verdicts/sheets/1298_G200/G200-4.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null
-    },
-    {
-      "id": "1298_G200::G200-5",
-      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-5.NEF",
-      "roll": "1298_G200",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "bright_uniform_top",
-        "low_result_contrast",
-        "highlight_clip"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
-        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
-        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
-      ],
-      "sheet": "outputs/verdicts/sheets/1298_G200/G200-5.jpg",
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-12__81f85302.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -130,6 +44,78 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1298_G200::G200-12#81f85302"
+    },
+    {
+      "id": "1298_G200::G200-3",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-3.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-3__bfebd2f4.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1298_G200::G200-3#bfebd2f4"
+    },
+    {
+      "id": "1298_G200::G200-4",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-4.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-4__384ff83f.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1298_G200::G200-4#384ff83f"
+    },
+    {
+      "id": "1298_G200::G200-5",
+      "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-5.NEF",
+      "roll": "1298_G200",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "highlight_clip"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
+      ],
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-5__b2d00ee1.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1298_G200::G200-5#b2d00ee1",
       "evidence": "高光剪裁 B 0.19%：其中 0.19% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
@@ -137,14 +123,12 @@
       "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-7.NEF",
       "roll": "1298_G200",
       "strata": [
-        "few_neutral_surfaces",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1298_G200/G200-7.jpg",
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-7__ef6b1d33.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -153,6 +137,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1298_G200::G200-7#ef6b1d33",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 25%、保留 75%），但被**颗粒/背光散布**否掉（spread=0.298；分项 size=1.0 purity=0.917 spread=0.298）（R 0.018 / G 0.048 / B 0.076 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -160,14 +145,12 @@
       "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-9.NEF",
       "roll": "1298_G200",
       "strata": [
-        "few_neutral_surfaces",
         "highlight_clip"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
       ],
-      "sheet": "outputs/verdicts/sheets/1298_G200/G200-9.jpg",
+      "sheet": "outputs/verdicts/sheets/1298_G200/G200-9__d513482a.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -176,6 +159,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1298_G200::G200-9#d513482a",
       "evidence": "高光剪裁 B 1.32%：其中 1.32% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
@@ -184,17 +168,15 @@
       "roll": "1299_G200",
       "strata": [
         "few_neutral_surfaces",
-        "hue_concentrated",
         "saturated_dominant",
         "low_base_confidence"
       ],
       "stratum_notes": [
         "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-1.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-1__1314407b.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -203,6 +185,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-1#1314407b",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 73%、保留 27%），但被**取样区污染**否掉（purity=0.109；分项 size=1.0 purity=0.109 spread=0.901）（R 0.009 / G 0.011 / B 0.028 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -210,42 +193,12 @@
       "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-10.NEF",
       "roll": "1299_G200",
       "strata": [
-        "few_neutral_surfaces",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-10.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null
-    },
-    {
-      "id": "1299_G200::G200-2",
-      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-2.NEF",
-      "roll": "1299_G200",
-      "strata": [
-        "few_neutral_surfaces",
-        "saturated_dominant",
-        "bright_uniform_top",
-        "low_result_contrast",
-        "low_base_confidence"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
-        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
-      ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-2.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-10__a7ddfbfb.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -254,6 +207,32 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-10#a7ddfbfb"
+    },
+    {
+      "id": "1299_G200::G200-2",
+      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-2.NEF",
+      "roll": "1299_G200",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-2__57605463.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1299_G200::G200-2#57605463",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 33%、保留 67%），但被**颗粒/背光散布**否掉（spread=0.0；分项 size=1.0 purity=0.778 spread=0.0）（R 0.068 / G 0.142 / B 0.104 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -261,18 +240,12 @@
       "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-3.NEF",
       "roll": "1299_G200",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "saturated_dominant",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-3.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-3__0c98a760.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -281,6 +254,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-3#0c98a760",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 25%、保留 75%），但被**颗粒/背光散布**否掉（spread=0.0；分项 size=1.0 purity=0.91 spread=0.0）（R 0.047 / G 0.092 / B 0.114 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -288,18 +262,14 @@
       "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-4.NEF",
       "roll": "1299_G200",
       "strata": [
-        "few_neutral_surfaces",
-        "saturated_dominant",
         "bright_uniform_top",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-4.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-4__9402d88a.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -308,6 +278,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-4#9402d88a",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 11%、保留 89%），但被**颗粒/背光散布**否掉（spread=0.1；分项 size=1.0 purity=1.0 spread=0.1）（R 0.035 / G 0.064 / B 0.092 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -315,20 +286,16 @@
       "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-5.NEF",
       "roll": "1299_G200",
       "strata": [
-        "few_neutral_surfaces",
-        "saturated_dominant",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-5.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-5__58037f54.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -337,52 +304,24 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-5#58037f54",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 24%、保留 76%），但被**颗粒/背光散布**否掉（spread=0.157；分项 size=1.0 purity=0.941 spread=0.157）（R 0.038 / G 0.068 / B 0.087 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
-    },
-    {
-      "id": "1299_G200::G200-7",
-      "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-7.NEF",
-      "roll": "1299_G200",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "saturated_dominant",
-        "low_base_confidence"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
-      ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-7.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
     },
     {
       "id": "1299_G200::G200-8",
       "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-8.NEF",
       "roll": "1299_G200",
       "strata": [
-        "few_neutral_surfaces",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-8.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-8__32bef7e1.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -391,6 +330,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-8#32bef7e1",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 30%、保留 70%），但被**颗粒/背光散布**否掉（spread=0.002；分项 size=1.0 purity=0.834 spread=0.002）（R 0.081 / G 0.100 / B 0.060 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -398,18 +338,16 @@
       "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-9.NEF",
       "roll": "1299_G200",
       "strata": [
-        "few_neutral_surfaces",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1299_G200/G200-9.jpg",
+      "sheet": "outputs/verdicts/sheets/1299_G200/G200-9__3af69dc0.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -418,50 +356,22 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1299_G200::G200-9#3af69dc0",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 23%、保留 77%），但被**颗粒/背光散布**否掉（spread=0.0；分项 size=1.0 purity=0.949 spread=0.0）（R 0.051 / G 0.109 / B 0.039 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "1300_CN400::CN400-1",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-1.NEF",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-1.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "highlight_clip"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
-      ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-1.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "高光剪裁 B 0.53%：其中 0.53% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
-    },
-    {
-      "id": "1300_CN400::CN400-12",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-12.NEF",
-      "roll": "1300_CN400",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "bright_uniform_top",
-        "low_result_contrast",
+        "highlight_clip",
         "no_nlp_reference"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
-        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-12.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-1__84c4a48d.jpg",
       "has_nlp_reference": false,
       "verdict": null,
       "tweak_steps": null,
@@ -469,25 +379,49 @@
       "reference_product": null,
       "note": "",
       "signed_by": null,
-      "signed_date": null
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-1#84c4a48d",
+      "evidence": "高光剪裁 B 0.53%：其中 0.53% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+    },
+    {
+      "id": "1300_CN400::CN400-10",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-10.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "highlight_clip",
+        "no_nlp_reference"
+      ],
+      "stratum_notes": [
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-10__421137f8.jpg",
+      "has_nlp_reference": false,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-10#421137f8",
+      "evidence": "高光剪裁 B 1.00%：其中 1.00% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
       "id": "1300_CN400::CN400-14",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-14.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-14.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-14__23cf206b.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -496,29 +430,26 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "高光剪裁 B 0.28%：其中 0.28% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "1300_CN400::CN400-14#23cf206b",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 12%、保留 88%），但被**颗粒/背光散布**否掉（spread=0.243；分项 size=1.0 purity=1.0 spread=0.243）（R 0.022 / G 0.039 / B 0.081 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "1300_CN400::CN400-15",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-15.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "highlight_clip",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-15.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-15__ccce6c58.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -526,27 +457,25 @@
       "reference_product": null,
       "note": "",
       "signed_by": null,
-      "signed_date": null
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-15#ccce6c58",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 3%、保留 97%），但被**颗粒/背光散布**否掉（spread=0.449；分项 size=1.0 purity=1.0 spread=0.449）（R 0.023 / G 0.035 / B 0.064 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。 高光剪裁 B 0.27%：其中 0.27% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
       "id": "1300_CN400::CN400-18",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-18.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-18.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-18__d8987a15.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -555,54 +484,24 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 20%、保留 80%），但被**颗粒/背光散布**否掉（spread=0.046；分项 size=1.0 purity=1.0 spread=0.046）（R 0.062 / G 0.075 / B 0.096 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
-    },
-    {
-      "id": "1300_CN400::CN400-19",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-19.NEF",
-      "roll": "1300_CN400",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "bright_uniform_top",
-        "highlight_clip"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
-        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
-      ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-19.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "高光剪裁 B 0.26%：其中 0.26% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "1300_CN400::CN400-18#d8987a15",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 5%、保留 95%），但被**颗粒/背光散布**否掉（spread=0.331；分项 size=1.0 purity=1.0 spread=0.331）（R 0.053 / G 0.070 / B 0.073 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "1300_CN400::CN400-2",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-2.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "highlight_clip",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-2.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-2__4a056e46.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -611,27 +510,24 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "高光剪裁 B 0.35%：其中 0.35% 在输入端已是死数据（软件新引入 0.01%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "1300_CN400::CN400-2#4a056e46",
+      "evidence": "高光剪裁 B 3.22%：其中 3.22% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
       "id": "1300_CN400::CN400-20",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-20.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-20.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-20__18013f58.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -640,29 +536,26 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 9%、保留 91%），但被**颗粒/背光散布**否掉（spread=0.268；分项 size=1.0 purity=1.0 spread=0.268）（R 0.068 / G 0.074 / B 0.079 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
+      "uid": "1300_CN400::CN400-20#18013f58",
+      "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
     },
     {
       "id": "1300_CN400::CN400-22",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-22.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence",
         "no_nlp_reference"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
         "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-22.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-22__6666c238.jpg",
       "has_nlp_reference": false,
       "verdict": null,
       "tweak_steps": null,
@@ -671,28 +564,25 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1300_CN400::CN400-22#6666c238",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 1%、保留 99%），但被**颗粒/背光散布**否掉（spread=0.449；分项 size=1.0 purity=1.0 spread=0.449）（R 0.064 / G 0.049 / B 0.045 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "1300_CN400::CN400-23",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-23.NEF",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-23.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
         "bright_uniform_top",
         "low_result_contrast",
-        "low_base_confidence",
-        "no_nlp_reference"
+        "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
-        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-23.jpg",
-      "has_nlp_reference": false,
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-23__2db41a3e.jpg",
+      "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
       "issue_tags": [],
@@ -700,6 +590,33 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1300_CN400::CN400-23#2db41a3e",
+      "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
+    },
+    {
+      "id": "1300_CN400::CN400-24",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-24.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-24__40218629.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-24#40218629",
       "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
     },
     {
@@ -707,20 +624,18 @@
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-25.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence",
         "no_nlp_reference"
       ],
       "stratum_notes": [
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
         "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-25.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-25__97267bcc.jpg",
       "has_nlp_reference": false,
       "verdict": null,
       "tweak_steps": null,
@@ -729,6 +644,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1300_CN400::CN400-25#97267bcc",
       "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
     },
     {
@@ -736,20 +652,16 @@
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-26.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "highlight_clip",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-26.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-26__b909df9e.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -758,25 +670,24 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "高光剪裁 B 0.29%：其中 0.29% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "1300_CN400::CN400-26#b909df9e",
+      "evidence": "高光剪裁 B 4.15%：其中 4.15% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
-      "id": "1300_CN400::CN400-3",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-3.NEF",
+      "id": "1300_CN400::CN400-30",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-30.NEF",
       "roll": "1300_CN400",
       "strata": [
         "few_neutral_surfaces",
-        "hue_concentrated",
-        "highlight_clip",
-        "low_base_confidence"
+        "bright_uniform_top",
+        "highlight_clip"
       ],
       "stratum_notes": [
         "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-3.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-30__95b363a3.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -785,15 +696,40 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "高光剪裁 B 1.74%：其中 1.74% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "1300_CN400::CN400-30#95b363a3",
+      "evidence": "高光剪裁 B 5.97%：其中 5.97% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+    },
+    {
+      "id": "1300_CN400::CN400-32",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-32.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-32__f1e2457e.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-32#f1e2457e",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 9%、保留 91%），但被**颗粒/背光散布**否掉（spread=0.408；分项 size=1.0 purity=1.0 spread=0.408）（R 0.046 / G 0.052 / B 0.067 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "1300_CN400::CN400-34",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-34.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "highlight_clip",
@@ -801,15 +737,13 @@
         "no_nlp_reference"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
         "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-34.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-34__b7eeb2bb.jpg",
       "has_nlp_reference": false,
       "verdict": null,
       "tweak_steps": null,
@@ -818,26 +752,29 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1300_CN400::CN400-34#b7eeb2bb",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 21%、保留 79%），但被**颗粒/背光散布**否掉（spread=0.0；分项 size=1.0 purity=0.977 spread=0.0）（R 0.041 / G 0.055 / B 0.114 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。 高光剪裁 B 0.23%：其中 0.23% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
       "id": "1300_CN400::CN400-35",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-35.NEF",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍2/翻拍/CN400-35.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
-        "low_base_confidence"
+        "highlight_clip",
+        "low_base_confidence",
+        "no_nlp_reference"
       ],
       "stratum_notes": [
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
+        "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-35.jpg",
-      "has_nlp_reference": true,
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-35__10a66647.jpg",
+      "has_nlp_reference": false,
       "verdict": null,
       "tweak_steps": null,
       "issue_tags": [],
@@ -845,6 +782,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "1300_CN400::CN400-35#10a66647",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 1%、保留 99%），但被**颗粒/背光散布**否掉（spread=0.395；分项 size=1.0 purity=1.0 spread=0.395）（R 0.036 / G 0.043 / B 0.068 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。 高光剪裁 B 0.22%：其中 0.22% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
@@ -863,7 +801,7 @@
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测",
         "no_nlp_reference：没有同源 NLP 参考：只能用于稳健性，不得进对标集"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-36.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-36__7c262d84.jpg",
       "has_nlp_reference": false,
       "verdict": null,
       "tweak_steps": null,
@@ -871,25 +809,76 @@
       "reference_product": null,
       "note": "",
       "signed_by": null,
-      "signed_date": null
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-36#7c262d84"
+    },
+    {
+      "id": "1300_CN400::CN400-4",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-4.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-4__8e1b7db5.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-4#8e1b7db5",
+      "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
+    },
+    {
+      "id": "1300_CN400::CN400-5",
+      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-5.NEF",
+      "roll": "1300_CN400",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-5__755c7d3b.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "1300_CN400::CN400-5#755c7d3b",
+      "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
     },
     {
       "id": "1300_CN400::CN400-8",
       "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-8.NEF",
       "roll": "1300_CN400",
       "strata": [
-        "hue_concentrated",
         "bright_uniform_top",
         "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-8.jpg",
+      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-8__541ac056.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -898,25 +887,20 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "高光剪裁 B 0.47%：其中 0.47% 在输入端已是死数据（软件新引入 0.01%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "1300_CN400::CN400-8#541ac056",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 8%、保留 92%），但被**颗粒/背光散布**否掉（spread=0.444；分项 size=1.0 purity=1.0 spread=0.444）（R 0.040 / G 0.034 / B 0.065 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
-      "id": "1300_CN400::CN400-9",
-      "file": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/CN400-9.NEF",
-      "roll": "1300_CN400",
+      "id": "ECN2_5207::5207-1",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-1.tif",
+      "roll": "ECN2_5207",
       "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "highlight_clip",
-        "low_base_confidence"
+        "hue_concentrated"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+        "hue_concentrated：色相高度集中：单色光源/舞台灯"
       ],
-      "sheet": "outputs/verdicts/sheets/1300_CN400/CN400-9.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-1__b0b30148.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -925,7 +909,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "高光剪裁 B 0.59%：其中 0.58% 在输入端已是死数据（软件新引入 0.01%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
+      "uid": "ECN2_5207::5207-1#b0b30148"
     },
     {
       "id": "ECN2_5207::5207-10",
@@ -933,15 +917,13 @@
       "roll": "ECN2_5207",
       "strata": [
         "few_neutral_surfaces",
-        "saturated_dominant",
         "low_base_confidence"
       ],
       "stratum_notes": [
         "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-10.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-10__8ea01cfa.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -950,6 +932,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5207::5207-10#8ea01cfa",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 65%、保留 35%），但被**取样区污染**否掉（purity=0.25；分项 size=1.0 purity=0.25 spread=0.655）（R 0.048 / G 0.009 / B 0.017 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -966,7 +949,7 @@
         "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-11.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-11__4a3242ed.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -975,6 +958,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5207::5207-11#4a3242ed",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 48%、保留 52%），但被**颗粒/背光散布**否掉（spread=0.368；分项 size=1.0 purity=0.541 spread=0.368）（R 0.060 / G 0.039 / B 0.071 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
@@ -987,7 +971,7 @@
       "stratum_notes": [
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-12.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-12__fdecdb51.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -995,7 +979,8 @@
       "reference_product": null,
       "note": "",
       "signed_by": null,
-      "signed_date": null
+      "signed_date": null,
+      "uid": "ECN2_5207::5207-12#fdecdb51"
     },
     {
       "id": "ECN2_5207::5207-13",
@@ -1009,7 +994,7 @@
         "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-13.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-13__bca5c836.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1018,21 +1003,48 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5207::5207-13#bca5c836",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 12%、保留 88%），但被**颗粒/背光散布**否掉（spread=0.0；分项 size=1.0 purity=1.0 spread=0.0）（R 0.069 / G 0.095 / B 0.109 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
-      "id": "ECN2_5207::5207-14",
-      "file": "20260506_SAMPLE-ID/ECN2/5207-14.tif",
+      "id": "ECN2_5207::5207-17",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-17.tif",
+      "roll": "ECN2_5207",
+      "strata": [
+        "hue_concentrated",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "hue_concentrated：色相高度集中：单色光源/舞台灯",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-17__b4309820.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "ECN2_5207::5207-17#b4309820",
+      "evidence": "片基未采用实测：没有可用的取样区（既不是脏也不是噪声，是**没框到**）；本帧 Dmin 用的是通用先验。"
+    },
+    {
+      "id": "ECN2_5207::5207-9",
+      "file": "20260506_SAMPLE-ID/ECN2/5207-9.tif",
       "roll": "ECN2_5207",
       "strata": [
         "bright_uniform_top",
+        "low_result_contrast",
         "low_base_confidence"
       ],
       "stratum_notes": [
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-14.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-9__6e68fef3.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1041,97 +1053,22 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 39%、保留 61%），但被**颗粒/背光散布**否掉（spread=0.0；分项 size=1.0 purity=0.691 spread=0.0）（R 0.071 / G 0.110 / B 0.130 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
-    },
-    {
-      "id": "ECN2_5207::5207-18",
-      "file": "20260506_SAMPLE-ID/ECN2/5207-18.tif",
-      "roll": "ECN2_5207",
-      "strata": [
-        "few_neutral_surfaces",
-        "bright_uniform_top"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）"
-      ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5207/5207-18.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null
-    },
-    {
-      "id": "ECN2_5219::5219-13",
-      "file": "20260506_SAMPLE-ID/ECN2/5219-13.tif",
-      "roll": "ECN2_5219",
-      "strata": [
-        "few_neutral_surfaces",
-        "saturated_dominant",
-        "low_base_confidence"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
-      ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-13.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 10%、保留 90%），但被**颗粒/背光散布**否掉（spread=0.342；分项 size=1.0 purity=1.0 spread=0.342）（R 0.030 / G 0.051 / B 0.073 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
-    },
-    {
-      "id": "ECN2_5219::5219-14",
-      "file": "20260506_SAMPLE-ID/ECN2/5219-14.tif",
-      "roll": "ECN2_5219",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "saturated_dominant",
-        "low_base_confidence"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
-      ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-14.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 19%、保留 81%），但被**颗粒/背光散布**否掉（spread=0.092；分项 size=1.0 purity=1.0 spread=0.092）（R 0.031 / G 0.048 / B 0.093 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
+      "uid": "ECN2_5207::5207-9#6e68fef3",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 18%、保留 82%），但被**颗粒/背光散布**否掉（spread=0.214；分项 size=1.0 purity=1.0 spread=0.214）（R 0.033 / G 0.058 / B 0.083 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "ECN2_5219::5219-16",
       "file": "20260506_SAMPLE-ID/ECN2/5219-16.tif",
       "roll": "ECN2_5219",
       "strata": [
-        "few_neutral_surfaces",
         "bright_uniform_top",
         "low_base_confidence"
       ],
       "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-16.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-16__bbaf3c45.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1140,7 +1077,32 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5219::5219-16#bbaf3c45",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 18%、保留 82%），但被**颗粒/背光散布**否掉（spread=0.056；分项 size=1.0 purity=1.0 spread=0.056）（R 0.026 / G 0.034 / B 0.096 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
+    },
+    {
+      "id": "ECN2_5219::5219-17",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-17.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "bright_uniform_top",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-17__deedf579.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "ECN2_5219::5219-17#deedf579",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 22%、保留 78%），但被**颗粒/背光散布**否掉（spread=0.021；分项 size=1.0 purity=0.968 spread=0.021）（R 0.034 / G 0.050 / B 0.098 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "ECN2_5219::5219-19",
@@ -1156,7 +1118,7 @@
         "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-19.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-19__d9b38da5.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1165,7 +1127,34 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5219::5219-19#d9b38da5",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 8%、保留 92%），但被**颗粒/背光散布**否掉（spread=0.351；分项 size=1.0 purity=1.0 spread=0.351）（R 0.034 / G 0.047 / B 0.072 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
+    },
+    {
+      "id": "ECN2_5219::5219-24",
+      "file": "20260506_SAMPLE-ID/ECN2/5219-24.tif",
+      "roll": "ECN2_5219",
+      "strata": [
+        "bright_uniform_top",
+        "low_result_contrast",
+        "low_base_confidence"
+      ],
+      "stratum_notes": [
+        "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
+        "low_result_contrast：成片反差低（p95-p05 窄）：薄负片/欠曝的常见表现（proxy）",
+        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
+      ],
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-24__852e47e3.jpg",
+      "has_nlp_reference": true,
+      "verdict": null,
+      "tweak_steps": null,
+      "issue_tags": [],
+      "reference_product": null,
+      "note": "",
+      "signed_by": null,
+      "signed_date": null,
+      "uid": "ECN2_5219::5219-24#852e47e3",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 5%、保留 95%），但被**颗粒/背光散布**否掉（spread=0.278；分项 size=1.0 purity=1.0 spread=0.278）（R 0.042 / G 0.061 / B 0.078 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     },
     {
       "id": "ECN2_5219::5219-27",
@@ -1173,17 +1162,15 @@
       "roll": "ECN2_5219",
       "strata": [
         "few_neutral_surfaces",
-        "saturated_dominant",
         "highlight_clip",
         "low_base_confidence"
       ],
       "stratum_notes": [
         "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-27.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-27__cf486ae7.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1192,6 +1179,7 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5219::5219-27#cf486ae7",
       "evidence": "高光剪裁 B 0.21%：其中 0.21% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
@@ -1208,7 +1196,7 @@
         "highlight_clip：技术正片高端剪裁超警告线（采集或白点问题）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-29.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-29__5e90aeeb.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1217,61 +1205,8 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 5%、保留 95%），但被**颗粒/背光散布**否掉（spread=0.329；分项 size=1.0 purity=1.0 spread=0.329）（R 0.028 / G 0.040 / B 0.074 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
-    },
-    {
-      "id": "ECN2_5219::5219-32",
-      "file": "20260506_SAMPLE-ID/ECN2/5219-32.tif",
-      "roll": "ECN2_5219",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "saturated_dominant",
-        "low_base_confidence"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
-      ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-32.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 8%、保留 92%），但被**颗粒/背光散布**否掉（spread=0.378；分项 size=1.0 purity=1.0 spread=0.378）（R 0.021 / G 0.035 / B 0.070 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
-    },
-    {
-      "id": "ECN2_5219::5219-33",
-      "file": "20260506_SAMPLE-ID/ECN2/5219-33.tif",
-      "roll": "ECN2_5219",
-      "strata": [
-        "few_neutral_surfaces",
-        "hue_concentrated",
-        "saturated_dominant",
-        "low_base_confidence"
-      ],
-      "stratum_notes": [
-        "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "hue_concentrated：色相高度集中：单色光源/舞台灯",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
-        "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
-      ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-33.jpg",
-      "has_nlp_reference": true,
-      "verdict": null,
-      "tweak_steps": null,
-      "issue_tags": [],
-      "reference_product": null,
-      "note": "",
-      "signed_by": null,
-      "signed_date": null,
-      "evidence": "片基未采用实测：自动取样区量到了数据（污染 16%、保留 84%），但被**颗粒/背光散布**否掉（spread=0.129；分项 size=1.0 purity=1.0 spread=0.129）（R 0.032 / G 0.051 / B 0.090 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
+      "uid": "ECN2_5219::5219-29#5e90aeeb",
+      "evidence": "片基未采用实测：自动取样区量到了数据（污染 5%、保留 95%），但被**颗粒/背光散布**否掉（spread=0.329；分项 size=1.0 purity=1.0 spread=0.329）（R 0.028 / G 0.040 / B 0.074 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。 高光剪裁 B 0.20%：其中 0.20% 在输入端已是死数据（软件新引入 0.00%）—— 采集端就已丢失，重扫/重拍才能根治，调算法补不回来。"
     },
     {
       "id": "ECN2_5219::5219-35",
@@ -1279,17 +1214,15 @@
       "roll": "ECN2_5219",
       "strata": [
         "few_neutral_surfaces",
-        "saturated_dominant",
         "bright_uniform_top",
         "low_base_confidence"
       ],
       "stratum_notes": [
         "few_neutral_surfaces：画面里几乎没有可当中性面的像素（灰世界前提不成立，软件已降权）",
-        "saturated_dominant：高饱和主导：中和最容易把颜色做死",
         "bright_uniform_top：画面上部大面积高亮且平滑：天空/雾，白点易被天空带跑（proxy）",
         "low_base_confidence：片基 Dmin 置信度低：来源可能是回退而非实测"
       ],
-      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-35.jpg",
+      "sheet": "outputs/verdicts/sheets/ECN2_5219/5219-35__2927f3e7.jpg",
       "has_nlp_reference": true,
       "verdict": null,
       "tweak_steps": null,
@@ -1298,37 +1231,87 @@
       "note": "",
       "signed_by": null,
       "signed_date": null,
+      "uid": "ECN2_5219::5219-35#2927f3e7",
       "evidence": "片基未采用实测：自动取样区量到了数据（污染 49%、保留 51%），但被**颗粒/背光散布**否掉（spread=0.359；分项 size=1.0 purity=0.515 spread=0.359）（R 0.010 / G 0.033 / B 0.071 decade）；散布取的是三通道最大值，**一个通道差就作废整帧测量**。本帧 Dmin 用的是通用先验，不是实测。"
     }
   ],
-  "retired_ids": [],
+  "retired_ids": [
+    "1298_G200::G200-12",
+    "1298_G200::G200-3",
+    "1298_G200::G200-4",
+    "1298_G200::G200-5",
+    "1298_G200::G200-7",
+    "1298_G200::G200-9",
+    "1299_G200::G200-1",
+    "1299_G200::G200-10",
+    "1299_G200::G200-2",
+    "1299_G200::G200-3",
+    "1299_G200::G200-4",
+    "1299_G200::G200-5",
+    "1299_G200::G200-7",
+    "1299_G200::G200-8",
+    "1299_G200::G200-9",
+    "1300_CN400::CN400-1",
+    "1300_CN400::CN400-12",
+    "1300_CN400::CN400-14",
+    "1300_CN400::CN400-15",
+    "1300_CN400::CN400-18",
+    "1300_CN400::CN400-19",
+    "1300_CN400::CN400-2",
+    "1300_CN400::CN400-20",
+    "1300_CN400::CN400-22",
+    "1300_CN400::CN400-23",
+    "1300_CN400::CN400-25",
+    "1300_CN400::CN400-26",
+    "1300_CN400::CN400-3",
+    "1300_CN400::CN400-34",
+    "1300_CN400::CN400-35",
+    "1300_CN400::CN400-36",
+    "1300_CN400::CN400-8",
+    "1300_CN400::CN400-9",
+    "ECN2_5207::5207-10",
+    "ECN2_5207::5207-11",
+    "ECN2_5207::5207-12",
+    "ECN2_5207::5207-13",
+    "ECN2_5207::5207-14",
+    "ECN2_5207::5207-18",
+    "ECN2_5219::5219-13",
+    "ECN2_5219::5219-14",
+    "ECN2_5219::5219-16",
+    "ECN2_5219::5219-19",
+    "ECN2_5219::5219-27",
+    "ECN2_5219::5219-29",
+    "ECN2_5219::5219-32",
+    "ECN2_5219::5219-33",
+    "ECN2_5219::5219-35"
+  ],
   "selection": {
     "requested": 48,
     "selected": 48,
     "population": 169,
     "strata": {
       "few_neutral_surfaces": {
-        "selected": 41,
-        "available": 116
+        "selected": 9,
+        "available": 25
       },
       "hue_concentrated": {
-        "selected": 23,
-        "available": 36
+        "selected": 2,
+        "available": 2
       },
       "saturated_dominant": {
-        "selected": 17,
-        "available": 23
+        "selected": 2,
+        "available": 2
       },
       "night_like": {
         "selected": 1,
         "available": 1
       },
       "bright_uniform_top": {
-        "selected": 28,
+        "selected": 32,
         "available": 62
       },
       "low_result_contrast": {
-        "selected": 20,
+        "selected": 25,
         "available": 33
       },
       "highlight_clip": {
@@ -1347,11 +1330,11 @@
     "strata_without_discrimination": [],
     "rolls": {
       "1298_G200": 6,
-      "1299_G200": 9,
-      "1300_CN400": 18,
-      "ECN2_5207": 6,
-      "ECN2_5219": 9
+      "1299_G200": 8,
+      "1300_CN400": 20,
+      "ECN2_5207": 7,
+      "ECN2_5219": 7
     },
-    "nlp_reference": 42
+    "nlp_reference": 41
   }
 }

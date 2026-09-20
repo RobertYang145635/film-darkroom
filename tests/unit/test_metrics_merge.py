@@ -47,15 +47,15 @@ def test_full_run_replaces_but_reports_the_shrinkage():
     fresh = {"frames": [{"id": "r0::1", "roll": "r0"}]}
     doc = merge_metrics(existing, fresh, partial=False)
     assert len(doc["frames"]) == 1
-    assert doc["coverage"]["dropped_keys"] == 59, (
-        "全量跑可以整份替换，但消失的键必须写出来，不能静默")
+    assert doc["coverage"]["dropped_ids"] == 59, (
+        "全量跑可以整份替换，但按 id 消失的帧必须写出来，不能静默")
 
 
 def test_full_run_with_same_ids_reports_no_loss():
     existing = _corpus()
     fresh = {"frames": [dict(f, gate="ok") for f in existing["frames"]]}
     doc = merge_metrics(existing, fresh, partial=False)
-    assert doc["coverage"]["dropped_keys"] == 0
+    assert doc["coverage"]["dropped_ids"] == 0
     assert all(f.get("gate") == "ok" for f in doc["frames"])
 
 

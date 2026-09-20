@@ -238,9 +238,11 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
     if cov["partial_run"]:
         print(f"  ⚠ 局部跑：已并入旧语料（覆盖同 id {cov['replaced_ids']} 帧、"
               f"保留其它 {cov['kept_from_previous']} 帧），未覆盖整份")
-    elif cov["dropped_keys"]:
-        print(f"  ⚠ 全量跑后语料收缩：{cov['dropped_keys']} 个唯一键不再存在"
+    elif cov["dropped_ids"]:
+        print(f"  ⚠ 全量跑后语料收缩：{cov['dropped_ids']} 个 id 不再存在"
               "（manifest 变化？请确认不是取样范围写错）")
+    if cov["key_scheme_changed"]:
+        print("  ℹ 键方案迁移（id → id#sha8）：收缩按 id 统计，改键不算丢数据")
     if cov["unique_keys"] != cov["frames"]:
         print(f"  ⚠ 唯一键 {cov['unique_keys']} < 帧 {cov['frames']}："
               "有帧在 uid 层面互相覆盖（同 id 同 sha？检查 manifest 是否重复登记）")
@@ -280,7 +282,11 @@ def render_sheets() -> dict:
     if not METRICS.exists():
         raise SystemExit(f"缺少 {METRICS}；先跑 --measure")
     doc = json.loads(DECISIONS.read_text(encoding="utf-8"))
-    metrics = {f["id"]: f for f in json.loads(METRICS.read_text(encoding="utf-8"))["frames"]}
+    # 两处索引都按**唯一键**：2026-09-09 实测，只把 manifest 改成 uid 索引、
+    # 查找仍用 id，结果是 `--sheets` **一张都不渲染却退出码 0**
+    # （`src is None` 每帧都成立 -> continue -> done=0 -> "渲染 0 张"）。
+    metrics = {uid_of(f): f for f in
+               json.loads(METRICS.read_text(encoding="utf-8"))["frames"]}
     # 按**唯一键**索引：manifest 的 169 个 required 帧只有 132 个 id
     # （同卷 `翻拍/` 与 `翻拍2/翻拍/` 两次拍摄同名），按 id 索引会把两次拍摄
     # 合成一条，实测其中一条有 NLP 参考、另一条没有 —— 于是判定条可能显示
@@ -291,12 +297,17 @@ def render_sheets() -> dict:
         by_roll.setdefault(str(f.get("roll")), []).append(f)
 
     done, t0 = 0, time.perf_counter()
+    skipped: list = []
     for roll in sorted(by_roll):
         recs, imgs, kept = [], [], []
         for entry in by_roll[roll]:
-            m = metrics.get(str(entry["id"]))
-            src = manifest.get(str(entry.get("id")))
+            key = str(entry.get("uid") or entry.get("id"))
+            m = metrics.get(key)
+            src = manifest.get(key)
             if not m or m.get("status") != "ok" or src is None:
+                why = ("metrics 查不到" if not m else
+                       "manifest 查不到" if src is None else "metrics status != ok")
+                skipped.append(f"{key}：{why}")
                 continue
             try:
                 loaded = load_linear_rgb(ROOT / m["file"])
@@ -364,6 +375,15 @@ def render_sheets() -> dict:
             done += 1
             print(f"  [{done}] {entry['sheet']}", flush=True)
     _write_json(DECISIONS, doc)
+    if not done and doc["frames"]:
+        # 一张都没渲染**不是成功**：以前这里打印"渲染 0 张"然后退出 0，
+        # 下一步 --verify 拿着空目录照样跑（假绿的又一种形态）
+        raise SystemExit(
+            f"一张判定条都没渲染：{len(skipped)} 条全部跳过。样例 {skipped[:3]}。"
+            "多半是判定条目与 metrics/manifest 的索引键不一致（uid/id 混用），"
+            "先重跑 --measure 与 --select，不要直接开始判定。")
+    if skipped:
+        print(f"  ⚠ 跳过 {len(skipped)} 条：{skipped[:3]}")
     print(f"渲染 {done} 张判定条，用时 {round(time.perf_counter() - t0, 1)}s；"
           f"填写 {DECISIONS}")
     return {"sheets": done}

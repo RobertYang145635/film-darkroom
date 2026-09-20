@@ -316,6 +316,9 @@ def merge_metrics(existing: dict | None, fresh: dict, *, partial: bool) -> dict:
         frames = [pooled[k] for k in sorted(pooled)]
     else:
         frames = sorted(fresh_frames, key=lambda f: uid_of(f))
+    prev_ids = {str(f.get("id")) for f in prev_list}
+    fresh_ids = {str(f.get("id")) for f in fresh_frames}
+    prev_had_uid = any(f.get("uid") or f.get("source_sha256") for f in prev_list)
     doc = dict(fresh)
     doc["frames"] = frames
     doc["coverage"] = {
@@ -325,10 +328,12 @@ def merge_metrics(existing: dict | None, fresh: dict, *, partial: bool) -> dict:
         "partial_run": bool(partial and prev),
         "replaced_ids": replaced,
         "kept_from_previous": len(frames) - len(fresh_frames),
-        # 全量跑时语料收缩必须可见（以前是静默覆盖）。
-        # 注意这是**唯一键**计数：169 帧若只有 132 个唯一键，
-        # 说明有 37 帧在 id 层面互相覆盖（见 uid_of 的实测说明）。
-        "dropped_keys": 0 if (partial and prev) else max(len(prev) - replaced, 0),
+        # 收缩按 **id 集合**算：它在键方案迁移（id → id#sha8）前后都稳定。
+        # 2026-09-09 实测：改键后第一次全量跑曾报"132 个唯一键不再存在"，
+        # 其实是键换了个写法，差点被当成"manifest 被砍"。
+        "dropped_ids": 0 if (partial and prev) else len(prev_ids - fresh_ids),
+        "key_scheme_changed": bool(prev_list) and not prev_had_uid,
+        # 帧数 > 唯一键数 = 有帧在 uid 层面互相覆盖（同 id 同 sha）
         "unique_keys": len({uid_of(f) for f in frames}),
     }
     return doc
@@ -367,16 +372,30 @@ def merge_decisions(existing: Mapping | None, selected: Iterable[Mapping]) -> di
     - 只有从未出现过的帧才新建空白条目。
     """
     keep: dict = {}
+    # 键方案迁移（id → id#sha8）：旧条目没有 uid，新条目有，两边键对不上。
+    # 2026-09-09 实测：改键后重跑 `--select`，旧 48 条**全部**被判为
+    # "没抽中"而进了 retired_ids —— 现在侥幸是 0 签，若用户已签，
+    # 签名就会凭空蒸发。所以旧条目在 **id 唯一可认** 时必须认亲到新键上。
+    sel_list = list(selected)
+    sel_by_id: dict = {}
+    for frame in sel_list:
+        sel_by_id.setdefault(str(frame.get("id")), []).append(frame)
+    legacy_key = {i: uid_of(v[0]) for i, v in sel_by_id.items() if len(v) == 1}
     if isinstance(existing, Mapping):
         for f in existing.get("frames") or []:
             if not isinstance(f, Mapping) or f.get("id") is None:
                 continue
             if _is_signed(f) or str(f.get("verdict") or "") in VALID_VERDICTS:
+                key = uid_of(f)
+                if not f.get("uid"):
+                    moved = legacy_key.get(str(f["id"]))
+                    if moved:
+                        key = moved          # 签名跟着搬到新键，不丢
                 # 按**唯一键**保留：按 id 会把两次拍摄合成一帧，
                 # 于是"签在 A 上"和"刷新成 B"变成同一件事
-                keep[uid_of(f)] = dict(f)   # 用户填过的，原样保留
+                keep[key] = dict(f)   # 用户填过的，原样保留
     entries: dict = dict(keep)
-    for frame in selected:
+    for frame in sel_list:
         key = uid_of(frame)
         if key in entries:
             base = dict(entries[key])          # 保留判定内容，只刷新元数据
@@ -393,10 +412,14 @@ def merge_decisions(existing: Mapping | None, selected: Iterable[Mapping]) -> di
             entries[key] = new
     # 未签且这次没抽中的条目：从模板里退掉，但把键记进 retired_ids，
     # 免得"重跑一次判定悄悄少了几帧"这种事再次无声发生。
+    live_ids = {str(f.get("id")) for f in entries.values()}
     retired = sorted(
         {uid_of(f) for f in ((existing or {}).get("frames") or [])
          if isinstance(f, Mapping) and f.get("id") is not None
-         and uid_of(f) not in entries}
+         and uid_of(f) not in entries
+         # 只是换了键（id → id#sha8）不算退休，否则一次改键会让 48 条
+         # 全部"消失"在 retired_ids 里，读的人以为语料被砍了
+         and str(f["id"]) not in live_ids}
         | set((existing or {}).get("retired_ids") or []))
     return {
         "schema_version": SCHEMA_VERSION,
