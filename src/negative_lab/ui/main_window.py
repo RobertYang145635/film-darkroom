@@ -400,7 +400,11 @@ class MainWindow(ExportCoordinatorMixin, IntentControllerMixin,
     def _on_area_clear(self, key: str):
         kind = self.AREA_KIND[key]
         self.view.clear_rois(kind)
-        self._update_draft_from_view()
+        # 审查修复（2026-09-09）：v6.2 F2 的规则是「凡改变统计范围的编辑都要重算」，
+        # 但这条只落在键盘删除路径（_on_roi_deleted 用 _changes_statistics 判据），
+        # 右栏「清除」按钮同样清掉片基取样区/有效画面区却**不重算**——界面继续显示
+        # 按已删除区域算出的 Dmin 与色罩结果，正是 F2 要消灭的病灶。
+        self._update_draft_from_view(rerun=self._changes_statistics(kind))
         self._update_area_states()
         self._update_guidance()
 

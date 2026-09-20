@@ -536,12 +536,6 @@ class RightPanel(QWidget):
             bits.append("修正已触发硬上限")
         self.cand.lbl_rationale.setText("\n".join(bits))
 
-    def set_tone_intent(self, intent, silent: bool = True):
-        self.panel.set_intent(intent, silent=silent)
-
-    def set_fine_rotation(self, deg: float):
-        self._fine_deg = deg
-
     def keep_rebate(self) -> bool:
         return self.sec_settings.chk_rebate.isChecked()
 

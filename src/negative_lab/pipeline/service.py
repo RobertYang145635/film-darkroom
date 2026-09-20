@@ -265,8 +265,6 @@ def process_image(t_source: np.ndarray, *,
         output_crop_roi=legacy_crop, image_area_roi=legacy_area,
         base_sample_rois=legacy_base)
     geo_in = GeometryRegions.from_dict(geo_in.to_dict())      # 深拷贝
-    if geo_in.output_crop_roi is None and output_crop_oriented:
-        pass  # oriented 在下方统一处理
     tr = OrientTransform((sh, sw), geo_in.rotation_degrees or rotation_degrees,
                          geo_in.mirror_horizontal, geo_in.fine_rotation_degrees)
 

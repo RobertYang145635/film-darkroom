@@ -44,20 +44,64 @@ class FrameLoaderMixin:
         if files:
             self.load_files([Path(f) for f in files])
 
-    def load_folder(self, folder: Path) -> ImportSession:
-        """后台导入（§15.7 响应性）：只取元数据+哈希，不做完整解码探针
-        （12 张 NEF 完整探针 20s——用户实测过久；解码失败在打开帧时
-        给出完整错误即可）。"""
-        self._set_banner(f"正在导入 {folder.name} …（读取元数据与哈希，"
-                         "界面保持可用）", "info")
+    def _start_import(self, job):
+        """导入的唯一后台入口（文件夹与文件列表共用）。
+
+        审查修复（2026-09-09）：此前 `self._busy_enter("import")` 的返回值被
+        丢弃——忙碌守卫是装饰性的，连点两次「导入文件夹」会并发跑两遍导入，
+        两个会话先后 `_adopt_session`，后到的那个无声覆盖前一个。
+        现在忙就拒绝并说明（与 load_frame 的 L1-② 口径一致：不给不成立的承诺）。
+        """
+        if not self._busy_enter("import"):
+            self._set_banner("上一次导入仍在进行中：请等待它完成后再导入", "warning")
+            return None
         from .workers import run_in_thread
-        self._busy_enter("import")
         return run_in_thread(
-            lambda cb: import_session(folder, probe=IMPORT_PROBE),
-            on_done=lambda r: self._import_done(r, folder),
+            job,
+            on_done=self._import_done,
             on_progress=lambda m: self._set_banner(f"导入：{m}", "info"))
 
-    def _import_done(self, result: dict, folder: Path):
+    def load_folder(self, folder: Path):
+        """后台导入（§15.7 响应性）：只取元数据+哈希，不做完整解码探针
+        （12 张 NEF 完整探针 20s——用户实测过久；解码失败在打开帧时
+        给出完整错误即可）。
+
+        返回后台线程句柄（导入已在进行则 None）；会话在 `_import_done`
+        落地。此前注解写 `-> ImportSession` 是假的：调用方拿不到会话。
+        """
+        folder = Path(folder)
+        self._set_banner(f"正在导入 {folder.name} …（读取元数据与哈希，"
+                         "界面保持可用）", "info")
+        return self._start_import(
+            lambda cb: import_session(folder, probe=IMPORT_PROBE))
+
+    def load_files(self, files: list[Path], *, background: bool = True):
+        """导入显式选择的文件（「导入文件…」/ 双击打开）。
+
+        审查修复（2026-09-09）：默认改到后台执行。此前逐文件哈希跑在 **GUI
+        线程**，违反 ui/workers.py 自己立的契约「一切 >200ms 的工作都必须
+        离开主线程」：`make_frame_record` 对每个文件做整文件 SHA-256，实测
+        本仓库真实样片 NEF 55 MB ≈ 80 ms、16 位 TIFF 274 MB ≈ 400 ms ——
+        选 20 个 TIFF 就是约 8 秒窗口「未响应」，且期间连横幅都不刷新。
+        `background=False` 保留同步语义，供脚本与测试直接取会话。
+        """
+        files = [Path(f) for f in files]
+        if not files:
+            return None
+        if not background:
+            return self._adopt_session(self._build_files_session(files))
+        return self._start_import(lambda cb: self._build_files_session(files))
+
+    @staticmethod
+    def _build_files_session(files: list[Path]) -> ImportSession:
+        """文件列表 -> ImportSession（纯计算，可安全放后台线程）。"""
+        sess = ImportSession()
+        root = Path(files[0]).parent
+        for f in files:
+            sess.files.append(make_frame_record(f, root=root, probe=False))
+        return sess
+
+    def _import_done(self, result: dict):
         self._busy_leave("import")
         if not result.get("ok"):
             self._set_banner(f"导入失败：{result.get('error')}", "danger")
@@ -67,13 +111,6 @@ class FrameLoaderMixin:
         if self.current is None and self.session is not None \
                 and self.session.files:
             self._load_first_frame_of(self.library.current_roll)
-
-    def load_files(self, files: list[Path]) -> ImportSession:
-        sess = ImportSession()
-        root = Path(files[0]).parent if files else Path(".")
-        for f in files:
-            sess.files.append(make_frame_record(f, root=root, probe=False))
-        return self._adopt_session(sess)
 
     def _adopt_session(self, sess: ImportSession) -> ImportSession:
         self.session = sess

@@ -555,7 +555,10 @@ class GeometryBridgeMixin:
 
     def _reset_all_geometry(self):
         self.view.clear_rois()
-        self._update_draft_from_view()
+        # 审查修复（2026-09-09）：三类区域全清含统计范围（片基/有效画面），
+        # 不重算就继续挂着按旧区域算出的分析结果——与 _on_area_clear 同一条
+        # v6.2 F2 规则，此前一起漏了。
+        self._update_draft_from_view(rerun=True)
         self._set_banner("已清空全部几何：状态 = 需要裁切复核", "warning")
 
     def _auto_crop(self):

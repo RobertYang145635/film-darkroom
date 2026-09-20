@@ -123,8 +123,13 @@ class PreviewView(QGraphicsView):
         self._brush_r = 6.0
 
     # ---------------------------------------------------------------- 图像
-    def set_image(self, rgb01, flip_y: bool = True):
-        """rgb01: (H,W,3) float in [0,1]。"""
+    def set_image(self, rgb01):
+        """rgb01: (H,W,3) float in [0,1]。
+
+        （2026-09-09 死参数清理：原有 `flip_y: bool = True` 形参在函数体内从未
+        被读取，全仓 5 处调用点也从未传它——上下翻转由管线侧的 OrientTransform
+        完成，不在显示层做第二次翻转。）
+        """
         import numpy as np
 
         arr = (np.clip(rgb01, 0, 1) * 255.0 + 0.5).astype(np.uint8)
@@ -455,8 +460,13 @@ class PreviewView(QGraphicsView):
         if on:
             self.viewport().setCursor(Qt.BusyCursor)
         else:
-            self.viewport().setCursor(
-                Qt.CrossCursor if self._draw_kind is not None else Qt.ArrowCursor)
+            # 审查修复（2026-09-09）：退出忙碌时此前只认绘制模式。拾点模式
+            # （中性点救援）与蒙版涂抹模式下光标是 CrossCursor，一次「片基分析」
+            # 结束就把光标悄悄变回箭头——模式还在、十字准星没了，用户以为拾点
+            # 被退出（Esc 才真退出）。三种"需要准星"的模式都要认。
+            crosshair = (self._draw_kind is not None or self._pick_mode is not None
+                         or self._paint_mode)
+            self.viewport().setCursor(Qt.CrossCursor if crosshair else Qt.ArrowCursor)
 
     def draw_preview_rect(self) -> QRectF | None:
         return self._draw_rect
