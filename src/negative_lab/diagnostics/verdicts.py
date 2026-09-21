@@ -395,6 +395,65 @@ def _scan_orphans(root, referenced: set) -> tuple:
     return ours, other, samples
 
 
+OURS_SHEET = re.compile(r"__[0-9a-f]{8}\.(jpg|jpeg|png)$", re.IGNORECASE)
+
+
+def prune_orphan_sheets(entries: Iterable[Mapping], *, root,
+                        remove: bool = False) -> dict:
+    """清理**本工具自己生成、且已无人引用**的判定条；**默认一个字节都不删**。
+
+    B-10 实测：`outputs/verdicts/sheets/` 里 **96 张图对应 48 条判定**，
+    一半是 uid 迁移前的旧命名。检测已能报出来，但**清理会删图**，
+    所以边界必须先写死并有锁，缺一条都不许放开 `remove`：
+
+    1. **默认 `remove=False`**：只返回清单，不落任何删除动作（防"忘了带开关"）；
+    2. **只碰 `root` 之内**：越界的路径一律跳过（含符号链接，直接不碰）；
+    3. **只碰本工具产物**：文件名必须匹配 `<stem>__<8hex>.<jpg|jpeg|png>`；
+       裸命名文件（可能是用户自己的照片，也可能是迁移前旧图）**永不删**，
+       交回 `bare_kept` 由人判断；
+    4. **被任何条目引用的文件永不删**（守恒：`kept_with_ref + candidates == 我们造的全部`）。
+    """
+    rows = [f for f in (entries or []) if isinstance(f, Mapping)]
+    d = pathlib.Path(root) if root is not None else None
+    out = {"root": str(d) if d else None, "candidates": 0, "removed": 0,
+           "referenced_kept": 0, "bare_kept": 0, "refused_outside": 0,
+           "samples": [], "remove": bool(remove)}
+    if d is None or not d.exists():
+        return out
+    root_r = d.resolve()
+    referenced = set()
+    for f in rows:
+        s = str(f.get("sheet") or "").strip()
+        if not s:
+            continue
+        p = pathlib.Path(s)
+        referenced.add((root_r / p).resolve() if not p.is_absolute() else p.resolve())
+
+    for p in sorted(root_r.rglob("*")):
+        try:
+            if p.is_symlink() or not p.is_file():
+                continue
+            rp = p.resolve()
+            if rp.parent != root_r and root_r not in rp.parents:
+                out["refused_outside"] += 1        # 越界：碰都不碰
+                continue
+            if rp in referenced:
+                out["referenced_kept"] += 1
+                continue
+            if OURS_SHEET.search(p.name):
+                out["candidates"] += 1
+                if len(out["samples"]) < 5:
+                    out["samples"].append(p.name)
+                if remove:
+                    p.unlink()
+                    out["removed"] += 1
+            elif p.suffix.lower() in (".jpg", ".jpeg", ".png"):
+                out["bare_kept"] += 1              # 裸命名：不删，交给人看
+        except OSError:
+            continue
+    return out
+
+
 def blank_verdict(frame: Mapping) -> dict:
     """一条待用户填写的判定（所有判定字段一律为 None，脚本不得填）。"""
     return {

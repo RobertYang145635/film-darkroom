@@ -372,3 +372,35 @@
   2. **验证与提交分两次调用**，验证只看一件事：单独跑全量、单独打印 `exit=`；
   3. commit message 里的**任何测试数字**，必须来自**同一次调用里刚刚打印过的**结果。
 
+
+### B-8 **订正 + 定位**（同日）：崩溃在**我们自己的代码**里，我之前的"环境说"被打脸
+
+**这次 faulthandler 打全了栈**（前三次都是半截，所以只能猜）：
+
+```
+Windows fatal exception: access violation
+Current thread 0x00003adc:
+  File "src/negative_lab/ui/theme.py", line 189, in apply     # app.setStyleSheet(qss())
+  File "tests/unit/test_v6_keep_rebate.py", line 34, in qapp  # theme.apply(app)
+  ... pytest/fixtures.py … _console_main
+```
+
+- **订正**：上一轮我写"4 次崩溃全在链式调用里，**链式+环境**升为首要怀疑"——
+  **方向错了**。崩溃**与我们自己的代码有关**，与是不是链式调用**没有因果关系**；
+  链式只是让我更容易撞上它（跑得更多）。
+- **可疑机制（待证，不是结论）**：`tests/unit/test_v6_keep_rebate.py` 的
+  `qapp` 是 **`scope="module"`**，内部 `QApplication.instance() or QApplication([])`
+  再 `theme.apply(app)`。跨模块反复建 app、且**没有全局强引用**
+  （fixture 拆完，Python 侧最后引用消失 → C++ 对象被销毁，而 Qt 全局状态还在），
+  随后再建**第二个 QApplication** 是 Windows/Qt 上访问越界的经典成因。
+- **为什么它"偶发"**：取决于**哪个模块先拿到 app、谁先被销毁**；
+  同一进程内跑的文件组合不同，命中的概率就不同——所以它表现得像"随机"。
+- **正确的修法（下轮按此做，别再猜）**：
+  1. 进程内**唯一** QApplication：挪到 `tests/conftest.py` 的
+     **`scope="session"`** fixture，并用**模块级全局强引用**钉住，**永不销毁**；
+  2. 各测试文件**删掉自建的 `qapp`**，改用 conftest 那一个（避免影子夹具）；
+  3. 用 `soak.py --rounds 10` **前后对比**：改前崩溃率 vs 改后应为 **0**，
+     **改后仍非 0 就说明机制猜错**，回来继续查而不是宣布修好。
+- **锁**：夹具唯一性锁（`QApplication.instance()` 在整个会话中始终是同一个对象）；
+  以及"跑完 UI 用例后 app 仍存活"的断言（防"提前销毁"复发）。
+
