@@ -1,0 +1,46 @@
+"""文档骨架锁：防"编辑时把整节标题覆盖掉"。
+
+**为什么有这条**：本会话我在 `docs/blockers.md` 和 `docs/visual-acceptance.md`
+里**连犯两次同一个错**——用整节标题当 `edit` 锚点做替换，新串里忘了带回调题，
+结果**整节标题被吞**（正文成了孤儿）。两次都是事后 grep 才发现，
+第二次我改成"提交前跑结构自检"，但那只救了一次提交，**没救代码库**。
+
+这条锁把检查搬进测试：标题集合一旦缺项/重复就红。
+**新增一节是允许的**——同步更新下面的期望集合即可，
+那道"必须显式改测试"的摩擦正是本意（顺手删标题不再可能蒙混过关）。
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+
+def _h2(name: str) -> list[str]:
+    text = (ROOT / "docs" / name).read_text(encoding="utf-8")
+    return re.findall(r"(?m)^## +(.+)$", text)
+
+
+def test_blockers_has_exactly_one_of_each_b_number():
+    heads = _h2("blockers.md")
+    ids = [h.split("（")[0].strip() for h in heads if h.startswith("B-")]
+    dup = [i for i in set(ids) if ids.count(i) > 1]
+    assert not dup, f"同一个 B-n 出现多次（多半是插入时把旧条目切开了）：{dup}"
+    missing = [f"B-{n}" for n in range(1, len(ids) + 1) if f"B-{n}" not in ids]
+    assert not missing, f"缺号：{missing}；现有：{sorted(ids)}"
+
+
+def test_acceptance_doc_keeps_its_sections():
+    heads = _h2("visual-acceptance.md")
+    # 只比**前缀**（标题里有中文引号，整串比对容易被引号形态绊倒）；
+    # 新增/改名章节时**显式**改这里。
+    expected = ("一、怎么签", "一·a、导出被挡", "三·a、判之前先读",
+                "二、判据", "三、基准集覆盖了什么", "三·b、本批判定条",
+                "四、历史")
+    missing = [e for e in expected if not any(h.startswith(e) for h in heads)]
+    assert not missing, (
+        f"验收文档少了小节（被覆盖/误删？）：{missing}\n现有标题：{heads}")
+    dup = [h for h in set(heads) if heads.count(h) > 1]
+    assert not dup, f"标题重复：{dup}"
