@@ -166,8 +166,14 @@ class BatchJob:
             return
         # ---- fail 在写文件之前阻断（不产出任何输出）
         if pr.gate.blocks_export:
+            from ..diagnostics.explain import clip_note
             it.status = "failed"
-            it.error = "; ".join(pr.gate.failures)
+            # 批量路径同样要说清责任：这帧是"采集端就已丢失"还是"软件能改"。
+            # 注意：本路径的 blocked/failed **分桶仍未做**（见 blockers.md B-7 遗留），
+            # 这里只补归因，不动状态语义，避免一次改两层。
+            note = clip_note(pr.gate)
+            it.error = ("; ".join(pr.gate.failures)
+                        + (("；" + note) if note else ""))
             it.quality = pr.gate.to_dict()
             it.geometry = pr.geometry.to_dict()
             return
