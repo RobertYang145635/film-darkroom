@@ -52,7 +52,13 @@ def test_check_is_read_only(tmp_path):
 
 
 def test_no_entries_is_not_an_error():
+    # 原意：空输入**不许崩**，也不许把"没判定"报成错误。
+    # B-10 给返回值加了 3 个**只读报告字段**（陈旧/未登记判定条），
+    # 这里**同步补全期望值而不是改成子集比较**——形状仍然全等卡死，
+    # 将来谁再偷偷加字段，这条会照样拦住。
     for empty in ([], None):
         got = sheet_integrity(empty)
         assert got == {"entries": 0, "missing_sheet": 0,
-                       "signed_missing_sheet": 0, "samples": []}
+                       "signed_missing_sheet": 0, "samples": [],
+                       "stale_sheets": 0, "untracked_sheets": 0,
+                       "orphan_samples": []}

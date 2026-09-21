@@ -34,6 +34,7 @@ from typing import Iterable, Mapping
 
 import numpy as np
 import pathlib
+import re
 
 # 剪裁警告线复用质量门禁的常量：分层"踩到剪裁"和门禁"警告剪裁"必须是同一口径
 from negative_lab.diagnostics.quality_gate import CLIP_WARN_FRAC
@@ -325,18 +326,31 @@ def sheet_integrity(entries: Iterable[Mapping], *, root=None) -> dict:
 
     只报告、**不翻判定**：`outputs/` 不入库，用户清一次缓存
     不该把已经签下的判定作废；但那必须**大声说出来**。
+
+    **B-10（2026-09-09 实测）**：本函数原先只**从条目往文件查**，于是
+    `outputs/verdicts/sheets/` 里躺着 **96 张图对应 48 条判定**（一半是 uid
+    迁移前的旧命名）也照样报 `missing 0`——**它不看"多出来的文件"**。
+    而签判定的人是**按文件名挑图**的：他可能对着一张陈旧渲染下判，
+    仪器却一脸绿说"证据齐全"。故新增两个**只读报告项**（不删任何东西）：
+    - `stale_sheets`：带本工具标记 `__<8hex>` 却**没被任何条目引用**的图（高置信是我们造的）；
+    - `untracked_sheets`：同目录里**裸命名**的图（迁移前旧命名，或用户自己的文件——
+      分不清就只报样本，**不猜**）。
     """
     rows = [f for f in (entries or []) if isinstance(f, Mapping)]
     missing = signed_missing = 0
     samples: list = []
+    referenced: set = set()
     for f in rows:
         sheet = str(f.get("sheet") or "").strip()
         ok = bool(sheet)
         if ok and root is not None:
-            ok = (root / sheet).exists() if not pathlib.Path(sheet).is_absolute() \
-                else pathlib.Path(sheet).exists()
+            p = pathlib.Path(sheet)
+            ok = (root / sheet).exists() if not p.is_absolute() else p.exists()
+            referenced.add((root / sheet).resolve() if not p.is_absolute()
+                           else p.resolve())
         elif ok:
             ok = pathlib.Path(sheet).exists()
+            referenced.add(pathlib.Path(sheet).resolve())
         if not ok:
             missing += 1
             if _is_signed(f):
@@ -344,8 +358,41 @@ def sheet_integrity(entries: Iterable[Mapping], *, root=None) -> dict:
             if len(samples) < 3:
                 samples.append(f"{uid_of(f) or f.get('id')}："
                                f"{'sheet 为空' if not sheet else '图片不存在 ' + sheet}")
+    stale, untracked, extra = _scan_orphans(root, referenced)
     return {"entries": len(rows), "missing_sheet": missing,
-            "signed_missing_sheet": signed_missing, "samples": samples}
+            "signed_missing_sheet": signed_missing,
+            "stale_sheets": stale, "untracked_sheets": untracked,
+            "samples": samples, "orphan_samples": extra}
+
+
+_OURS = re.compile(r"__[0-9a-f]{8}$")
+
+
+def _scan_orphans(root, referenced: set) -> tuple:
+    """扫目录里**没被引用**的判定条（只读；返回 高置信陈旧数、裸命名数、样本）。
+
+    **绝不删**：清理需要"路径边界锁"先行（B-10 修法第 2 条 + 锁④），
+    删错就是删用户的图。这里只把事实摆出来给人看。
+    """
+    if root is None:
+        return 0, 0, []
+    d = pathlib.Path(root)
+    if not d.exists():
+        return 0, 0, []
+    ours = other = 0
+    samples: list = []
+    for p in sorted(d.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in (".jpg", ".jpeg", ".png"):
+            continue
+        if p.resolve() in referenced:
+            continue
+        if _OURS.search(p.stem):
+            ours += 1
+        else:
+            other += 1
+        if len(samples) < 4:
+            samples.append(p.name)
+    return ours, other, samples
 
 
 def blank_verdict(frame: Mapping) -> dict:
