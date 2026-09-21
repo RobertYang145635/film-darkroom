@@ -353,6 +353,16 @@
 且**清理逻辑一旦写错就是删用户的图**——这类删除必须有边界锁在先。
 **下轮按上面四条锁实现，锁不过就不提交。**
 
+> **进度订正（同日，避免被当成已完成）**：`prune_orphan_sheets`（带 6 道边界锁）
+> 与 `sheet_integrity()` 的 `stale_sheets` / `untracked_sheets` 两个报告字段**已落地**；
+> 但**报告端还没消费它们**——`scripts/verify_verdicts.py` 只读
+> `missing_sheet` / `signed_missing_sheet`，**签字的人至今看不到
+> "目录里有陈旧判定条"**。也就是说 B-10 目前是**半成品**：仪器会算，但没人告诉用户。
+> **接线时机**：`tests/unit/test_verdict_report_integrity.py` 会 import 本脚本并断言
+> `render_md` 输出，因此改动**必须等 soak 基线跑完**再做，且新报告小节要配锁：
+> **陈旧为 0 时不得出现新小节**（保护既有断言），**>0 时必须出现且带文件名**。
+
+
 
 ### B-8 追加（同日）：**第 4 次崩溃**，以及一次**取证过程事故**（我自己的）
 
