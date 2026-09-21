@@ -200,7 +200,7 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
         roll_stats = None
         session_for_worker = session
     items: list[dict] = []
-    counts = {"ok": 0, "needs_review": 0, "failed": 0, "cancelled": 0}
+    counts = {"ok": 0, "needs_review": 0, "blocked": 0, "failed": 0, "cancelled": 0}
     started = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     for rec in records:
         if cancel is not None and cancel.is_set():
@@ -223,6 +223,14 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
                 rec.status = FrameStatus.DECODE_ERROR.value
             entry = {"file": rec.source_path, "status": "failed",
                      "error": f"decode: {e}"}
+        except GateBlocked as e:
+            # 门禁阻断：**故意不给导**，不再冒充 failed（B-7）。
+            # `rec.status` 维持过去的 PROCESSING_ERROR：一次改动只动一层语义，
+            # 这轮只拆"用户看到的桶"，库内状态语义留给后续评估。
+            if not presnapshot:
+                rec.status = FrameStatus.PROCESSING_ERROR.value
+            entry = {"file": rec.source_path, "status": "blocked",
+                     "error": str(e)}
         except ExportError as e:
             if not presnapshot:
                 rec.status = FrameStatus.PROCESSING_ERROR.value
@@ -239,8 +247,7 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
                 rec.status = FrameStatus.EXPORTED.value
             elif entry["status"] == "needs_review":
                 rec.status = FrameStatus.NEEDS_REVIEW.value
-        key = "ok" if entry["status"] == "ok" else (
-            "needs_review" if entry["status"] == "needs_review" else "failed")
+        key = bucket_of(entry["status"])
         counts[key] = counts.get(key, 0) + 1
         items.append(entry)
         if progress:
@@ -354,6 +361,37 @@ def _geometry_from_annotation(ann):
         base_sample_rois=list(ann.base_sample_rois or []))
 
 
+EXPORT_STATUS_BUCKETS = ("ok", "needs_review", "blocked", "failed", "cancelled")
+
+
+def bucket_of(status: str) -> str:
+    """把 per-entry 状态归入计数桶；**未知状态一律算 failed**。
+
+    B-7（2026-09-09）：门禁阻断从前混在 `failed` 里，用户看到"有失败帧"
+    会以为导出坏了、该重试；真相是**故意不给导**（多数还是采集端就丢了数据）。
+    未知值不许凭空消失——那等于吞帧。
+    """
+    return status if status in EXPORT_STATUS_BUCKETS else "failed"
+
+
+class GateBlocked(ExportError):
+    """质量门禁阻断：**故意不给导**，不是读图/写盘失败。
+
+    仍是 `ExportError` 的子类 ⇒ 既有 `except ExportError` 的调用方行为不变
+    （老代码不会漏抓）。新增它的原因是**要按类型分桶**，
+    而不是去匹配"质量门禁阻断"这串中文——本项目已因"拿文案当判据"翻过车。
+    """
+
+
+def guard_gate_blocked(gate) -> None:
+    """门禁阻断的唯一出口：挡住就抛 `GateBlocked`，并把**数值归因**写进消息。"""
+    if getattr(gate, "blocks_export", False):
+        note = clip_note(gate)
+        raise GateBlocked("质量门禁阻断："
+                          + "; ".join(list(getattr(gate, "failures", []) or []))
+                          + (("；" + note) if note else ""))
+
+
 def _export_one(rec, outdir: Path, *, session, roll_id,
                 intent_resolver, tiff_assumption, jpeg_quality,
                 export_tiff, export_jpeg, roll_stats=None,
@@ -400,13 +438,7 @@ def _export_one(rec, outdir: Path, *, session, roll_id,
                        roll_analysis=roll_analysis, render_intent=intent,
                        candidate=candidate, capture_fingerprint=fp,
                        keep_rebate=bool(getattr(rec, "keep_rebate", False)))
-    if pr.gate.blocks_export:
-        # 前缀保持不变（老调用方与测试按它匹配）；补上归因，
-        # 让用户当场看到这帧是"采集端就已丢失"还是"软件能改"——
-        # 同一句归因在 GUI 右栏与判定条上已有，导出这条路径不该缺席。
-        note = clip_note(pr.gate)
-        raise ExportError("质量门禁阻断：" + "; ".join(pr.gate.failures)
-                          + (("；" + note) if note else ""))
+    guard_gate_blocked(pr.gate)   # 挡住就抛 GateBlocked（消息含数值归因）
     meta = dict(loaded.meta)
     meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
     payload = build_sidecar_v4(

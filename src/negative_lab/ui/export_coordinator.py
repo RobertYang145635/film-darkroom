@@ -116,20 +116,29 @@ class ExportCoordinatorMixin:
         rep = res.get("value") or {}
         cancelled = int(rep.get("cancelled") or 0)
         failed = int(rep.get("failed") or 0)
+        blocked = int(rep.get("blocked") or 0)
         line = (f"成功 {int(rep.get('ok') or 0)} / "
                 f"待复核 {int(rep.get('needs_review') or 0)} / "
                 f"失败 {failed}")
+        if blocked:
+            line += f" / 被门禁挡住 {blocked}"
         if cancelled:
             line += f" / 已取消 {cancelled}"
         detail = f"报告：{rep.get('report_path', '')}"
+        if blocked:
+            # 分开说，用户才知道不该去"重试导出"：见 docs/blockers.md B-7
+            detail += ("\n被门禁挡住的帧不是导出坏了：多为采集端就已丢失的数据"
+                       "（帧详情写明比例），重扫/重拍才能根治；"
+                       "是否放宽该硬挡见 docs/blockers.md B-6（待裁决）。")
         if rep.get("summary_complete") is False:
             detail += "（计数不完整，请查看报告核对逐帧结果）"
         title = ("整卷导出已取消" if cancelled
                  else "整卷导出结束（有失败帧）" if failed
+                 else "整卷导出结束（有帧被门禁挡住）" if blocked
                  else "整卷导出完成")
-        if cancelled or failed:
+        if cancelled or failed or blocked:
             QMessageBox.warning(self, title, f"{line}\n{detail}")
         else:
             QMessageBox.information(self, title, f"{line}\n{detail}")
         self._set_banner(f"{title}：{line}",
-                         "warning" if (cancelled or failed) else "success")
+                         "warning" if (cancelled or failed or blocked) else "success")
