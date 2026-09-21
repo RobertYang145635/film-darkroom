@@ -112,3 +112,34 @@ def test_lock_is_not_vacuous_by_checking_it_against_a_mutated_doc():
     broken = real.replace(f"{entries} 帧已生成", f"{entries + 1} 帧已生成", 1)
     assert broken != real, "替换没生效 → 锚点不存在，前面那条锁其实是空的"
     assert f"{entries} 帧已生成" not in broken
+
+
+def test_low_base_confidence_claim_matches_artifact_and_avoids_the_or_trap():
+    """文档"98/169 帧片基置信度低于 0.6"要核对——**并锁死正确的取值写法**。
+
+    本锁的血泪来历：我用 `(f.get("base_confidence") or 1) < 0.6` 算出 **24**，
+    兴冲冲去报"文档写错了"；**其实文档是对的（98）**，错的是探针——
+    `or` 把**合法的 0.0** 当成缺失吞掉（实测 `min=0.0`、中位数 `0.524`，0.0 大量存在）。
+    所以这里**两种写法都算一遍**：把"错写法会得到不同的数"这件事**钉进测试**，
+    下次谁再用 `or` 求默认值，会立刻看到差异而不是重蹈覆辙。
+    """
+    m = json.loads((ROOT / "fixtures/verdicts/metrics.json").read_text(encoding="utf-8"))
+    fr = m["frames"]
+    fr = fr if isinstance(fr, list) else list(fr.values())
+    assert len(fr) > 0
+
+    def count(pred):
+        return sum(1 for f in fr if pred(f))
+
+    correct = count(lambda f: (f.get("base_confidence")
+                               if f.get("base_confidence") is not None else 1.0) < 0.6)
+    buggy = count(lambda f: bool(f.get("base_confidence")) and f["base_confidence"] < 0.6)
+    assert correct != buggy, (
+        "两种写法算出同一个数 → 本用例失去意义（语料里已无 0.0 置信度？"
+        "那就删掉这条锁并在文档里说明，别留一条空锁）")
+
+    doc = DOC.read_text(encoding="utf-8")
+    assert f"{correct}/169 帧片基置信度" in doc, (
+        f"实测低置信度 {correct}/169，文档措辞对不上（漂移）；"
+        f"注意**别用 `or` 取默认值**，那会得到 {buggy}")
+
