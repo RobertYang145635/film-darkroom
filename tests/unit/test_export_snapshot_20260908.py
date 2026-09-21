@@ -167,3 +167,35 @@ def test_writeback_classifies_real_decode_failure(synth_tiff, tmp_path):
     assert rec.status == FrameStatus.IMPORTED.value, "worker 不得写状态"
     apply_status_writeback(sess, rep["items"])
     assert rec.status == FrameStatus.DECODE_ERROR.value
+
+
+def test_gate_blocked_frame_records_gate_blocked_not_processing_error(synth_tiff,
+                                                                       tmp_path,
+                                                                       monkeypatch):
+    """B-9 缺口锁：**真实整卷导出被门禁挡下后，帧状态必须是 `gate_blocked`**。
+
+    此前那条分支**故意**写 `PROCESSING_ERROR`（"一次只动一层"），B-9 拆掉了它。
+    本锁走的是**生产入口** `export_roll_frames`，不是手搓字典——所以它真的能证明
+    "库内状态"这一层也改到位了（`test_gate_blocked_bucket.py` 只测分桶/退出码，
+    `test_service.py` 那条走 batch 层**拿不到 `rec.status`**，都替代不了）。
+    """
+    from negative_lab.library.models import FrameStatus
+    import negative_lab.pipeline.roll_export as rx
+
+    def boom(_gate):
+        raise rx.GateBlocked("质量门禁阻断：测试用（高端剪裁全部继承自采集端）")
+
+    monkeypatch.setattr(rx, "guard_gate_blocked", boom)
+    import tifffile
+    rec = _frame_for(synth_tiff, _complete_geometry(
+        tifffile.imread(str(synth_tiff)).shape))
+    rep = rx.export_roll_frames([rec], tmp_path / "out", presnapshot=False,
+                                tiff_assumption="linear")
+    entry = next(e for e in rep["items"] if e["file"] == rec.source_path)
+    assert entry["status"] == "blocked", f"条目层应归 blocked：{entry}"
+    assert rec.status == FrameStatus.GATE_BLOCKED.value, (
+        f"库内状态仍把『被挡』当『处理错误』：{rec.status}")
+    assert rec.status != FrameStatus.PROCESSING_ERROR.value
+    assert not FrameStatus.is_blocking(rec.status), (
+        "被挡不是硬阻断态（B-9 决定：阻断只有一条路）")
+    assert not list((tmp_path / "out").glob("*.tif")), "被挡帧不得产出任何文件"
