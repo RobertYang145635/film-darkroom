@@ -374,6 +374,17 @@ def bucket_of(status: str) -> str:
     return status if status in EXPORT_STATUS_BUCKETS else "failed"
 
 
+def export_exit_code(rep: dict) -> int:
+    """导出命令的退出码：**有失败帧或有帧被门禁挡住，都算这次运行不成功**。
+
+    B-7 把 `blocked` 从 `failed` 拆出来后，CLI 若还只看 `failed`，
+    一"整卷全被门禁挡住"的运行会退出 **0** —— 脚本与 CI 会把"故意不给导"
+    读成"成功"。那是假绿的新形态，比原来的混计更危险（原来至少会红）。
+    """
+    return 1 if (int(rep.get("failed") or 0)
+                 or int(rep.get("blocked") or 0)) else 0
+
+
 class GateBlocked(ExportError):
     """质量门禁阻断：**故意不给导**，不是读图/写盘失败。
 

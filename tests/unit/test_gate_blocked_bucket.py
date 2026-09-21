@@ -72,3 +72,21 @@ def test_buckets_are_conserved():
     assert counts == {"ok": 2, "needs_review": 1, "blocked": 2,
                       "failed": 2, "cancelled": 1}
     assert set(EXPORT_STATUS_BUCKETS) == set(counts), "桶集合与计数集合必须一致"
+
+
+def test_cli_exit_code_still_red_when_only_blocked(tmp_path):
+    """⑤ 拆桶引入的**自伤回归锁**：全卷被挡住绝不能退出 0。
+
+    B-7 之前 `blocked` 混在 `failed` 里，CLI 看 `failed` 就红；拆开后若还只看
+    `failed`，"整卷被门禁挡住"会退出 0 —— 脚本/CI 把"故意不给导"读成"成功"，
+    比原来更危险。这条锁专门盯这个。
+    """
+    from negative_lab.pipeline.roll_export import export_exit_code
+
+    assert export_exit_code({"ok": 0, "needs_review": 0, "blocked": 21,
+                             "failed": 0, "cancelled": 0}) == 1, (
+        "全被挡住却退出 0 = 把阻断读成成功")
+    assert export_exit_code({"ok": 3, "failed": 1}) == 1
+    assert export_exit_code({"ok": 3, "needs_review": 2, "blocked": 0,
+                             "failed": 0, "cancelled": 0}) == 0
+    assert export_exit_code({}) == 0, "缺键不许凭空报错，也不许凭空变红"

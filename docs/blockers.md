@@ -102,6 +102,14 @@
 
 ## B-7（已实现 `9029127`：分桶+专用异常+GUI 分开播报；遗留见下）：门禁阻断不再冒充"导出失败"
 
+> **后续更新（同日，紧接 `9029127`）**：拆桶当时**引入了一个自伤回归**——
+> CLI 仍是 `return 1 if rep["failed"] else 0`，`blocked` 拆走后
+> "整卷被门禁挡住"会**退出 0**（脚本/CI 把"故意不给导"读成"成功"，比原来更危险）。
+> 现已改为 `export_exit_code(rep)`：`failed` 或 `blocked` 任一非零即退出 1，
+> CLI 行内也补打了 `blocked=`。锁 `test_cli_exit_code_still_red_when_only_blocked`
+> 专盯这件事（含全被挡→1、有失败→1、干净→0、缺键不炸）。
+> 上面遗留 ② 中的 **CLI 部分已完成**，`batch.py` 播报仍待同步。
+
 - **实测（2026-09-09 读代码定位，非推测）**：
   `pipeline/roll_export.py:402-403` 在 `pr.gate.blocks_export` 时
   `raise ExportError("质量门禁阻断：…")`；而 `export_roll_frames()` 的

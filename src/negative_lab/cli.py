@@ -196,7 +196,7 @@ def cmd_batch(args) -> int:
 
 
 def cmd_roll(args) -> int:
-    from .pipeline.roll_export import export_roll_frames
+    from .pipeline.roll_export import export_exit_code, export_roll_frames
 
     sess = ImportSession.load(Path(args.session))
     roll = sess.roll(args.roll)
@@ -219,9 +219,10 @@ def cmd_roll(args) -> int:
                              tiff_assumption=args.tiff_encoding,
                              progress=lambda m: print(m, flush=True))
     print(f"OK roll={roll.id} ok={rep['ok']} needs_review="
-          f"{rep['needs_review']} failed={rep['failed']}")
+          f"{rep['needs_review']} blocked={rep.get('blocked', 0)} failed={rep['failed']}")
     print(f"报告：{rep['report_path']}")
-    return 1 if rep["failed"] else 0
+    # 只看 failed 会让"全卷被门禁挡住"退出 0（假绿），见 export_exit_code
+    return export_exit_code(rep)
 
 
 def cmd_profile(args) -> int:
