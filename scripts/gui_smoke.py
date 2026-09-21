@@ -121,6 +121,10 @@ def main() -> int:
     # 当成凭空消失的帧来报假红；在不阻断的语料上则悄悄失去检查力。
     print("export summary:", {k: rep.get(k) for k in EXPORT_STATUS_BUCKETS})
     assert rep["failed"] == 0, rep["items"]
+    # B-7 拆桶后，被门禁挡住的帧不再进 failed；冒烟若只盯 failed，
+    # 一卷"全被挡住"的导出也能绿——那正是假绿。这里显式要求零阻断。
+    assert int(rep.get("blocked") or 0) == 0, (
+        f"有帧被质量门禁挡住，冒烟不该当没事发生：{rep.get('blocked')}")
     # 计数必须覆盖全部帧（v6.2 §6.6：取消/失败/阻断都不得静默消失）
     assert sum(int(rep.get(k) or 0) for k in EXPORT_STATUS_BUCKETS) == len(frames), rep
     stem = Path(paths[0]).stem
