@@ -19,6 +19,7 @@ from typing import Any
 
 
 from .. import __version__
+from ..diagnostics.explain import clip_note
 from ..io.export import ExportError, export_triplet
 from ..io.images import ReadError, load_linear_rgb
 from ..library.fingerprint import capture_fingerprint
@@ -400,7 +401,12 @@ def _export_one(rec, outdir: Path, *, session, roll_id,
                        candidate=candidate, capture_fingerprint=fp,
                        keep_rebate=bool(getattr(rec, "keep_rebate", False)))
     if pr.gate.blocks_export:
-        raise ExportError("质量门禁阻断：" + "; ".join(pr.gate.failures))
+        # 前缀保持不变（老调用方与测试按它匹配）；补上归因，
+        # 让用户当场看到这帧是"采集端就已丢失"还是"软件能改"——
+        # 同一句归因在 GUI 右栏与判定条上已有，导出这条路径不该缺席。
+        note = clip_note(pr.gate)
+        raise ExportError("质量门禁阻断：" + "; ".join(pr.gate.failures)
+                          + (("；" + note) if note else ""))
     meta = dict(loaded.meta)
     meta["output_icc_sha256"] = icc_sha256(srgb_icc_bytes())
     payload = build_sidecar_v4(
