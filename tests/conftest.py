@@ -77,4 +77,44 @@ def shared_qapp():
     from PySide6.QtWidgets import QApplication
 
     _QAPP = QApplication.instance() or QApplication([])
+    _load_test_font()
     yield _QAPP
+
+
+#: 已知许可干净的字体候选（**只运行时读取，绝不复制进仓库**——
+#: Arial/Segoe 是微软商用字体，打包分发是许可违规）。
+_FONT_CANDIDATES = (
+    "C:/Windows/Fonts/arial.ttf",
+    "C:/Windows/Fonts/tahoma.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/TTF/DejaVuSans.ttf",
+    "/Library/Fonts/Arial.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+)
+
+
+def _load_test_font():
+    """给 offscreen 平台补上**至少一种字体**；**找不到就安静返回 None**。
+
+    实测（2026-09）：offscreen 下 `QFontDatabase().families() == 0`，
+    而同机原生 `windows` 平台有 **406** 个族 ⇒ **本仓库所有 UI 测试都跑在
+    零字体数据库上**，文本宽度/换行/截断从未在真实条件下验证过。
+    补字体后若有用例转红，那是**暴露失真**，不是回归（见 `docs/blockers.md` B-8）。
+    """
+    import warnings
+
+    from PySide6.QtGui import QFontDatabase
+
+    for p in _FONT_CANDIDATES:
+        path = Path(p)
+        if not path.exists():
+            continue
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                ident = QFontDatabase.addApplicationFont(str(path))
+            if QFontDatabase.applicationFontFamilies(ident):
+                return path
+        except Exception:        # 补不上就算了，**不许因此搞红整个会话**
+            continue
+    return None
