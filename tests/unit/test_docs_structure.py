@@ -58,3 +58,35 @@ def test_negative_control_catches_a_swallowed_heading():
     heads = re.findall(r"(?m)^## +(.+)$", broken)
     assert not any(h.startswith("二、判据") for h in heads), (
         "被吞的标题仍被识别为章节——检测逻辑不可信")
+
+
+CHANGELOG_ANCHORS = ("B-7：门禁阻断不再冒充", "订正：我用中文字串当判据")
+
+
+def _changelog_heads() -> list[str]:
+    # CHANGELOG.md 在仓库根，不在 docs/ —— 用 _h2() 会读错目录
+    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    return re.findall(r"(?m)^## +(.+)$", text)
+
+
+def test_changelog_keeps_both_retro_sections():
+    """变更日志的两条"账"必须各存在一次。
+
+    补记 B-7 时我是**在别的条目中间插入**的——正是本会话两次吞标题的手法。
+    这条锁盯住被插入点相邻的两条既有标题没被吃掉（少一条就说明出过手）。
+    """
+    heads = _changelog_heads()
+    for a in CHANGELOG_ANCHORS:
+        n = sum(1 for h in heads if h.startswith(a))
+        assert n == 1, f"锚点 {a!r} 出现 {n} 次（应为 1）：日志条目可能被切开或重复"
+
+
+def test_negative_control_catches_changelog_entry_split():
+    """负控制：模拟"插入时把相邻条目标题吞掉"，锁必须响。"""
+    real = (ROOT / "docs" / ".." / "CHANGELOG.md").read_text(encoding="utf-8")
+    for anchor in CHANGELOG_ANCHORS:
+        broken = real.replace("## " + anchor, anchor, 1)   # 标题降级成正文
+        assert broken != real, f"锚文本没匹配上，负控制空跑：{anchor}"
+        heads = re.findall(r"(?m)^## +(.+)$", broken)
+        assert not any(h.startswith(anchor) for h in heads), (
+            f"{anchor} 被降级仍算章节——检测不可信")
