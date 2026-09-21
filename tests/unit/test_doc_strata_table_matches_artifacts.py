@@ -121,3 +121,29 @@ def test_lock_has_teeth_wrong_number_is_caught():
     bad = {key: (a + 1, b)}
     assert _diff(bad, corpus, picked), "改错数字却没报错——本锁是空锁"
     assert _table(bad_text).get(key) == (a, b), "行内容变了，解析应仍读到原值"
+
+
+def test_per_roll_line_matches_artifacts():
+    """**逐卷那行**也纳入同一把锁：`卷 选中/总数`，一格不符即红。
+
+    2026-09-21 实测：原文档**总数全对、但 5 卷里 4 卷的"选中"是错的**
+    （6/9/18/6/9 合计 48，实测 6/8/20/7/7 合计也是 48）——
+    **合计对不代表分布对**，只看合计的锁抓不到这种漂移。
+    """
+    corpus = _frames(ROOT / "fixtures" / "verdicts" / "metrics.json")
+    picked = _frames(ROOT / "fixtures" / "verdicts" / "decisions.json")
+    tot, pk = {}, {}
+    for f in corpus:
+        tot[f["roll"]] = tot.get(f["roll"], 0) + 1
+    for f in picked:
+        pk[f["roll"]] = pk.get(f["roll"], 0) + 1
+    text = DOC.read_text(encoding="utf-8")
+    line = next((ln for ln in text.splitlines() if ln.startswith("逐卷")), "")
+    assert line, "找不到『逐卷』那行，锁本身失效"
+    got = {m.group(1): (int(m.group(2)), int(m.group(3)))
+           for m in re.finditer(r"`([^`]+)`\s*(\d+)/(\d+)", line)}
+    assert len(got) == len(tot), (
+        f"逐卷行只覆盖 {len(got)} 卷，语料有 {len(tot)} 卷（漏卷=静默失真）")
+    bad = [f"{r}: 文档 {got.get(r)} ≠ 实算 ({pk.get(r, 0)}/{tot[r]})"
+           for r in tot if got.get(r) != (pk.get(r, 0), tot[r])]
+    assert not bad, "逐卷数字与工件不符：\n  " + "\n  ".join(bad)
