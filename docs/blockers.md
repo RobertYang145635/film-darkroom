@@ -357,7 +357,7 @@
 > 与 `sheet_integrity()` 的 `stale_sheets` / `untracked_sheets` 两个报告字段**已落地**；
 > 但**报告端还没消费它们**——`scripts/verify_verdicts.py` 只读
 > `missing_sheet` / `signed_missing_sheet`，**签字的人至今看不到
-> "目录里有陈旧判定条"**。也就是说 B-10 目前是**半成品**：仪器会算，但没人告诉用户。
+> "目录里有陈旧判定条"**。也就是说 B-10 当时是**半成品**（该小节下方已有状态更新：主体已收口）：仪器会算，但没人告诉用户。
 > **接线时机**：`tests/unit/test_verdict_report_integrity.py` 会 import 本脚本并断言
 > `render_md` 输出，因此改动**必须等 soak 基线跑完**再做，且新报告小节要配锁：
 > **陈旧为 0 时不得出现新小节**（保护既有断言），**>0 时必须出现且带文件名**。
