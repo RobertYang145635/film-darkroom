@@ -45,6 +45,10 @@ class FrameStatus(str, Enum):
     EXPORTED = "exported"
     DECODE_ERROR = "decode_error"
     PROCESSING_ERROR = "processing_error"
+    #: 被质量门禁**故意挡下**（B-9）：**记录性状态**，故**不在** `BLOCKING_STATUSES` 里——
+    #: 阻断与否只由既有那一条路决定（metrics `blocks_export` + `GateBlocked` + 退出码），
+    #: 见 `docs/blockers.md` B-9"单一事实源"决定；`is_blocking("gate_blocked")` 必须为 False。
+    GATE_BLOCKED = "gate_blocked"
 
     @classmethod
     def is_blocking(cls, value: "str | FrameStatus") -> bool:

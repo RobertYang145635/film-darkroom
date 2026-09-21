@@ -224,11 +224,13 @@ def export_roll_frames(frames: list[FrameRecord], outdir: Path, *,
             entry = {"file": rec.source_path, "status": "failed",
                      "error": f"decode: {e}"}
         except GateBlocked as e:
-            # 门禁阻断：**故意不给导**，不再冒充 failed（B-7）。
-            # `rec.status` 维持过去的 PROCESSING_ERROR：一次改动只动一层语义，
-            # 这轮只拆"用户看到的桶"，库内状态语义留给后续评估。
+            # 门禁阻断：**故意不给导**，不冒充 failed（B-7）。
+            # B-9：库内状态也不再冒充"处理错误"——写 `gate_blocked`，
+            # 让人能分清"**被挡**（决定不导）"与"**坏了**（导不出）"。
+            # 注意：这是**记录性状态**，**不在** `BLOCKING_STATUSES` 内；
+            # 阻断与否仍只由既有那一条路决定（`blocks_export` + 本异常 + 退出码）。
             if not presnapshot:
-                rec.status = FrameStatus.PROCESSING_ERROR.value
+                rec.status = FrameStatus.GATE_BLOCKED.value
             entry = {"file": rec.source_path, "status": "blocked",
                      "error": str(e)}
         except ExportError as e:

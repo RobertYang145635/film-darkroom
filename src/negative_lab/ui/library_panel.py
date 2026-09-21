@@ -63,6 +63,9 @@ _STATUS_COLOR = {
     FrameStatus.NEEDS_CROP_REVIEW.value: QColor(230, 190, 90),
     FrameStatus.NEEDS_REVIEW.value: QColor(150, 200, 240),
     FrameStatus.EXPORTED.value: QColor(120, 220, 140),
+    # B-9：被门禁**故意挡下** ≠ 坏了。**深橙**——必须区别于错误红 (220,90,90)
+    # 与浅琥珀 (230,190,90)：人要一眼分得清"被挡"和"坏了"（B-7 分桶的意义）。
+    FrameStatus.GATE_BLOCKED.value: QColor(240, 150, 60),
 }
 
 

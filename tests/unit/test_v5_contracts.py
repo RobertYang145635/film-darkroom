@@ -370,11 +370,19 @@ class TestRollAndCandidates:
 
         allowed = {"imported", "needs_group", "needs_crop_review",
                    "ready_to_convert", "converted", "needs_review", "exported",
-                   "decode_error", "processing_error"}
+                   "decode_error", "processing_error",
+                   # B-9 契约扩展：`gate_blocked` 是**记录性状态**（"为什么没导"），
+                   # **不是** v5 §3.3 禁止的"校准类阻断态"，也**不在** BLOCKING_STATUSES。
+                   "gate_blocked"}
         got = {s.value for s in FrameStatus}
         assert got == allowed, f"状态机与 v5 §3.3 不符：多 {got - allowed} 少 {allowed - got}"
         assert not FrameStatus.is_blocking("needs_review")
         assert FrameStatus.is_blocking("decode_error")
+        # 把 B-9 的决定钉死：被门禁挡下**不是**硬阻断态，
+        # 将来谁把它塞进 BLOCKING_STATUSES（= 第二条阻断路径）都会撞到这条。
+        assert not FrameStatus.is_blocking("gate_blocked"), (
+            "gate_blocked 竟成了硬阻断态：阻断应只由 blocks_export + GateBlocked + "
+            "退出码这一条路决定，加进 BLOCKING_STATUSES 会造成双路径并违反 v5 §3.3")
 
     def test_capture_fingerprint_is_auto_and_name_independent(self):
         """v5 §4.4：指纹由 metadata 自动生成，不含文件名/卷名，可编辑性为否。"""
