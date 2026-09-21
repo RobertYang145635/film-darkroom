@@ -272,6 +272,49 @@ def select_stratified(candidates: Iterable[Mapping], *,
 
 
 # ------------------------------------------------------------------ 判定文件
+def _strata_on(entry) -> set:
+    """把 strata 归一成"命中的分层名集合"。
+
+    decisions 里存的是**列表**、metrics 里存的是**字典**（两种形状都真实存在过），
+    直接比会全错——本函数就是为了让比较不依赖形状。
+    """
+    d = entry.get("strata") if isinstance(entry, Mapping) else None
+    if isinstance(d, Mapping):
+        return {str(k) for k, v in d.items() if v}
+    return {str(x) for x in (d or [])}
+
+
+def strata_drift(entries: Iterable[Mapping], metrics_frames: Iterable[Mapping]) -> dict:
+    """判定条目里的分层标记，是否与**最新一次测量**一致（只读，不改判）。
+
+    实测（2026-09-09）：当前 48 条与最新 metrics **零漂移**——但这份一致
+    纯属侥幸：以后只重跑 `--measure` 不重跑 `--select`，`decisions.json` 里的
+    分层就会悄悄停在旧测量上，而验收报告照读旧分层。签收之前必须能看见这件事。
+    """
+    latest = {}
+    for m in (metrics_frames or []):
+        if isinstance(m, Mapping):
+            latest[uid_of(m)] = m
+    checked = drift = 0
+    samples: list = []
+    for f in (entries or []):
+        if not isinstance(f, Mapping):
+            continue
+        m = latest.get(uid_of(f))
+        if m is None or "strata" not in m:
+            continue
+        checked += 1
+        old, new = _strata_on(f), _strata_on(m)
+        if old != new:
+            drift += 1
+            if len(samples) < 3:
+                samples.append(
+                    f"{uid_of(f)}：新测多 {sorted(new - old) or '无'} / "
+                    f"条目多 {sorted(old - new) or '无'}")
+    return {"checked": checked, "drifted": drift, "samples": samples,
+            "unmatched": len([f for f in (entries or []) if isinstance(f, Mapping)]) - checked}
+
+
 def sheet_integrity(entries: Iterable[Mapping], *, root=None) -> dict:
     """判定条目与判定条图片的对应关系体检（**只读**，不改动任何判定）。
 

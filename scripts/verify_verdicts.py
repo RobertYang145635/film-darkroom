@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from negative_lab.diagnostics.verdicts import (  # noqa: E402
-    sheet_integrity, summarize_verdicts)
+    sheet_integrity, strata_drift, summarize_verdicts)
 from negative_lab.io.sidecar import git_commit  # noqa: E402
 
 DECISIONS = ROOT / "fixtures" / "verdicts" / "decisions.json"
@@ -82,6 +82,14 @@ def render_md(s: dict, *, signed_by: list) -> str:
                   f"其中**已签 {integ.get('signed_missing_sheet', 0)} 条**（签了却无从复核）",
                   "- 先跑 `scripts/build_verdict_kit.py --sheets` 补齐，再签收"]
         lines += [f"  - {x}" for x in (integ.get("samples") or [])]
+    dr = s.get("strata_drift") or {}
+    if dr.get("drifted"):
+        lines += ["", "## ⚠ 分层标记已过期", "",
+                  f"- {dr['drifted']}/{dr['checked']} 条的分层与最新 metrics 不一致"
+                  "（多半是只重跑了 `--measure`，没重跑 `--select`）",
+                  "- 判完的条目不会被动；但**分层是抽样依据**，过期请按新分层补抽",
+                  ""]
+        lines += [f"  - {x}" for x in (dr.get("samples") or [])]
     lines += ["", "> 判定字段只能由用户本人填写；本脚本不写任何判定（v5 §10.2）。", ""]
     return "\n".join(lines)
 
@@ -101,11 +109,22 @@ def main() -> int:
     # 但已经没人能复核"这条判的是哪张图"。
     integ = sheet_integrity(doc.get("frames") or [], root=ROOT)
     s["sheet_integrity"] = integ
+    metrics_path = ROOT / "fixtures" / "verdicts" / "metrics.json"
+    if metrics_path.exists():
+        s["strata_drift"] = strata_drift(
+            doc.get("frames") or [],
+            json.loads(metrics_path.read_text(encoding="utf-8")).get("frames") or [])
     if integ["missing_sheet"]:
         print(f"⚠ {integ['missing_sheet']}/{integ['entries']} 条判定**缺判定条图片**"
               f"（其中已签 {integ['signed_missing_sheet']} 条）：判定与证据图片已脱钩，"
               "先跑 scripts/build_verdict_kit.py --sheets 补齐再签收。样例：\n   "
               + "\n   ".join(integ["samples"]), file=sys.stderr)
+    dr = s.get("strata_drift") or {}
+    if dr.get("drifted"):
+        print(f"⚠ {dr['drifted']}/{dr['checked']} 条判定的**分层标记已过期**"
+              "（只重跑了 --measure 没重跑 --select，判定条上还写着旧分层）：\n   "
+              + "\n   ".join(dr["samples"]) + "\n   重跑 --select 与 --sheets 后再签收。",
+              file=sys.stderr)
     if not s["signed"]:
         print("❌ 判定一条都没签 —— 视觉门禁**未通过**（不是「待办」，是没有证据）。\n"
               f"   请打开 {DECISIONS}，对照 outputs/verdicts/sheets/ 里的判定条逐帧填写。",
