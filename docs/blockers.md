@@ -129,6 +129,10 @@
   （**这条就是防"分桶没生效"**）；② 造一个 IO 错误，断言 `failed == 1 / blocked == 0`；
   ③ 断言 `ok + needs_review + blocked + failed + cancelled == 总帧数`（守恒，不许吞帧）；
   ④ 锁 `GateBlocked` 仍是 `ExportError` 子类（老调用方 `except ExportError` 不破）。
+- **实现前须知的现成条件（2026-09-09 实测）**：`tests/` 里搜 `质量门禁阻断` **零命中**——
+  现有测试**一条都没触发过**这条阻断路径，所以上面四道锁得**从零造**，
+  不能"顺手扩一条现成的"；最省事的做法是给 `QualityGate` 打桩造必然 FAIL 的帧，
+  而不是跑全管线。
 - **为什么本轮不做**：改动横跨 `io/export`、`roll_export`、GUI、CLI/batch 的计数语义，
   现有测试对 `failed` 的期望面需要逐一核对；在上下文不足时动导出语义风险大于收益。
   **本条只登记，未改任何代码。**
