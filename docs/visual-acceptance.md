@@ -121,16 +121,20 @@
 
 | 分层 | 全语料命中 | 选中 | 说明 |
 |---|---|---|---|
-| `few_neutral_surfaces` 几乎没有中性面 | 116 | 41 | 灰世界前提不成立，软件已降权 |
+| `few_neutral_surfaces` 几乎没有中性面 | 25 | 9 | 灰世界前提不成立，软件已降权 |
 | `low_base_confidence` 片基置信 <0.60 | **98** | 39 | 过半帧的 Dmin 来源不够硬 |
-| `bright_uniform_top` 天空/雾 | 62 | 28 | 像素代理 |
-| `highlight_clip` 高端剪裁超警告线 | 44 | 12 | 与质量门禁同一口径 |
-| `hue_concentrated` 单色光源 | 36 | 23 | 候选层色相集中度 |
-| `low_result_contrast` 成片发灰 | 33 | 20 | 薄负片/欠曝的表现 |
-| `saturated_dominant` 高饱和主导 | 23 | 17 | 阈值 0.85（0.6 会在本语料全命中，无区分度） |
+| `bright_uniform_top` 天空/雾 | 62 | 32 | 像素代理 |
+| `highlight_clip` 高端剪裁超警告线 | 44 | 12 |
+| `no_nlp_reference` 无中性点参考 | 37 | 7 | 缺自动中性点，靠手工/相邻帧（**本行 2026-09-21 补：原先整行漏写**） | 与质量门禁同一口径 |
+| `hue_concentrated` 单色光源 | 2 | 2 | 候选层色相集中度 |
+| `low_result_contrast` 成片发灰 | 33 | 25 | 薄负片/欠曝的表现 |
+| `saturated_dominant` 高饱和主导 | 2 | 2 | 阈值 0.85（0.6 会在本语料全命中，无区分度） |
 | **`night_like` 夜景** | **1** | 1 | **语料缺口：整库只有 1 帧暗场** |
 | `shadow_clip` 低端剪裁超警告线 | 0 | 0 | 本语料一帧没有 |
 
+
+> **数字来源与时效（2026-09-21 重测更正）**：上表**逐格由脚本重算**并已加锁（`tests/unit/test_doc_strata_table_matches_artifacts.py`）。本次更正 6 格：`few_neutral_surfaces` 116/41→**25/9**、`hue_concentrated` 36/23→**2/2**、`saturated_dominant` 23/17→**2/2**、`bright_uniform_top` 选中 28→**32**、`low_result_contrast` 选中 20→**25**——**原因是分层阈值在文档写成之后改过，文档没跟着重算**（`saturated_dominant` 那行的备注本身就写着"阈值 0.6 会全命中，故用 0.85"）。
+> **别把本节数字当"口径没变"的证据**：会变的是阈值，能守住的是**锁**。
 逐卷：`1298_G200` 6/12 · `1299_G200` 9/11 · `1300_CN400` 18/74 ·
 `ECN2_5207` 6/37 · `ECN2_5219` 9/35。
 
