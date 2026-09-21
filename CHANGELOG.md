@@ -4,6 +4,32 @@
 > 导致"从 README/CHANGELOG 入口进来会拿到错误的当前范围"（2026-09-07 审查 §4.1）。
 > 以下条目按已落地代码补记，不重写历史。
 
+## B-7：门禁阻断不再冒充"导出失败"（开发版，未发布）— 2026-09-09 Round 22-31
+
+- **起因（读代码定位，非推测）**：`roll_export` 在 `blocks_export` 时抛 `ExportError`，
+  与读图/写盘错误一起计进 `failed`；实测语料有 **21 帧**是门禁**故意**挡住
+  （且 100% 继承自采集端）。用户看到"整卷导出结束（有失败帧）"会去**重试导出**，
+  正确处置却是重扫/重拍或裁决 B-6 —— 修法完全不同的两件事被混成一个数。
+- **落地**：专用异常 `GateBlocked(ExportError)`（**仍是子类**，老 `except ExportError` 不破）、
+  单一出口 `guard_gate_blocked()`（消息保留 `质量门禁阻断：` 前缀 + **数值归因**）、
+  `bucket_of()`（**未知状态一律进 failed，不许凭空消失**）、`counts` 新增 `blocked`；
+  GUI 行内/弹窗/标题三处分开播报；CLI 打印 `blocked=` 并改调 `export_exit_code()`；
+  `batch.py` 状态改 `blocked`、标签 `BLOCKED`、txt 报告单列"被门禁挡住"一行。
+- **两次自伤回归（都如实登记，不遮掩）**：
+  1. 拆桶后 CLI 仍 `1 if failed else 0` ⇒ "全被挡住"竟**退出 0**（CI 把"不给导"读成"成功"，
+     比混计时更危险）；已由 `export_exit_code` 与专锁堵住。
+  2. `scripts/gui_smoke.py` 手抄四桶做守恒 ⇒ 出现 `blocked` 会**报假红**；
+     改按生产 `EXPORT_STATUS_BUCKETS` 求和，并补"零阻断"断言（否则整卷被挡也能绿）。
+- **公开订正一条我自己的错判**：曾断言"没有任何测试驱动门禁阻断路径"，
+  那是只 grep 了整卷导出的文案、**漏看** `test_service.py::test_gate_fail_blocks_batch_export`；
+  改状态后它立刻变红。**跑全量测试正是抓这个的动作**。该测试按新语义**加严**
+  （`status == "blocked"` 且 `summary.blocked == 1 / failed == 0`）。
+- **锁**：`test_gate_blocked_bucket.py`（子类关系/守卫抛错含归因/放行不误抛/分桶真生效/
+  未知状态不消失/帧数守恒/退出码/批量标签覆盖）+ 文档骨架锁及其负控制。
+- **仍遗留**：被挡帧的 `rec.status` 仍写 `PROCESSING_ERROR`（刻意分步，待评估）。
+- 测试基线：本轮区间 **517 → 531 passed**，`ruff` 无豁免全绿。
+
+
 ## 订正：我用中文字串当判据，造出一条假结论（开发版，未发布）— 2026-09-09 Round 16
 
 - **错的结论**（Round 13 写进 `docs/blockers.md` B-6 与 `docs/visual-acceptance.md`）：
