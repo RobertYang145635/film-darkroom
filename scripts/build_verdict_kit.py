@@ -393,7 +393,26 @@ def src_of(manifest: dict, frame_id: str) -> dict:
     return manifest.get(str(frame_id)) or {}
 
 
-def main() -> int:
+def prune_stale(entries, root, *, remove: bool = False) -> dict:
+    """列出/清理**本工具生成、且已无人引用**的判定条；**默认只列不删**。
+
+    真正的安全边界都在 `negative_lab.diagnostics.verdicts.prune_orphan_sheets`
+    里，并且**每条都有独立回归锁**：越界不碰、符号链接不碰、裸命名不删、
+    被引用不删、`remove=False` 时一个字节都不动。这里只是薄薄一层接线。
+    """
+    from negative_lab.diagnostics.verdicts import prune_orphan_sheets
+    rep = prune_orphan_sheets(entries, root=root, remove=remove)
+    print(f"判定条目录 `{root}`：候选 {rep['candidates']} 张，"
+          f"{'已删除' if rep['remove'] else '未删除（默认只列不删）'}"
+          f" {rep['removed']} 张，被引用保留 {rep['referenced_kept']} 张，"
+          f"裸命名交人工判断 {rep['bare_kept']} 张")
+    for n in rep["samples"]:
+        print(f"  - {n}")
+    return rep
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """单独抽出来：这样"**开关默认不删**"这件事**可以被测试锁住**。"""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--measure", action="store_true")
     ap.add_argument("--select", action="store_true")
@@ -403,8 +422,19 @@ def main() -> int:
     ap.add_argument("--max-dim", type=int, default=1200)
     ap.add_argument("--roll")
     ap.add_argument("--limit", type=int, help="只测前 N 帧（调试用，会破坏整卷片基共享）")
-    a = ap.parse_args()
-    if not (a.measure or a.select or a.sheets or a.all):
+    # B-10：判定条目录里的陈旧文件。**默认一个都不删**，要删得显式说。
+    ap.add_argument("--list-stale", action="store_true",
+                    help="只列出无人引用的判定条，**不删任何文件**")
+    ap.add_argument("--prune-stale", action="store_true",
+                    help="删除本工具生成且已无人引用的判定条；"
+                         "**裸命名 / 目录外 / 被引用的一律不删**")
+    return ap
+
+
+def main() -> int:
+    a = build_parser().parse_args()
+    if not (a.measure or a.select or a.sheets or a.all
+            or a.list_stale or a.prune_stale):
         a.all = True
     if a.measure or a.all:
         measure(a.max_dim, a.roll, a.limit)
@@ -412,6 +442,12 @@ def main() -> int:
         select(a.target)
     if a.sheets or a.all:
         render_sheets()
+    if a.list_stale or a.prune_stale:
+        import json
+        entries = json.loads(
+            (ROOT / "fixtures" / "verdicts" / "decisions.json")
+            .read_text(encoding="utf-8")).get("frames") or []
+        prune_stale(entries, SHEETS, remove=bool(a.prune_stale))
     print("\n下一步：在 fixtures/verdicts/decisions.json 里逐帧填判定（只有你能签），"
           "然后跑 scripts/verify_verdicts.py 看是否达标。")
     return 0
