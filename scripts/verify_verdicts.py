@@ -82,6 +82,21 @@ def render_md(s: dict, *, signed_by: list) -> str:
                   f"其中**已签 {integ.get('signed_missing_sheet', 0)} 条**（签了却无从复核）",
                   "- 先跑 `scripts/build_verdict_kit.py --sheets` 补齐，再签收"]
         lines += [f"  - {x}" for x in (integ.get("samples") or [])]
+    # B-10：目录里的**陈旧判定条**必须进正文。签字的人是**按文件名挑图**的，
+    # 只在 stderr 提醒等于没提醒（同 Round 14 那条教训的同一个坑）。
+    stale = int(integ.get("stale_sheets") or 0)
+    untracked = int(integ.get("untracked_sheets") or 0)
+    if stale or untracked:
+        lines += ["", "## ⚠ 目录里有陈旧/未登记判定条", ""]
+        if stale:
+            lines.append(
+                f"- **{stale}** 张带本工具标记（`__<8hex>`）却**已无人引用**："
+                "**别按文件名挑图签收**，先跑 `--sheets` 重渲染或按本清单核对")
+        if untracked:
+            lines.append(
+                f"- **{untracked}** 张**裸命名**图片分不清归属（迁移前旧命名或用户自己的文件），"
+                "**工具不删**，请人工确认")
+        lines += [f"  - {x}" for x in (integ.get("orphan_samples") or [])]
     dr = s.get("strata_drift") or {}
     if dr.get("drifted"):
         lines += ["", "## ⚠ 分层标记已过期", "",
