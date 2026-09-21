@@ -100,6 +100,41 @@
   ⚠ 本条**不**估计"改成中位后会有几帧翻案"——那要用 §4.4 的打分公式重跑，
   不能拿这个统计冒充。
 
+## B-7（我方可修，待下一轮实现）：门禁阻断被计入"失败帧"，用户会以为导出坏了
+
+- **实测（2026-09-09 读代码定位，非推测）**：
+  `pipeline/roll_export.py:402-403` 在 `pr.gate.blocks_export` 时
+  `raise ExportError("质量门禁阻断：…")`；而 `export_roll_frames()` 的
+  `except ExportError`（同文件 225-228 行）把它统一写成
+  `entry["status"] = "failed"`，计数进 `counts["failed"]`
+  （计数器只有 `ok / needs_review / failed / cancelled` 四项，见 202 行）。
+- **后果**：本会话实测语料里有 **21 帧**因高端剪裁被门禁**故意**挡住（且 100% 继承自采集端，
+  见 B-6）。用户点"整卷导出"后看到 **"整卷导出结束（有失败帧）"＋21 个 failed**，
+  第一反应会是"软件导出坏了/该重试"，而真实处置是**重扫/重拍**或**裁决 B-6**。
+  两类原因的修法完全不同，混在一个数里就是把人往错方向支使；
+  对本项目"数字必须能负责"的标准来说，这是报告失真，不是小事。
+- **修法（不要拿中文字串判断！）**：
+  1. 在 `io/export.py` 定义 `class GateBlocked(ExportError)`（专用异常，
+     让 `except ExportError` 之前的分支能**按类型**区分，而不是匹配"质量门禁阻断"文案——
+     本项目已因"拿文案当判据"翻过车，见 B-6 复测订正）；
+  2. `roll_export.py:403` 改抛 `GateBlocked`；
+  3. `counts` 增加 `blocked` 项并**从 `failed` 里分离**（不是叠加，避免双计）；
+     per-entry `status` 用 `"blocked"`；
+  4. GUI（`ui/export_coordinator.py:_on_export_done` 标题与横幅）分别播报
+     "N 帧被质量门禁挡住（原因见帧详情；多与采集端剪裁有关）"与
+     "M 帧导出失败（读图/写盘错误，可重试）"；
+  5. CLI/batch（`cli.py:119`、`pipeline/batch.py:168`）同步措辞。
+- **回归锁（实现时必须一起交）**：
+  ① 造一个门禁必然失败的帧，断言 `counts["blocked"] == 1` 且 `counts["failed"] == 0`
+  （**这条就是防"分桶没生效"**）；② 造一个 IO 错误，断言 `failed == 1 / blocked == 0`；
+  ③ 断言 `ok + needs_review + blocked + failed + cancelled == 总帧数`（守恒，不许吞帧）；
+  ④ 锁 `GateBlocked` 仍是 `ExportError` 子类（老调用方 `except ExportError` 不破）。
+- **为什么本轮不做**：改动横跨 `io/export`、`roll_export`、GUI、CLI/batch 的计数语义，
+  现有测试对 `failed` 的期望面需要逐一核对；在上下文不足时动导出语义风险大于收益。
+  **本条只登记，未改任何代码。**
+
+
+
 ## B-6（未决，产品/规格决定）：被挡导出的帧，剪裁 100% 来自采集端
 
 - **实测**：21/169 帧因技术正片 B 通道高端剪裁 >1% 被 v5 §8.2 判 FAIL、
