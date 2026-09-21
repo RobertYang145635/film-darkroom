@@ -679,3 +679,46 @@ Windows fatal exception: access violation
    ③ 带**未知状态**的旧 session 能加载、**不崩也不被改写**（向后兼容，前置实验已验证旧行为）；
    ④ **颜色表覆盖每一个枚举成员**（防将来加成员后 `.get()` 静默返回 `None`）。
 
+
+### B-9 精确锚点（同日读取，下轮**照抄即可**，不必再摸索）
+
+**① `src/negative_lab/library/models.py`（第 47 行后加一个成员）**
+```python
+    PROCESSING_ERROR = "processing_error"
+```
+→ 其后新增 `    GATE_BLOCKED = "gate_blocked"`；**不要**动第 29 行的 `BLOCKING_STATUSES`。
+
+**② `src/negative_lab/ui/library_panel.py`（第 59-66 行）**——现状实测：
+```python
+_STATUS_COLOR = {
+    FrameStatus.DECODE_ERROR.value: QColor(220, 90, 90),      # 错误红
+    FrameStatus.PROCESSING_ERROR.value: QColor(220, 90, 90),  # 错误红
+    FrameStatus.NEEDS_GROUP.value: QColor(230, 190, 90),      # 浅琥珀
+    FrameStatus.NEEDS_CROP_REVIEW.value: QColor(230, 190, 90),# 浅琥珀
+    FrameStatus.NEEDS_REVIEW.value: QColor(150, 200, 240),
+    FrameStatus.EXPORTED.value: QColor(120, 220, 140),
+}
+```
+⇒ 新色**必须区别于 `220,90,90`（错误红）与 `230,190,90`（浅琥珀）**，
+建议 `QColor(240, 150, 60)`（深橙）。**"被挡"不能和"坏了"同色。**
+
+**③ `src/negative_lab/pipeline/roll_export.py`（第 226-233 行，**逐字实测**）**
+```python
+        except GateBlocked as e:
+            # 门禁阻断：**故意不给导**，不再冒充 failed（B-7）。
+            # `rec.status` 维持过去的 PROCESSING_ERROR：一次改动只动一层语义，
+            # 这轮只拆"用户看到的桶"，库内状态语义留给后续评估。
+            if not presnapshot:
+                rec.status = FrameStatus.PROCESSING_ERROR.value
+            entry = {"file": rec.source_path, "status": "blocked",
+                     "error": str(e)}
+```
+→ 把 `rec.status` 改为 `FrameStatus.GATE_BLOCKED.value`，**并改写这四行注释**
+（注释还在解释"为什么维持 PROCESSING_ERROR"，改完不改注释就是**撒谎的注释**）。
+**`entry["status"] = "blocked"` 不动**（那是导出报告层）。
+
+**④ 已知风险（下轮必须先查，别当意外）**：
+**可能有既有测试断言"被挡后 `rec.status == "processing_error"`"**（当年为了
+"一次只动一层"而锁进去的）。若撞到：**那是契约变更**，要**显式改写该断言并写明理由**，
+**不许**删测试、**不许**改成宽松比较（本会话两次因"顺手放宽"自伤）。
+
