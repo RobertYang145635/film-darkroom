@@ -90,3 +90,18 @@ def test_cli_exit_code_still_red_when_only_blocked(tmp_path):
     assert export_exit_code({"ok": 3, "needs_review": 2, "blocked": 0,
                              "failed": 0, "cancelled": 0}) == 0
     assert export_exit_code({}) == 0, "缺键不许凭空报错，也不许凭空变红"
+
+
+def test_batch_labels_cover_every_export_bucket():
+    """批量路径的标签表必须认得每个桶，否则报告里会出现没人看得懂的裸键。
+
+    批量与整卷导出是两条出口，桶定义只有一个来源（`EXPORT_STATUS_BUCKETS`）；
+    这条锁盯住两边不许漂移：`batch.py` 的 `STATUS_ICON` 若漏了 `blocked`，
+    批处理报告就会把"故意不给导"打成小写裸键，跟 `FAILED` 混在读者眼里。
+    """
+    from negative_lab.pipeline.batch import STATUS_ICON
+
+    missing = [k for k in EXPORT_STATUS_BUCKETS if k not in STATUS_ICON]
+    assert not missing, f"batch 标签表缺桶：{missing}"
+    assert STATUS_ICON["blocked"] == "BLOCKED"
+    assert STATUS_ICON["blocked"] != STATUS_ICON["failed"], "两者必须一眼可分"

@@ -192,7 +192,9 @@ def cmd_batch(args) -> int:
     rep = job.report()
     print(f"报告：{report_path}")
     print(f"汇总：{rep['summary']}")
-    return 1 if rep["summary"].get("failed", 0) else 0
+    from .pipeline.roll_export import export_exit_code
+    # 只看 failed 会让"整批全被门禁挡住"退出 0（假绿）——与整卷导出同源的坑
+    return export_exit_code(rep["summary"])
 
 
 def cmd_roll(args) -> int:

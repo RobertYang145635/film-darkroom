@@ -100,7 +100,13 @@ class TestService:
         out = tmp_path / "out"
         job = BatchJob([src], out, tiff_encoding="linear")
         rep = job.run()
-        assert rep["items"][0]["status"] == "failed"
+        # B-7（2026-09-09）：门禁阻断不再冒充 "failed"。
+        # 这条测试的名字本来就是 test_gate_fail_blocks_batch_export——
+        # 状态现在终于和名字一致了；顺手加严：分桶必须真生效。
+        assert rep["items"][0]["status"] == "blocked"
+        assert rep["summary"].get("blocked") == 1, rep["summary"]
+        assert rep["summary"].get("failed", 0) == 0, (
+            f"被挡帧又混进 failed 了：{rep['summary']}")
         assert rep["items"][0]["outputs"] == []
         assert not list(out.glob("s-positive*"))
 

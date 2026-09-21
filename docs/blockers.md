@@ -109,6 +109,19 @@
 > CLI 行内也补打了 `blocked=`。锁 `test_cli_exit_code_still_red_when_only_blocked`
 > 专盯这件事（含全被挡→1、有失败→1、干净→0、缺键不炸）。
 > 上面遗留 ② 中的 **CLI 部分已完成**，`batch.py` 播报仍待同步。
+>
+> **再更新（同日）**：遗留 ② 的 `batch.py` 也已完成——批量路径改判
+> `it.status = "blocked"`，`STATUS_ICON` 加 `BLOCKED`，txt 报告新增
+> "被门禁挡住 …" 一行（否则被挡帧在人读报告里凭空消失），
+> CLI 批处理分支改调 `export_exit_code(rep["summary"])`，避免重演
+> "只看 failed ⇒ 全被挡却退出 0" 的假绿。
+> **一处自我订正**：我曾断言"没有任何测试驱动门禁阻断路径"——那是只 grep 了
+> 整卷导出的文案 `质量门禁阻断`，**漏掉了批量路径的
+> `test_service.py::test_gate_fail_blocks_batch_export`**（它确实驱动了这条路，
+> 改状态后立刻把它抓红）。全量测试跑一遍的价值就在这里；该测试已按新语义
+> **加严**为 `status == "blocked"` 且 `summary.blocked == 1 / failed == 0`
+> （比原来更严，不是放宽）。**仍遗留**：① 被挡帧的 `rec.status` 仍写
+> `PROCESSING_ERROR`（待评估）。
 
 - **实测（2026-09-09 读代码定位，非推测）**：
   `pipeline/roll_export.py:402-403` 在 `pr.gate.blocks_export` 时

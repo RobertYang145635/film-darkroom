@@ -28,7 +28,7 @@ from .service import process_image          # 唯一管线入口（可被测试�
 # ASCII 状态词（默认 GBK 控制台不得崩溃）
 STATUS_ICON = {"pending": "PENDING", "running": "RUNNING", "ok": "OK",
                "warn": "WARN", "needs_review": "NEEDS-REVIEW",
-               "failed": "FAILED", "cancelled": "CANCELLED"}
+               "failed": "FAILED", "blocked": "BLOCKED", "cancelled": "CANCELLED"}
 
 
 @dataclass
@@ -167,7 +167,10 @@ class BatchJob:
         # ---- fail 在写文件之前阻断（不产出任何输出）
         if pr.gate.blocks_export:
             from ..diagnostics.explain import clip_note
-            it.status = "failed"
+            # B-7：批量路径与整卷导出对齐——门禁阻断是**故意不给导**，
+            # 不再冒充 failed。counts 按状态动态统计（见 report()），
+            # 所以 blocked 会自动进 summary，守恒式仍然成立。
+            it.status = "blocked"
             # 批量路径同样要说清责任：这帧是"采集端就已丢失"还是"软件能改"。
             # 注意：本路径的 blocked/failed **分桶仍未做**（见 blockers.md B-7 遗留），
             # 这里只补归因，不动状态语义，避免一次改两层。
@@ -253,6 +256,10 @@ class BatchJob:
         for it in self.items:
             if it.status == "failed":
                 lines.append(f"  失败 {it.path.name}: {it.error}")
+            elif it.status == "blocked":
+                # 被门禁挡住的帧也必须出现在人读报告里，否则它在 txt 里凭空消失；
+                # 措辞也要与"失败"分开（B-7：处置方式是重扫/重拍，不是重试导出）
+                lines.append(f"  被门禁挡住 {it.path.name}: {it.error}")
         atomic_write_bytes(self.outdir / "batch-report.txt",
                            "\n".join(lines).encode("utf-8"), overwrite=True)
         return out
