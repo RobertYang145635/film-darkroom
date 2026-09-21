@@ -648,3 +648,34 @@ Windows fatal exception: access violation
 
 
 > **订正（同日）**：上面"需要多少轮"我第一版写成 **68**，**是心算错的**；脚本当场打印 **39.4**（`ln(0.2)/ln(0.96)`），已按打印值改正。**教训：数字必须来自打印，不能来自脑子**——同一会话我已因"未测量数字进档"翻过一次，这次连 commit message 都带着错数跑出去了。
+
+### B-9 实现决定（同日实测定位）：`GATE_BLOCKED` **不进** `BLOCKING_STATUSES`
+
+**实测定位**：
+- `library/models.py:29` `BLOCKING_STATUSES = ("decode_error", "processing_error")`，
+  注释写得非常硬：**"只有解码/处理错误阻断导出（v5 §3.3/§8.2）"**；
+  全仓**唯一消费者**是 `models.py:52 FrameStatus.is_blocking()`；
+- `pipeline/roll_export.py:228-231` 就是**待改处**：`GateBlocked` 分支刻意仍写
+  `PROCESSING_ERROR`（注释原文"一次改动只动一层语义"，留给 B-9）；
+- `ui/library_panel.py:59 _STATUS_COLOR` + `:184 .get(f.status)`（未知状态→`None`，已实测）。
+
+**决定：`GATE_BLOCKED = "gate_blocked"` 作为「记录性状态」，**
+**不加进 `BLOCKING_STATUSES`。**
+**理由**：门禁的阻断**已经由别的机制表达**（metrics 的 `blocks_export`
+  ——本轮已用锁钉死它**恰好等于** `gate == fail`——加上 `GateBlocked` 异常与
+  `export_exit_code`）。若再把它塞进 `BLOCKING_STATUSES`，
+  **同一件事会有两条阻断路径**，还会**违反 v5 写死的"只有解码/处理错误阻断导出"**；
+  更糟的是**将来谁改门禁阈值，会意外改变 `is_blocking()` 的行为**（隐式耦合）。
+  ⇒ **状态只负责"为什么没导"，阻断与否由既有那一条路决定**（**单一事实源**）。
+
+**实现清单（下轮照做，锁必须同交）**：
+1. `models.py` 加 `GATE_BLOCKED = "gate_blocked"`（**不动** `BLOCKING_STATUSES`）；
+2. `library_panel._STATUS_COLOR` 加**琥珀/橙色**（**不得与错误红同色**：
+   人要一眼分得清"**被挡**"和"**坏了**"——这正是 B-7 分桶的全部意义）；
+3. `roll_export.py:228-231` 的 `GateBlocked` 分支改写 `GATE_BLOCKED`
+   （条目 `entry["status"] = "blocked"` **不动**，那是导出报告层）；
+4. **四道锁**：① 门禁挡住后 `frame.status == "gate_blocked"`；
+   ② `is_blocking("gate_blocked") is False`（**把上面的决定钉住**，防止将来被"顺手"改回去）；
+   ③ 带**未知状态**的旧 session 能加载、**不崩也不被改写**（向后兼容，前置实验已验证旧行为）；
+   ④ **颜色表覆盖每一个枚举成员**（防将来加成员后 `.get()` 静默返回 `None`）。
+
