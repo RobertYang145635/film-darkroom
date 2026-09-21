@@ -44,3 +44,17 @@ def test_acceptance_doc_keeps_its_sections():
         f"验收文档少了小节（被覆盖/误删？）：{missing}\n现有标题：{heads}")
     dup = [h for h in set(heads) if heads.count(h) > 1]
     assert not dup, f"标题重复：{dup}"
+
+
+def test_negative_control_catches_a_swallowed_heading():
+    """负控制：模拟"标题被编辑吞掉"，检测机制**必须响**。
+
+    上一轮这条锁交付时我自己承认"没有负控制"——那按本会话的标准就是次优。
+    不响的锁比没锁更糟：它给人"已经防住了"的错觉。
+    """
+    real = (ROOT / "docs" / "visual-acceptance.md").read_text(encoding="utf-8")
+    broken = real.replace("## 二、判据", "判据", 1)   # 正文还在，标题没了
+    assert broken != real, "锚文本没匹配上，负控制等于没跑"
+    heads = re.findall(r"(?m)^## +(.+)$", broken)
+    assert not any(h.startswith("二、判据") for h in heads), (
+        "被吞的标题仍被识别为章节——检测逻辑不可信")
