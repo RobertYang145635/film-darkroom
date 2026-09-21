@@ -52,6 +52,38 @@ def base_fallback_note(frame_base: dict | None, base_source: str) -> str:
     return "片基未采用实测：所有取样区均未通过置信度门槛；本帧 Dmin 用的是通用先验。"
 
 
+def clip_tag(clip_attribution, *, eps: float = 1e-5) -> str:
+    """判定条标题上的高光归因标签，**只看数值，不看文案**。
+
+    2026-09-09 实测到的自己的错：标签原来写成
+    `if note_clip: "...[高光:采集端已丢失]" if "采集端" in note_clip else "[高光:软件引入]"`。
+    复核后的准确说法是：`clip_note` 在剪裁 ≤ 告警线时返回空串，旧逻辑因此**不打标签**
+    ——是"该说的没说"，**不是标错**（本语料没有纯软件引入的帧，历史上没有判定条被误标）。
+    本函数改为**只看数值**：低于告警线的继承剪裁也有正确归因，并新增"混合"一档。
+    同一批数据我还用子串 `采集端已丢失` 统计过（真实文案是"采集端**就**已丢失"），
+    得出"12 条全是软件引入、0 条继承"的**假结论**——判据必须走数值，不能走文案匹配。
+
+    返回 `""`（无剪裁）/ `[高光:采集端已丢失]` / `[高光:软件引入]` / `[高光:混合]`。
+    """
+    total = inherited = introduced = 0.0
+    if isinstance(clip_attribution, dict):
+        rows = clip_attribution.values()
+        if not any(isinstance(v, dict) for v in rows):
+            rows = clip_attribution.get("channels") or []
+        for v in rows:
+            if isinstance(v, dict):
+                total += float(v.get("high_total") or 0.0)
+                inherited += float(v.get("high_inherited") or 0.0)
+                introduced += float(v.get("high_introduced") or 0.0)
+    if total <= eps:
+        return ""
+    if introduced <= eps:
+        return " [高光:采集端已丢失]"
+    if inherited <= eps:
+        return " [高光:软件引入]"
+    return f" [高光:混合 继承{inherited / total:.0%}]"
+
+
 def clip_note(gate) -> str:
     """高端剪裁的归因一句话；没有超警告线就返回空串。
 

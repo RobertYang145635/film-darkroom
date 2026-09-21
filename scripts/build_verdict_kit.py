@@ -52,7 +52,7 @@ from negative_lab.diagnostics.verdicts import (  # noqa: E402
     ACCEPTANCE_CRITERIA, STRATA, frame_strata, merge_decisions,
     merge_metrics, select_stratified, uid_of)
 from negative_lab.diagnostics.explain import (  # noqa: E402
-    base_fallback_note, clip_note)
+    base_fallback_note, clip_note, clip_tag)
 from negative_lab.io.atomic import atomic_write_bytes  # noqa: E402
 from negative_lab.io.images import ReadError, load_linear_rgb  # noqa: E402
 from negative_lab.library.fingerprint import capture_fingerprint  # noqa: E402
@@ -347,10 +347,10 @@ def render_sheets() -> dict:
             brr = (pr.frame_base or {}).get("best_rejected_region")
             if brr:
                 short += f" [片基被拒:{brr.get('binding_score')}]"
-            note_clip = clip_note(pr.gate)
-            if note_clip:
-                short += (" [高光:采集端已丢失]" if "采集端" in note_clip
-                          else " [高光:软件引入]")
+            # 归因标签只看**数值**：以前用 clip_note 的文案判断，
+            # 而文案在剪裁低于告警线时是空串 -> else 分支 ->
+            # 明明 100% 采集端继承的帧被标成"软件引入"
+            short += clip_tag(getattr(pr.gate, "clip_attribution", None))
             if evidence:
                 entry["evidence"] = evidence
             row = _row([("原始负片", _to_img(_norm_negative(small))),
