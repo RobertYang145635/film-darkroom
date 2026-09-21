@@ -590,3 +590,30 @@ Windows fatal exception: access violation
 2. 跑 **30 轮 soak** 看补字体后崩溃是否复现：**仍崩 ⇒ 直接削弱"零字体是 B-8 基底"**
    （这就是实验要的答案，**别把它读成好消息或坏消息**，只读成数据）。
 
+
+### B-8 附带（同日实测）：**"文字渲染无自动化覆盖"的风险面有多大**——7 处
+
+`grep` 产品代码 `elidedText|ElideRight|setWordWrap|QFontMetrics|sizeHint|font-size` 的结果：
+
+| 位置 | 依赖 |
+| --- | --- |
+| `ui/right_panel.py` **5 处** `setWordWrap(True)` | **多行自动换行**（提示语、理由、正文、取景提示） |
+| `ui/right_panel.py` `lbl.setStyleSheet("font-size: 12px;")` | 字号 |
+| `ui/library_panel.py` `setWordWrap(False)` | 单行不换行（会挤掉/裁掉文字） |
+| **全仓库 `elidedText`：0 处** | **不靠显式省略号截断，全靠自动换行兜住** |
+
+**为什么这条重要（把抽象担心变成可核对的事实）**：
+文字**能显示**依赖排版正确；而这些控件**过去全部在零字体数据库下渲染**
+（offscreen `families()==0`，同机原生 **406**），**测试却全绿**——
+说明**这 7 处的排版行为在自动化里根本没有断言**。
+**"提示语挤成一团/被裁掉/字号不生效"这类缺陷，今天的套件抓不到。**
+
+**边界声明（与 `docs/visual-acceptance.md` 同步）**：
+"UI 测试通过"**不包含**上述 7 处的文字显示正确性；文字问题**只能靠人工验收**发现。
+
+**最小可断言清单（下轮在已有字体的地基上补，**不许为绿放宽断言**）**：
+1. 那 5 个 `setWordWrap(True)` 标签：给定窄宽度时 `height()` **大于**单行高度（证明确实换行）；
+2. `setWordWrap(False)` 那个：`sizeHint().width() > 0` 且不因空文本崩溃；
+3. `font-size: 12px` 那处：`QFontMetrics(f).height()` 与 12px 同量级（**只验量级，不锁死像素**，
+   避免把平台差异当成回归）。
+
