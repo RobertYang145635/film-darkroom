@@ -115,12 +115,14 @@ def main() -> int:
     rep = export_roll_frames(frames, out_dir, session=win.session,
                              roll_id=win.session.roll_groups[-1].id,
                              progress=lambda m: None)
-    print("export summary:", {k: v for k, v in rep.items()
-                              if k in ("ok", "needs_review", "failed")})
+    from negative_lab.pipeline.roll_export import EXPORT_STATUS_BUCKETS
+    # 守恒按**生产定义的桶集合**算，不再手抄桶名。
+    # B-7 给导出加了 `blocked` 桶之后，这里手抄的四桶会把"被门禁挡住"的帧
+    # 当成凭空消失的帧来报假红；在不阻断的语料上则悄悄失去检查力。
+    print("export summary:", {k: rep.get(k) for k in EXPORT_STATUS_BUCKETS})
     assert rep["failed"] == 0, rep["items"]
-    # 四类计数必须覆盖全部帧（v6.2 §6.6：取消/失败不得静默消失）
-    assert rep["ok"] + rep["needs_review"] + rep["failed"] + \
-        rep["cancelled"] == len(frames), rep
+    # 计数必须覆盖全部帧（v6.2 §6.6：取消/失败/阻断都不得静默消失）
+    assert sum(int(rep.get(k) or 0) for k in EXPORT_STATUS_BUCKETS) == len(frames), rep
     stem = Path(paths[0]).stem
     exports = sorted(out_dir.glob(f"{stem}-positive*"))
     assert len(exports) == 3, [f.name for f in exports]
