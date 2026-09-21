@@ -73,6 +73,15 @@ def render_md(s: dict, *, signed_by: list) -> str:
         lines.append(f"| {r} | {d['signed']} | {d['frames']} |")
     lines += ["", "## 签署人", ""]
     lines += [f"- {who}" for who in (signed_by or ["（无）"])]
+    # 报告是要留下的那份东西：判定与图片脱钩只写在 stderr 里，
+    # 人翻历史时看不见（Round 14 只做了告警，没进正文）。
+    integ = s.get("sheet_integrity") or {}
+    if integ.get("missing_sheet"):
+        lines += ["", "## ⚠ 判定与证据图片脱钩", "",
+                  f"- {integ['missing_sheet']}/{integ.get('entries', '?')} 条缺判定条图片，"
+                  f"其中**已签 {integ.get('signed_missing_sheet', 0)} 条**（签了却无从复核）",
+                  "- 先跑 `scripts/build_verdict_kit.py --sheets` 补齐，再签收"]
+        lines += [f"  - {x}" for x in (integ.get("samples") or [])]
     lines += ["", "> 判定字段只能由用户本人填写；本脚本不写任何判定（v5 §10.2）。", ""]
     return "\n".join(lines)
 
