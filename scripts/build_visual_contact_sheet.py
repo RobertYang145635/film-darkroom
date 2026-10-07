@@ -34,6 +34,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from PIL import Image, ImageDraw  # noqa: E402
 
+from negative_lab.calibration.annotations import load_annotation  # noqa: E402
 from negative_lab.io.images import ReadError, load_linear_rgb  # noqa: E402
 from negative_lab.io.sidecar import git_commit  # noqa: E402
 from negative_lab.library.fingerprint import capture_fingerprint  # noqa: E402
@@ -94,10 +95,41 @@ def _stack(rows: list[Image.Image], out_path: Path) -> None:
     sheet.save(out_path, quality=84)
 
 
+def _orientation_from(frame: dict) -> tuple[int, float, bool]:
+    """从**标注**取方向（旋转/微调/镜像）。
+
+    以前这里恒为 0，而 `fixtures/annotations/1298_G200__G200-1.json` 明写
+    `rotation_degrees: 180`（备注"倒置"）——于是 48 帧判定条与 `metrics.json`
+    里取画面上三分之一的 `top_mean/top_std` 分层，**一直是按倒像算的**。
+
+    标注缺失 → 保持 0（与旧行为一致）。
+    标注声明 `oriented` 空间 → **停下**：清单里的 ROI 是 source 空间，
+    带着非零旋转去解释 oriented 空间的框会把裁切挪到别处；
+    而旋转为 0 时两种空间重合，**这个错以前根本看不出来**。
+    """
+    try:
+        ann = load_annotation(frame["file"])
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(
+            f"{frame['id']}: 标注读不出来（{type(e).__name__}: "
+            f"{str(e)[:120]}）——宁可停下，也不要静默按 0 度出图") from e
+    if ann is None:
+        return 0, 0.0, False
+    if ann.coordinate_space != "source":
+        raise RuntimeError(
+            f"{frame['id']}: 标注 coordinate_space={ann.coordinate_space!r}，"
+            "而清单里的 ROI 是 source 空间，套具无法安全施加旋转")
+    return (int(ann.rotation_degrees), float(ann.fine_rotation_degrees),
+            bool(ann.mirror_horizontal))
+
+
 def _geometry(frame: dict) -> GeometryRegions:
     r = frame["rois"]
+    rot, fine, mirror = _orientation_from(frame)
     return GeometryRegions(
-        rotation_degrees=0,
+        rotation_degrees=rot,
+        fine_rotation_degrees=fine,
+        mirror_horizontal=mirror,
         output_crop_roi=tuple(r["output_crop_roi"]) if r["output_crop_roi"] else None,
         image_area_roi=tuple(r["image_area_roi"]) if r["image_area_roi"] else None,
         base_sample_rois=[tuple(x) for x in r["base_sample_rois"]])
