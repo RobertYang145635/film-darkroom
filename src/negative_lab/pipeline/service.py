@@ -41,7 +41,6 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
-from .print_scale import apply_print_scale, density_anchor, positive_density
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -392,15 +391,13 @@ def process_image(t_source: np.ndarray, *,
     asset_info = asset.apply_to(rep.params)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
-    # ---- 8b) 自动打印尺度（B-11）：把这一帧的密度分布映到相纸反射率范围。
-    # 落在技术层，所以预览/导出/门禁统计看到的是同一张图；
-    # 用户显式 `force_params` 是最终裁决，这里不覆盖。
-    print_scale_info = None
-    if force_params is None:
-        rep.params, print_scale_info = apply_print_scale(
-            rep.params,
-            density_anchor(positive_density(t_out, rep.params.dmin, valid_mask)))
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
+    # 自动打印尺度（B-11）的数学与锁已在 `pipeline/print_scale.py` 落地并验证，
+    # 但**尚未在此处自动生效**：施加它会破坏 v5 §11.1 的
+    # `test_rebate_independence`（保留片边前后画面统计必须相等），
+    # 实测差异见 `docs/blockers.md` B-11 追加⑤。原因未查清之前不接入，
+    # 也不通过放宽那条锁来"让它通过"。
+    print_scale_info = None
     preclip = preclip_ratios(res.diagnostics)
 
     # ---- 9) 三候选（共享同一技术底座）

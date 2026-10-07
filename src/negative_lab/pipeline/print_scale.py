@@ -16,8 +16,11 @@
 与 filmeon 的 `log10(0.18)` 共同取值；`WHITE=0.80375` 是上面那张实测相纸的最大反射率。
 控制点的三个横坐标来自**这一帧自己的密度分位数**（p5/p50/p95，三通道共用 luma）。
 
-**落点**：技术层的 `InvertParams`（route C：A 不变 + 单调曲线），
-所以预览、导出、门禁统计看到的是同一张图；不改后端公式、不动 3×3 矩阵。
+**落点**：反相之后、候选之前，对**技术正片的亮度**做保色度重映射
+（`out = x · 新亮度/旧亮度`，逐像素统一增益）。
+所以预览、导出、门禁统计看到的是同一张图，而**色度比例不变**——
+第一版把曲线逐通道施加到密度上，对比是上来了，天空却变成深青蓝，
+那是颜色改动，`service.py:383-388` 不允许在这条路径上静默发生。
 """
 
 from __future__ import annotations
@@ -36,6 +39,8 @@ P_LOW, P_MID, P_HIGH = 5.0, 50.0, 95.0
 #: 跨度不足时**不套曲线**：薄负片/纯色卡帧用三点解出的曲线会近乎阶跃。
 MIN_SPAN = 0.15
 _EPS = 1e-6
+#: Rec.709 luma 权重（与 `library/render.py` 同一组，不另起一份）。
+_LUM_W = np.array([0.2126, 0.7152, 0.0722], dtype=np.float64)
 
 
 def positive_density(t_rgb: np.ndarray, base: np.ndarray,
@@ -76,60 +81,79 @@ def density_anchor(samples: np.ndarray | None) -> tuple[float, float, float] | N
     return lo, mid, hi
 
 
-def print_knots(anchor: tuple[float, float, float],
-                *, aim: float = PRINT_AIM,
-                white: float = PRINT_WHITE) -> tuple:
-    """密度域单调折线控制点（**绝对密度 d → 纸级曝光量 v**）。
+def print_curve(anchor: tuple[float, float, float], *,
+                aim: float = PRINT_AIM, white: float = PRINT_WHITE):
+    """(密度控制点 x, 纸级曝光量 y)；要求斜率递增（先压趾部、后展高光）。
 
     纵坐标由 `paper = 1 − 10^(−v)` 反解：`v = −log10(1 − paper)`。
-    横坐标必须是**绝对密度**——`_apply_channel_curves` 喂进来的是 `v = A·d·s`，
-    用相对坐标会在 `d_lo` 不为 0 的帧上把整条曲线平移错位。
-    `np.interp` 在两端自动钳位：`d < d_lo → v = 0`（印成黑），
-    `d > d_hi → v = v_hi`（印成相纸最大反射率），这正是我们要的硬端点。
-    斜率必须**递增**（先压趾部、后展高光），否则不是"加对比"而是扭曲。
     """
     lo, mid, hi = anchor
     v_mid = -math.log10(max(1e-9, 1.0 - aim))
     v_hi = -math.log10(max(1e-9, 1.0 - white))
-    knots = ((lo, 0.0), (mid, v_mid), (hi, v_hi))
     s1 = v_mid / (mid - lo)
     s2 = (v_hi - v_mid) / (hi - mid)
     if not (math.isfinite(s1) and math.isfinite(s2)) or s2 <= s1:
         raise ValueError(f"打印曲线斜率未递增（趾部 {s1:.3f} ≥ 高光 {s2:.3f}）")
-    return knots
+    return (np.array([lo, mid, hi], dtype=np.float64),
+            np.array([0.0, v_mid, v_hi], dtype=np.float64))
 
 
-def apply_print_scale(params, anchor: tuple[float, float, float] | None):
-    """把打印尺度写进 `InvertParams`；无锚点或曲线不合法时**原样返回**。
+def remap_luma(y_old: np.ndarray, anchor: tuple[float, float, float],
+               dmax_old: float, *, aim: float = PRINT_AIM,
+               white: float = PRINT_WHITE) -> np.ndarray:
+    """把**旧纸级映射下的亮度**重映到锚定的新映射上（一维，供测试与复用）。
 
-    只改 `dmax/offset/black/channel_curves/backend_name` 四项；
-    `density_matrix` 与色温/色调**一律不碰**——曲线是影调，矩阵是颜色。
-    **带指数先验（`reference_exponent`/`red_ratio`/`blue_ratio` 非 1）时不套**：
-    那时曲线自变量是 `d·s` 且逐通道不同，共用一条绝对密度曲线会
-    悄悄改掉通道比例（= 色偏）。宁可退回"没有自动打印尺度"，
-    也不能让一整卷导出因为某帧曲线退化而中断。
+    旧映射 `y = 1 − 10^(−d/dmax)` 可逆：`d = −dmax·log10(1 − y)`，
+    所以不需要重跑反相就能拿到"这像素的密度是多少"，再按曲线求新亮度。
+    """
+    xs, ys = print_curve(anchor, aim=aim, white=white)
+    y = np.clip(np.asarray(y_old, dtype=np.float64), 0.0, 1.0 - 1e-6)
+    d = -float(dmax_old) * np.log10(np.maximum(1e-9, 1.0 - y))
+    v = np.interp(d, xs, ys)
+    return 1.0 - np.power(10.0, -v)
+
+
+def apply_print_remap(res, anchor: tuple[float, float, float] | None,
+                      dmax_old: float, mask: np.ndarray | None = None):
+    """对技术正片做**保色度**的打印重映射，返回 (新 InvertResult, 采用记录)。
+
+    为什么必须保色度：第一版把同一条曲线**逐通道**施加到密度上，
+    结果对比上来了但天空变成深青蓝——因为 B 通道在橙色片基扣除后
+    落在共享曲线的另一段上，通道差被 8 倍斜率放大，那是**颜色改动**，
+    而 `service.py:383-388` 明令禁止在这条路径上静默改颜色。
+    现在只对**亮度**施加曲线，再按逐像素统一增益缩放三通道，
+    色度比例逐比特保持（`out = x · (y_new / y)`）。
+
+    无锚点 / 曲线退化 / 增益不可靠 ⇒ **原样返回**，不猜也不抛错。
     """
     if anchor is None:
-        return params, None
-    slopes = (float(getattr(params, "reference_exponent", 1.0)),
-              float(getattr(params, "red_ratio", 1.0)),
-              float(getattr(params, "blue_ratio", 1.0)))
-    if any(abs(s - 1.0) > 1e-9 for s in slopes):
-        return params, None
+        return res, None
+    x = np.asarray(res.positive_linear, dtype=np.float64)
+    if x.ndim != 3 or x.shape[-1] < 3:
+        return res, None
+    lum = x[..., :3] @ _LUM_W
     try:
-        knots = print_knots(anchor)
+        new_lum = remap_luma(lum, anchor, dmax_old)
     except ValueError:
-        return params, None
-    curves = (knots, knots, knots)      # 三通道共用同一条：不引入通道间比例变化
-    out = _replace(params, dmax=1.0, offset=0.0, black=0.0,
-                   channel_curves=curves,
-                   backend_name="density-affine-curves")
-    return out, {"d_lo": round(anchor[0], 5), "d_mid": round(anchor[1], 5),
-                 "d_hi": round(anchor[2], 5),
-                 "knots": [[round(x, 5), round(y, 5)] for x, y in knots],
-                 "aim": PRINT_AIM, "white": PRINT_WHITE}
+        return res, None
+    floor = 1e-5
+    safe = np.where(lum > floor, lum, 1.0)
+    gain = np.where(lum > floor, new_lum / safe, 1.0)
+    if mask is not None:
+        m = np.asarray(mask, dtype=bool)
+        if m.shape == gain.shape:
+            gain = np.where(m, gain, 1.0)   # 片边不是画面内容，不该被"打印"
+    out = np.clip(x[..., :3] * gain[..., None], 0.0, 1.0)
+    if out.shape[-1] == 3 and x.shape[-1] > 3:
+        out = np.concatenate([out, x[..., 3:]], axis=2)
+    from .density import encode_srgb
+    new = _copy_result(res, out.astype(np.float32), encode_srgb(out))
+    info = {"d_lo": round(anchor[0], 5), "d_mid": round(anchor[1], 5),
+            "d_hi": round(anchor[2], 5), "aim": PRINT_AIM, "white": PRINT_WHITE,
+            "dmax_old": round(float(dmax_old), 5)}
+    return new, info
 
 
-def _replace(params, **kw):
+def _copy_result(res, positive: np.ndarray, preview: np.ndarray):
     import dataclasses
-    return dataclasses.replace(params, **kw)
+    return dataclasses.replace(res, positive_linear=positive, preview_srgb=preview)
