@@ -90,3 +90,73 @@ def test_negative_control_catches_changelog_entry_split():
         heads = re.findall(r"(?m)^## +(.+)$", broken)
         assert not any(h.startswith(anchor) for h in heads), (
             f"{anchor} 被降级仍算章节——检测不可信")
+
+
+#: 历史快照里**给未来读者的指令**（"期望 N passed"）与**必须的限定**（以实测为准）。
+STALE_INSTRUCTION = re.compile(r"期望\s*\**\s*\d+\s*passed")
+MEASURED_NOTICE = re.compile(r"实测为准")
+#: 声明必须是**文件开头的告示**，不能是正文里偶然出现的一句话。
+HEAD_LINES = 5
+
+
+def _dated_snapshots() -> list[tuple[str, str]]:
+    """仓库根 + docs/ 下所有**文件名带日期**的 Markdown（历史快照）。"""
+    out = []
+    for p in sorted(list((ROOT / "docs").glob("*.md")) + list(ROOT.glob("*.md"))):
+        if re.search(r"_20\d{6}", p.name):
+            out.append((p.name, p.read_text(encoding="utf-8", errors="replace")))
+    return out
+
+
+def _offenders(rows: list[tuple[str, str]]) -> list[str]:
+    bad = []
+    for name, text in rows:
+        if not STALE_INSTRUCTION.search(text):
+            continue                                    # 没下指令，无需声明
+        head = "\n".join(text.splitlines()[:HEAD_LINES])
+        if not MEASURED_NOTICE.search(head):
+            bad.append(name)
+    return bad
+
+
+def test_dated_docs_do_not_state_stale_expectations():
+    """带日期的历史快照里，**「期望 N passed」这类指令**必须配"以实测为准"的声明。
+
+    2026-10-07 实测：`交接_20260908.md` / `冷读与整改任务书_20260908.md` 里写着
+    「跑测试…期望 **417 passed**」——417 是 2026-09-08 的真实值，**不该改写历史**，
+    但**"期望"是给未来读者的指令**，不加限定就会让人以为环境坏了。
+    所以**不删数字，只在文件头加声明**，并锁住这个要求。
+    （本条**故意不写"当前 N passed"**：交付当轮的条数会被下一轮新增用例变成历史值，
+    那正是本锁要防的东西——数字只能来自**当场打印**。）
+    """
+    bad = _offenders(_dated_snapshots())
+    assert not bad, (
+        "这些历史快照给了『期望 N passed』的指令，文件头却没有『以当场实测为准』的声明："
+        f"{bad}")
+
+
+def test_anti_vacuity_lock_actually_sees_snapshots_with_instructions():
+    """反空断言：真实库里**必须至少 1 个**带指令的快照被判定到。
+
+    正则一旦与文档措辞脱节（改字、改加粗），本锁会安静地扫不到任何文件而"全绿"。
+    """
+    seen = [name for name, text in _dated_snapshots() if STALE_INSTRUCTION.search(text)]
+    assert seen, "没有任何历史快照带『期望 N passed』指令——正则已失效，本锁是空锁"
+    assert not _offenders([(n, t) for n, t in _dated_snapshots()
+                           if STALE_INSTRUCTION.search(t)]), (
+        "带指令的快照必须全过判定")
+
+
+def test_lock_has_teeth_dropping_the_notice_is_caught():
+    """反空断言：把某个真实快照开头的声明抹掉，本锁**必须**点名它。
+
+    （对照实验**只在内存里做**，绝不写文件。）
+    """
+    rows = [(n, t) for n, t in _dated_snapshots() if STALE_INSTRUCTION.search(t)]
+    assert rows, "找不到带指令的快照，负控制无对象"
+    name, text = rows[0]
+    stripped = "\n".join(ln for ln in text.splitlines()
+                         if MEASURED_NOTICE.search(ln) is None)
+    assert stripped != text, f"锚文本没匹配上，负控制等于没跑：{name}"
+    assert _offenders([(name, stripped)]) == [name], (
+        f"抹掉『{name}』的声明却没报错——本锁是空锁")
