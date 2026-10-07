@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-10-07T11:09:02Z",
+  "title": "用户手工去色罩成品（作者本人制作）——一次性自动出片的目标外观",
+  "provenance": "参考图由用户本人手工完成，**可以**作为目标与训练依据。这与 manifest 里的 nlp_reference 不同：NLP 导出受 v5 §9.2 限制，仅作竞品对照，不得作为训练目标或复制对象。",
+  "roll": "1298_G200",
+  "method": {
+    "center_crop_frac": 0.7,
+    "resize": 384,
+    "domain": "display-sRGB",
+    "mid_tone_band": [
+      0.3,
+      0.72
+    ]
+  },
+  "caveat": "统计量在**显示域 + 中心 70% + 384px** 上量，与用户成片的裁切范围无关；但中心区域内容仍受构图影响，cast_* 两项在满屏树叶/水面的帧上会被内容带偏，**只能当线索，不能当判据**；亮度/对比/饱和三项是跨帧一致的稳健信号。",
+  "frames": [
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-1.jpg",
+      "reference_sha256": "7d98129778a598b36ac4d41afbc40b6dabb697b1294a55aea770f27e8cce18c7",
+      "reference_bytes": 17245690,
+      "frame_id": "1298_G200::G200-1",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-1.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-1.jpg",
+      "stats": {
+        "luma_mean": 0.6313,
+        "luma_p05": 0.1988,
+        "luma_p50": 0.6602,
+        "luma_p95": 0.9078,
+        "luma_std": 0.2146,
+        "sat_mean": 0.1056,
+        "sat_p95": 0.2706,
+        "cast_rg_mid": 0.8595,
+        "cast_bg_mid": 1.0934
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-10.jpg",
+      "reference_sha256": "35a62d13573b6231dfc90d499fc719ee11849408ea8663402dfbc73d9f17b62f",
+      "reference_bytes": 23512987,
+      "frame_id": "1298_G200::G200-10",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-10.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-10.jpg",
+      "stats": {
+        "luma_mean": 0.4847,
+        "luma_p05": 0.0356,
+        "luma_p50": 0.5276,
+        "luma_p95": 0.8574,
+        "luma_std": 0.2464,
+        "sat_mean": 0.1767,
+        "sat_p95": 0.4667,
+        "cast_rg_mid": 0.8373,
+        "cast_bg_mid": 0.9438
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-11.jpg",
+      "reference_sha256": "b2c62aaa6c8b3a4439629c023bac983909cd9cfc28f5fbad69d028b43bc81d11",
+      "reference_bytes": 20051665,
+      "frame_id": "1298_G200::G200-11",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-11.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-11.jpg",
+      "stats": {
+        "luma_mean": 0.5071,
+        "luma_p05": 0.2321,
+        "luma_p50": 0.4928,
+        "luma_p95": 0.8282,
+        "luma_std": 0.178,
+        "sat_mean": 0.262,
+        "sat_p95": 0.6353,
+        "cast_rg_mid": 0.8722,
+        "cast_bg_mid": 0.8293
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-2-2.jpg",
+      "reference_sha256": "5ac07e3143efa6f5707d55fcdc54d59f3d547a2dde7409b22cee06ec3e2304fe",
+      "reference_bytes": 25039882,
+      "frame_id": "1298_G200::G200-2",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-2.NEF",
+      "variant_of": "G200-2",
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-2.jpg",
+      "stats": {
+        "luma_mean": 0.6544,
+        "luma_p05": 0.2089,
+        "luma_p50": 0.7779,
+        "luma_p95": 0.9812,
+        "luma_std": 0.2673,
+        "sat_mean": 0.1024,
+        "sat_p95": 0.3216,
+        "cast_rg_mid": 0.8591,
+        "cast_bg_mid": 0.9889
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-2.jpg",
+      "reference_sha256": "98b606d41014e96563897f0fa77bf27fd8cf951c739b494eaa7370eb21e20bf8",
+      "reference_bytes": 16340726,
+      "frame_id": "1298_G200::G200-2",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-2.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-2.jpg",
+      "stats": {
+        "luma_mean": 0.5231,
+        "luma_p05": 0.1635,
+        "luma_p50": 0.5123,
+        "luma_p95": 0.8563,
+        "luma_std": 0.2262,
+        "sat_mean": 0.0495,
+        "sat_p95": 0.1451,
+        "cast_rg_mid": 0.9944,
+        "cast_bg_mid": 1.025
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-5.jpg",
+      "reference_sha256": "bcb545923bb7004ad9eef0db91d3a726bae3c3469094cc1efe6f43dde20ed0b2",
+      "reference_bytes": 19840983,
+      "frame_id": "1298_G200::G200-5",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-5.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-5.jpg",
+      "stats": {
+        "luma_mean": 0.4683,
+        "luma_p05": 0.2256,
+        "luma_p50": 0.4727,
+        "luma_p95": 0.7081,
+        "luma_std": 0.1435,
+        "sat_mean": 0.1661,
+        "sat_p95": 0.3137,
+        "cast_rg_mid": 0.7521,
+        "cast_bg_mid": 0.774
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-6.jpg",
+      "reference_sha256": "d1bffc9dbe622c1358c7a490ae590ec0df2a0005a92ec650fae7e5a01d41f942",
+      "reference_bytes": 18308974,
+      "frame_id": "1298_G200::G200-6",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-6.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-6.jpg",
+      "stats": {
+        "luma_mean": 0.7016,
+        "luma_p05": 0.2507,
+        "luma_p50": 0.7744,
+        "luma_p95": 0.9754,
+        "luma_std": 0.2338,
+        "sat_mean": 0.1236,
+        "sat_p95": 0.4353,
+        "cast_rg_mid": 0.8871,
+        "cast_bg_mid": 1.0706
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-7-2.jpg",
+      "reference_sha256": "aacf8f5745303cd2ceb89093dc9906a65669d8d4276182d24b2be46f607309da",
+      "reference_bytes": 21193960,
+      "frame_id": "1298_G200::G200-7",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-7.NEF",
+      "variant_of": "G200-7",
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-7.jpg",
+      "stats": {
+        "luma_mean": 0.7111,
+        "luma_p05": 0.3179,
+        "luma_p50": 0.7801,
+        "luma_p95": 0.9178,
+        "luma_std": 0.1924,
+        "sat_mean": 0.1245,
+        "sat_p95": 0.3569,
+        "cast_rg_mid": 0.9507,
+        "cast_bg_mid": 1.0151
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-7.jpg",
+      "reference_sha256": "5581bfb1433643f87f75e6d8e5ac65eba9a1bf05b8da40057bd71f047e7d4a56",
+      "reference_bytes": 19559392,
+      "frame_id": "1298_G200::G200-7",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-7.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-7.jpg",
+      "stats": {
+        "luma_mean": 0.49,
+        "luma_p05": 0.0202,
+        "luma_p50": 0.5998,
+        "luma_p95": 0.7802,
+        "luma_std": 0.2509,
+        "sat_mean": 0.2123,
+        "sat_p95": 0.4784,
+        "cast_rg_mid": 0.7119,
+        "cast_bg_mid": 0.9367
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-8.jpg",
+      "reference_sha256": "0b8ad2b5afec5501c3e578c1ea1b9dec50f2b1d887881ea13c01cfa24e5a335f",
+      "reference_bytes": 25814228,
+      "frame_id": "1298_G200::G200-8",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-8.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-8.jpg",
+      "stats": {
+        "luma_mean": 0.4688,
+        "luma_p05": 0.1933,
+        "luma_p50": 0.463,
+        "luma_p95": 0.7599,
+        "luma_std": 0.178,
+        "sat_mean": 0.1879,
+        "sat_p95": 0.3922,
+        "cast_rg_mid": 0.8696,
+        "cast_bg_mid": 0.7953
+      }
+    },
+    {
+      "reference_file": "fixtures/provided/references/G200_manual/G200-9.jpg",
+      "reference_sha256": "7122f57af5de0ba90ef217cc6bdce397bae7c4567380b1132bd9344af75d938d",
+      "reference_bytes": 25419404,
+      "frame_id": "1298_G200::G200-9",
+      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-9.NEF",
+      "variant_of": null,
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-9.jpg",
+      "stats": {
+        "luma_mean": 0.5907,
+        "luma_p05": 0.1587,
+        "luma_p50": 0.6545,
+        "luma_p95": 0.8593,
+        "luma_std": 0.2232,
+        "sat_mean": 0.2618,
+        "sat_p95": 0.5059,
+        "cast_rg_mid": 0.7391,
+        "cast_bg_mid": 0.3605
+      }
+    }
+  ]
+}
