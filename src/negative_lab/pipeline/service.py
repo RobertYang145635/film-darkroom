@@ -41,6 +41,7 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
+from .print_exposure import apply_print_exposure
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -406,6 +407,10 @@ def process_image(t_source: np.ndarray, *,
         cset = build_candidates(_CandidateInput(
             result=res, geometry=geo_rec, valid_mask=valid_mask, t=t_out,
             roll_analysis=roll_analysis, base_source=base_source))
+        # ---- 9a) 自动打印曝光（B-11）：把中灰放到相纸 aim 上。
+        # 三个候选加同一个 EV，所以候选之间的相对关系不变；技术正片不动。
+        print_ev = apply_print_exposure(cset, res.positive_linear)
+        cset.diagnostics["print_exposure_ev"] = print_ev
         if candidate is None:
             chosen = cset.default_name
         cand = cset.get(chosen)
