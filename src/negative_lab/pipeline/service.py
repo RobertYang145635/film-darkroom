@@ -41,7 +41,7 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
-from .print_exposure import apply_print_exposure
+from .print_scale import apply_print_scale, density_anchor, positive_density
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -392,6 +392,14 @@ def process_image(t_source: np.ndarray, *,
     asset_info = asset.apply_to(rep.params)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
+    # ---- 8b) 自动打印尺度（B-11）：把这一帧的密度分布映到相纸反射率范围。
+    # 落在技术层，所以预览/导出/门禁统计看到的是同一张图；
+    # 用户显式 `force_params` 是最终裁决，这里不覆盖。
+    print_scale_info = None
+    if force_params is None:
+        rep.params, print_scale_info = apply_print_scale(
+            rep.params,
+            density_anchor(positive_density(t_out, rep.params.dmin, valid_mask)))
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
     preclip = preclip_ratios(res.diagnostics)
 
@@ -407,10 +415,6 @@ def process_image(t_source: np.ndarray, *,
         cset = build_candidates(_CandidateInput(
             result=res, geometry=geo_rec, valid_mask=valid_mask, t=t_out,
             roll_analysis=roll_analysis, base_source=base_source))
-        # ---- 9a) 自动打印曝光（B-11）：把中灰放到相纸 aim 上。
-        # 三个候选加同一个 EV，所以候选之间的相对关系不变；技术正片不动。
-        print_ev = apply_print_exposure(cset, res.positive_linear)
-        cset.diagnostics["print_exposure_ev"] = print_ev
         if candidate is None:
             chosen = cset.default_name
         cand = cset.get(chosen)
@@ -475,6 +479,7 @@ def process_image(t_source: np.ndarray, *,
         model_asset=asset_info,
         meta={"flatfield": flat_info,
               "input_facts": {},
+              "print_scale": print_scale_info or {},
               "dust_deferred": bool(dust_mask is not None or dust_auto)})
 
 
