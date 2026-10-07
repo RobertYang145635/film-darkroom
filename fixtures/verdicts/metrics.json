@@ -1,6 +1,6 @@
 {
   "schema_version": 3,
-  "generated_utc": "2026-09-20T22:24:18Z",
+  "generated_utc": "2026-10-07T16:24:56Z",
   "max_dim": 1200,
   "note": "分层标记为**显示编码(sRGB)域**上的像素统计（代理指标，非场景真值）；数字全部来自生产服务 process_roll，无第二条管线。",
   "strata_legend": {
@@ -15,7 +15,7 @@
     "low_base_confidence": "片基 Dmin 置信度低：来源可能是回退而非实测",
     "no_nlp_reference": "没有同源 NLP 参考：只能用于稳健性，不得进对标集"
   },
-  "seconds": 1270.6,
+  "seconds": 1416.4,
   "frames": [
     {
       "id": "1298_G200::G200-1",
@@ -29,7 +29,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -37,19 +37,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.816,
-        "p05": 0.2971,
-        "p95": 0.9085,
-        "top_mean": 0.4861,
-        "top_std": 0.1673,
+        "median_luma": 0.5578,
+        "p05": 0.1773,
+        "p95": 0.6238,
+        "top_mean": 0.6085,
+        "top_std": 0.0273,
         "negative_density_range": 3.2407,
         "scene": {
-          "sat_frac": 0.2491,
-          "dark_frac": 0.1018,
-          "neutral_frac": 0.5095,
-          "hue_concentration": 0.3742,
-          "estimator_spread_rad": 0.2245,
-          "estimator_magnitude_ratio": 1.5797
+          "sat_frac": 0.2556,
+          "dark_frac": 0.1096,
+          "neutral_frac": 0.5088,
+          "hue_concentration": 0.3672,
+          "estimator_spread_rad": 0.2252,
+          "estimator_magnitude_ratio": 1.5886
         },
         "technical_preclip": {
           "low": [
@@ -63,7 +63,7 @@
             0.0
           ],
           "n": 545148,
-          "above_base": 0.05141600690699284
+          "above_base": 0.06072051381765441
         }
       },
       "base_source": "frame+roll",
@@ -76,8 +76,8 @@
       "base_contamination": 0.0786,
       "base_black_level": 0.025808,
       "base_spatial_trend": [
-        -0.0372,
-        0.0924
+        0.0394,
+        -0.0978
       ],
       "input_clip": {
         "low": [
@@ -115,14 +115,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.115328,
+      "dmax": 1.110686,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.641,
-        "warm": 0.691
+        "neutral": 0.642,
+        "warm": 0.692
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -147,11 +147,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.4977,
-        "p05": 0.2673,
-        "p95": 0.9302,
-        "top_mean": 0.4469,
-        "top_std": 0.1914,
+        "median_luma": 0.4221,
+        "p05": 0.2233,
+        "p95": 0.7951,
+        "top_mean": 0.3782,
+        "top_std": 0.1651,
         "negative_density_range": 3.2817,
         "scene": {
           "sat_frac": 0.5922,
@@ -250,26 +250,26 @@
         "saturated_dominant": false,
         "night_like": false,
         "bright_uniform_top": false,
-        "low_result_contrast": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8205,
-        "p05": 0.4638,
-        "p95": 0.9246,
-        "top_mean": 0.784,
-        "top_std": 0.1747,
+        "median_luma": 0.4975,
+        "p05": 0.2652,
+        "p95": 0.5643,
+        "top_mean": 0.4743,
+        "top_std": 0.1107,
         "negative_density_range": 3.309,
         "scene": {
-          "sat_frac": 0.3857,
-          "dark_frac": 0.0296,
-          "neutral_frac": 0.3476,
-          "hue_concentration": 0.4044,
-          "estimator_spread_rad": 0.1853,
-          "estimator_magnitude_ratio": 1.3911
+          "sat_frac": 0.3906,
+          "dark_frac": 0.0325,
+          "neutral_frac": 0.3443,
+          "hue_concentration": 0.4025,
+          "estimator_spread_rad": 0.186,
+          "estimator_magnitude_ratio": 1.3985
         },
         "technical_preclip": {
           "low": [
@@ -283,7 +283,7 @@
             0.0
           ],
           "n": 472188,
-          "above_base": 0.025406547109767013
+          "above_base": 0.027580116394317518
         }
       },
       "base_source": "frame+roll",
@@ -335,14 +335,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.015865,
+      "dmax": 1.010999,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.557,
-        "warm": 0.607
+        "neutral": 0.554,
+        "warm": 0.604
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -359,7 +359,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -367,19 +367,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8494,
-        "p05": 0.7439,
-        "p95": 0.9296,
-        "top_mean": 0.8383,
-        "top_std": 0.1466,
+        "median_luma": 0.4809,
+        "p05": 0.4205,
+        "p95": 0.5287,
+        "top_mean": 0.4743,
+        "top_std": 0.0292,
         "negative_density_range": 3.3051,
         "scene": {
-          "sat_frac": 0.026,
-          "dark_frac": 0.0149,
-          "neutral_frac": 0.6804,
-          "hue_concentration": 0.386,
-          "estimator_spread_rad": 0.1573,
-          "estimator_magnitude_ratio": 1.6761
+          "sat_frac": 0.0254,
+          "dark_frac": 0.0139,
+          "neutral_frac": 0.6742,
+          "hue_concentration": 0.3883,
+          "estimator_spread_rad": 0.2001,
+          "estimator_magnitude_ratio": 1.6818
         },
         "technical_preclip": {
           "low": [
@@ -393,27 +393,27 @@
             0.0
           ],
           "n": 489600,
-          "above_base": 0.013858251633986927
+          "above_base": 0.012844498910675382
         }
       },
       "base_source": "frame+roll",
       "base_confidence": 1.0,
       "base_dmin": [
-        0.383851,
-        0.147544,
-        0.043173
+        0.384779,
+        0.147851,
+        0.043169
       ],
-      "base_contamination": 0.0442,
-      "base_black_level": 0.023371,
+      "base_contamination": 0.0334,
+      "base_black_level": 0.023826,
       "base_spatial_trend": [
-        -0.0431,
-        0.0022
+        0.0412,
+        -0.0031
       ],
       "input_clip": {
         "low": [
           0.0,
           0.0,
-          0.123352
+          0.123879
         ],
         "high": [
           0.0,
@@ -445,14 +445,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.183973,
+      "dmax": 1.182009,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.726,
-        "warm": 0.776
+        "neutral": 0.663,
+        "warm": 0.713
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -469,7 +469,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -477,19 +477,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7636,
-        "p05": 0.3328,
-        "p95": 0.9145,
-        "top_mean": 0.4576,
-        "top_std": 0.1657,
+        "median_luma": 0.5438,
+        "p05": 0.22,
+        "p95": 0.6544,
+        "top_mean": 0.6305,
+        "top_std": 0.019,
         "negative_density_range": 3.2939,
         "scene": {
-          "sat_frac": 0.2405,
-          "dark_frac": 0.141,
-          "neutral_frac": 0.5551,
-          "hue_concentration": 0.3099,
-          "estimator_spread_rad": 0.2125,
-          "estimator_magnitude_ratio": 1.5746
+          "sat_frac": 0.2455,
+          "dark_frac": 0.1522,
+          "neutral_frac": 0.5492,
+          "hue_concentration": 0.2953,
+          "estimator_spread_rad": 0.213,
+          "estimator_magnitude_ratio": 1.578
         },
         "technical_preclip": {
           "low": [
@@ -502,28 +502,28 @@
             0.0,
             0.0
           ],
-          "n": 546964,
-          "above_base": 0.028466833892785145
+          "n": 548328,
+          "above_base": 0.03356749974467837
         }
       },
-      "base_source": "frame+roll",
-      "base_confidence": 1.0,
+      "base_source": "frame",
+      "base_confidence": 0.913,
       "base_dmin": [
-        0.273658,
-        0.104896,
-        0.030326
+        0.274436,
+        0.10517,
+        0.030399
       ],
-      "base_contamination": 0.0447,
-      "base_black_level": 0.022453,
+      "base_contamination": 0.0341,
+      "base_black_level": 0.012285,
       "base_spatial_trend": [
-        -0.0405,
-        0.0036
+        0.0398,
+        -0.004
       ],
       "input_clip": {
         "low": [
           0.0,
           0.0,
-          0.094845
+          0.095359
         ],
         "high": [
           0.0,
@@ -555,14 +555,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.22801,
+      "dmax": 1.233345,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.681,
-        "warm": 0.731
+        "neutral": 0.68,
+        "warm": 0.73
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -579,7 +579,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -587,11 +587,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8678,
-        "p05": 0.7486,
-        "p95": 0.8924,
-        "top_mean": 0.8316,
-        "top_std": 0.0581,
+        "median_luma": 0.4769,
+        "p05": 0.4082,
+        "p95": 0.4911,
+        "top_mean": 0.456,
+        "top_std": 0.0335,
         "negative_density_range": 3.3281,
         "scene": {
           "sat_frac": 0.0034,
@@ -689,7 +689,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -697,19 +697,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8351,
-        "p05": 0.6781,
-        "p95": 0.9221,
-        "top_mean": 0.8759,
-        "top_std": 0.0571,
+        "median_luma": 0.4702,
+        "p05": 0.384,
+        "p95": 0.5192,
+        "top_mean": 0.4932,
+        "top_std": 0.0311,
         "negative_density_range": 3.4162,
         "scene": {
-          "sat_frac": 0.096,
-          "dark_frac": 0.0008,
-          "neutral_frac": 0.711,
-          "hue_concentration": 0.2583,
-          "estimator_spread_rad": 0.2182,
-          "estimator_magnitude_ratio": 1.6682
+          "sat_frac": 0.0814,
+          "dark_frac": 0.0007,
+          "neutral_frac": 0.7391,
+          "hue_concentration": 0.2364,
+          "estimator_spread_rad": 0.2148,
+          "estimator_magnitude_ratio": 1.6232
         },
         "technical_preclip": {
           "low": [
@@ -723,11 +723,11 @@
             0.0
           ],
           "n": 544236,
-          "above_base": 0.000670664932125034
+          "above_base": 0.00032522655612638634
         }
       },
-      "base_source": "frame+roll",
-      "base_confidence": 1.0,
+      "base_source": "frame",
+      "base_confidence": 0.935,
       "base_dmin": [
         0.314232,
         0.120887,
@@ -775,14 +775,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.193699,
+      "dmax": 1.214811,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.673,
-        "warm": 0.723
+        "neutral": 0.678,
+        "warm": 0.728
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -799,7 +799,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -807,19 +807,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8986,
-        "p05": 0.8261,
-        "p95": 0.9322,
-        "top_mean": 0.8911,
-        "top_std": 0.0363,
+        "median_luma": 0.4635,
+        "p05": 0.4236,
+        "p95": 0.4819,
+        "top_mean": 0.4617,
+        "top_std": 0.0196,
         "negative_density_range": 3.3442,
         "scene": {
-          "sat_frac": 0.0114,
-          "dark_frac": 0.0008,
-          "neutral_frac": 0.8347,
-          "hue_concentration": 0.2626,
-          "estimator_spread_rad": 0.211,
-          "estimator_magnitude_ratio": 1.3155
+          "sat_frac": 0.0107,
+          "dark_frac": 0.0003,
+          "neutral_frac": 0.8373,
+          "hue_concentration": 0.2531,
+          "estimator_spread_rad": 0.2104,
+          "estimator_magnitude_ratio": 1.3115
         },
         "technical_preclip": {
           "low": [
@@ -830,30 +830,30 @@
           "high": [
             0.0,
             0.0,
-            0.0019312952005259697
+            0.0019853628153223297
           ],
           "n": 462384,
-          "above_base": 0.0003236847872475403
+          "above_base": 0.00014922661683795286
         }
       },
       "base_source": "frame",
-      "base_confidence": 0.94,
+      "base_confidence": 0.941,
       "base_dmin": [
-        0.311932,
-        0.119765,
-        0.034529
+        0.311507,
+        0.119651,
+        0.034381
       ],
-      "base_contamination": 0.1947,
-      "base_black_level": 0.039859,
+      "base_contamination": 0.1836,
+      "base_black_level": 0.039252,
       "base_spatial_trend": [
-        -0.0068,
-        -0.0009
+        0.0073,
+        -0.0011
       ],
       "input_clip": {
         "low": [
           0.0,
           0.0,
-          0.001931
+          0.001985
         ],
         "high": [
           0.0,
@@ -877,22 +877,22 @@
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         },
         "B": {
-          "high_total": 0.001931,
-          "high_inherited": 0.001931,
+          "high_total": 0.001985,
+          "high_inherited": 0.001985,
           "high_introduced": 0.0,
           "low": null,
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.794512,
+      "dmax": 0.802017,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.683,
-        "warm": 0.733
+        "neutral": 0.684,
+        "warm": 0.734
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -910,26 +910,26 @@
         "saturated_dominant": false,
         "night_like": false,
         "bright_uniform_top": false,
-        "low_result_contrast": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8054,
-        "p05": 0.532,
-        "p95": 0.9207,
-        "top_mean": 0.7665,
-        "top_std": 0.1534,
+        "median_luma": 0.4982,
+        "p05": 0.3185,
+        "p95": 0.5735,
+        "top_mean": 0.472,
+        "top_std": 0.103,
         "negative_density_range": 3.3461,
         "scene": {
-          "sat_frac": 0.3187,
-          "dark_frac": 0.041,
-          "neutral_frac": 0.3188,
-          "hue_concentration": 0.3744,
-          "estimator_spread_rad": 0.1817,
-          "estimator_magnitude_ratio": 1.3952
+          "sat_frac": 0.323,
+          "dark_frac": 0.0415,
+          "neutral_frac": 0.3174,
+          "hue_concentration": 0.3738,
+          "estimator_spread_rad": 0.1822,
+          "estimator_magnitude_ratio": 1.3973
         },
         "technical_preclip": {
           "low": [
@@ -943,7 +943,7 @@
             0.0
           ],
           "n": 490872,
-          "above_base": 0.0342282034148753
+          "above_base": 0.035512312782150945
         }
       },
       "base_source": "frame+roll",
@@ -995,14 +995,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.247863,
+      "dmax": 1.243165,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.644,
-        "warm": 0.694
+        "neutral": 0.64,
+        "warm": 0.69
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -1027,19 +1027,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7756,
-        "p05": 0.3002,
-        "p95": 0.9327,
-        "top_mean": 0.5959,
-        "top_std": 0.2645,
+        "median_luma": 0.5447,
+        "p05": 0.1738,
+        "p95": 0.6612,
+        "top_mean": 0.4035,
+        "top_std": 0.2047,
         "negative_density_range": 3.3297,
         "scene": {
-          "sat_frac": 0.4236,
-          "dark_frac": 0.1252,
-          "neutral_frac": 0.3035,
-          "hue_concentration": 0.4239,
-          "estimator_spread_rad": 0.1462,
-          "estimator_magnitude_ratio": 1.2846
+          "sat_frac": 0.4354,
+          "dark_frac": 0.1485,
+          "neutral_frac": 0.2984,
+          "hue_concentration": 0.4004,
+          "estimator_spread_rad": 0.1479,
+          "estimator_magnitude_ratio": 1.287
         },
         "technical_preclip": {
           "low": [
@@ -1053,7 +1053,7 @@
             0.0
           ],
           "n": 249920,
-          "above_base": 0.10783850832266326
+          "above_base": 0.1289265898420828
         }
       },
       "base_source": "generic_prior",
@@ -1129,13 +1129,13 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.163354,
+      "dmax": 1.152942,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.456,
+        "neutral": 0.462,
         "warm": 1.0
       },
       "parity_required": true,
@@ -1161,11 +1161,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8343,
-        "p05": 0.0935,
-        "p95": 0.9106,
-        "top_mean": 0.6135,
-        "top_std": 0.3174,
+        "median_luma": 0.6303,
+        "p05": 0.0679,
+        "p95": 0.6892,
+        "top_mean": 0.462,
+        "top_std": 0.2419,
         "negative_density_range": 3.3232,
         "scene": {
           "sat_frac": 0.331,
@@ -1264,26 +1264,26 @@
         "saturated_dominant": false,
         "night_like": false,
         "bright_uniform_top": false,
-        "low_result_contrast": false,
-        "highlight_clip": true,
+        "low_result_contrast": true,
+        "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8754,
-        "p05": 0.3667,
-        "p95": 0.9264,
-        "top_mean": 0.778,
-        "top_std": 0.1744,
+        "median_luma": 0.5067,
+        "p05": 0.2428,
+        "p95": 0.5356,
+        "top_mean": 0.455,
+        "top_std": 0.0909,
         "negative_density_range": 3.2907,
         "scene": {
-          "sat_frac": 0.2958,
-          "dark_frac": 0.0549,
-          "neutral_frac": 0.35,
-          "hue_concentration": 0.5285,
-          "estimator_spread_rad": 0.1923,
-          "estimator_magnitude_ratio": 1.4443
+          "sat_frac": 0.2835,
+          "dark_frac": 0.0319,
+          "neutral_frac": 0.3656,
+          "hue_concentration": 0.5177,
+          "estimator_spread_rad": 0.1876,
+          "estimator_magnitude_ratio": 1.3975
         },
         "technical_preclip": {
           "low": [
@@ -1294,14 +1294,14 @@
           "high": [
             0.0,
             0.0,
-            0.013202965235173824
+            0.0
           ],
           "n": 234720,
-          "above_base": 0.07162150647580096
+          "above_base": 0.046209668257214266
         }
       },
-      "base_source": "frame",
-      "base_confidence": 0.88,
+      "base_source": "frame+roll",
+      "base_confidence": 0.98,
       "base_dmin": [
         0.239133,
         0.091618,
@@ -1349,13 +1349,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.910369,
-      "gate": "fail",
-      "blocks_export": true,
+      "dmax": 0.936319,
+      "gate": "warn",
+      "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.461,
+        "neutral": 0.494,
         "warm": 1.0
       },
       "parity_required": true,
@@ -1381,19 +1381,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8442,
-        "p05": 0.0003,
-        "p95": 0.8873,
-        "top_mean": 0.7122,
-        "top_std": 0.2819,
+        "median_luma": 0.7164,
+        "p05": 0.0002,
+        "p95": 0.7442,
+        "top_mean": 0.6036,
+        "top_std": 0.1518,
         "negative_density_range": 3.4079,
         "scene": {
-          "sat_frac": 0.9614,
-          "dark_frac": 0.1105,
-          "neutral_frac": 0.0053,
-          "hue_concentration": 0.6559,
-          "estimator_spread_rad": 0.2101,
-          "estimator_magnitude_ratio": 1.8171
+          "sat_frac": 0.9414,
+          "dark_frac": 0.0935,
+          "neutral_frac": 0.0017,
+          "hue_concentration": 0.564,
+          "estimator_spread_rad": 0.2532,
+          "estimator_magnitude_ratio": 2.2707
         },
         "technical_preclip": {
           "low": [
@@ -1402,12 +1402,12 @@
             0.0
           ],
           "high": [
-            1.3947818421720659e-05,
+            0.0,
             0.0,
             0.0
           ],
-          "n": 716958,
-          "above_base": 0.1158952128297613
+          "n": 606392,
+          "above_base": 0.09762606806598152
         }
       },
       "base_source": "generic_prior",
@@ -1421,20 +1421,20 @@
       ],
       "input_clip": {
         "low": [
-          1.4e-05,
-          1e-06,
-          0.484592
+          0.0,
+          0.0,
+          0.568825
         ],
         "high": [
-          0.002933,
+          0.0,
           0.0,
           0.0
         ]
       },
       "clip_attribution": {
         "R": {
-          "high_total": 1.4e-05,
-          "high_inherited": 1.4e-05,
+          "high_total": 0.0,
+          "high_inherited": 0.0,
           "high_introduced": 0.0,
           "low": null,
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
@@ -1456,40 +1456,40 @@
       },
       "best_rejected_region": {
         "roi": [
-          134.0,
           170.0,
-          226.0,
-          279.0
+          958.0,
+          279.0,
+          1050.0
         ],
         "confidence": 0.109,
         "contamination": 0.7348,
         "kept_frac": 0.2652,
-        "rel_spread": 0.0279,
+        "rel_spread": 0.0278,
         "mad": [
-          0.0088,
-          0.011,
-          0.0279
+          0.0087,
+          0.0109,
+          0.0278
         ],
         "scores": {
           "size": 1.0,
           "purity": 0.109,
-          "spread": 0.901
+          "spread": 0.903
         },
         "binding_score": "purity",
         "median_transmittance": [
-          0.575604,
-          0.219788,
-          0.065701
+          0.575605,
+          0.219806,
+          0.065739
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.104237,
+      "dmax": 1.113199,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.063,
+        "neutral": 0.07,
         "warm": 1.0
       },
       "parity_required": true,
@@ -1515,11 +1515,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8037,
-        "p05": 0.4003,
-        "p95": 0.9207,
-        "top_mean": 0.7282,
-        "top_std": 0.1794,
+        "median_luma": 0.5129,
+        "p05": 0.2466,
+        "p95": 0.5914,
+        "top_mean": 0.4633,
+        "top_std": 0.1179,
         "negative_density_range": 3.3627,
         "scene": {
           "sat_frac": 0.3822,
@@ -1625,11 +1625,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.4899,
-        "p05": 0.0249,
-        "p95": 0.9193,
-        "top_mean": 0.325,
-        "top_std": 0.3507,
+        "median_luma": 0.6333,
+        "p05": 0.0337,
+        "p95": 1.0,
+        "top_mean": 0.3917,
+        "top_std": 0.4067,
         "negative_density_range": 3.2499,
         "scene": {
           "sat_frac": 0.6127,
@@ -1727,7 +1727,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -1735,11 +1735,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8504,
-        "p05": 0.7179,
-        "p95": 0.9014,
-        "top_mean": 0.8224,
-        "top_std": 0.0761,
+        "median_luma": 0.475,
+        "p05": 0.3975,
+        "p95": 0.5049,
+        "top_mean": 0.4587,
+        "top_std": 0.0445,
         "negative_density_range": 3.4133,
         "scene": {
           "sat_frac": 0.2055,
@@ -1869,11 +1869,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8354,
-        "p05": 0.2437,
-        "p95": 0.8994,
-        "top_mean": 0.7592,
-        "top_std": 0.189,
+        "median_luma": 0.5338,
+        "p05": 0.1455,
+        "p95": 0.5761,
+        "top_mean": 0.4838,
+        "top_std": 0.1236,
         "negative_density_range": 3.409,
         "scene": {
           "sat_frac": 0.201,
@@ -1995,7 +1995,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -2003,11 +2003,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.762,
-        "p05": 0.4141,
-        "p95": 0.9198,
-        "top_mean": 0.8268,
-        "top_std": 0.0873,
+        "median_luma": 0.4992,
+        "p05": 0.2648,
+        "p95": 0.6063,
+        "top_mean": 0.5432,
+        "top_std": 0.0592,
         "negative_density_range": 3.3968,
         "scene": {
           "sat_frac": 0.4358,
@@ -2129,7 +2129,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -2137,19 +2137,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8611,
-        "p05": 0.6902,
-        "p95": 0.8927,
-        "top_mean": 0.8206,
-        "top_std": 0.0676,
+        "median_luma": 0.4853,
+        "p05": 0.3855,
+        "p95": 0.5024,
+        "top_mean": 0.4193,
+        "top_std": 0.0421,
         "negative_density_range": 3.3905,
         "scene": {
-          "sat_frac": 0.141,
-          "dark_frac": 0.0011,
-          "neutral_frac": 0.7115,
-          "hue_concentration": 0.3607,
-          "estimator_spread_rad": 0.2211,
-          "estimator_magnitude_ratio": 1.78
+          "sat_frac": 0.145,
+          "dark_frac": 0.0013,
+          "neutral_frac": 0.6678,
+          "hue_concentration": 0.3221,
+          "estimator_spread_rad": 0.2108,
+          "estimator_magnitude_ratio": 1.7053
         },
         "technical_preclip": {
           "low": [
@@ -2163,7 +2163,7 @@
             0.0
           ],
           "n": 499356,
-          "above_base": 0.0014592127994189849
+          "above_base": 0.0018043239692724228
         }
       },
       "base_source": "generic_prior",
@@ -2179,7 +2179,7 @@
         "low": [
           0.0,
           0.0,
-          0.223926
+          0.223702
         ],
         "high": [
           0.0,
@@ -2212,41 +2212,41 @@
       },
       "best_rejected_region": {
         "roi": [
-          829.0,
           8.0,
-          956.0,
-          100.0
+          199.0,
+          100.0,
+          326.0
         ],
-        "confidence": 0.157,
-        "contamination": 0.2355,
-        "kept_frac": 0.7645,
-        "rel_spread": 0.0875,
+        "confidence": 0.022,
+        "contamination": 0.4213,
+        "kept_frac": 0.5787,
+        "rel_spread": 0.0983,
         "mad": [
-          0.0379,
-          0.0679,
-          0.0875
+          0.0605,
+          0.0983,
+          0.074
         ],
         "scores": {
           "size": 1.0,
-          "purity": 0.941,
-          "spread": 0.157
+          "purity": 0.631,
+          "spread": 0.022
         },
         "binding_score": "spread",
         "median_transmittance": [
-          0.210367,
-          0.065767,
-          0.029215
+          0.224022,
+          0.075493,
+          0.032814
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.281213,
+      "dmax": 1.286979,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.658,
-        "warm": 0.708
+        "neutral": 0.684,
+        "warm": 0.734
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -2271,11 +2271,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8458,
-        "p05": 0.0722,
-        "p95": 0.9027,
-        "top_mean": 0.7312,
-        "top_std": 0.2332,
+        "median_luma": 0.5958,
+        "p05": 0.0428,
+        "p95": 0.6369,
+        "top_mean": 0.514,
+        "top_std": 0.1658,
         "negative_density_range": 3.4123,
         "scene": {
           "sat_frac": 0.3282,
@@ -2405,11 +2405,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8464,
-        "p05": 0.1425,
-        "p95": 0.8861,
-        "top_mean": 0.7661,
-        "top_std": 0.2335,
+        "median_luma": 0.5709,
+        "p05": 0.0863,
+        "p95": 0.5984,
+        "top_mean": 0.5158,
+        "top_std": 0.1602,
         "negative_density_range": 3.4196,
         "scene": {
           "sat_frac": 0.3237,
@@ -2503,7 +2503,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -2511,11 +2511,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8292,
-        "p05": 0.6629,
-        "p95": 0.9184,
-        "top_mean": 0.8099,
-        "top_std": 0.1064,
+        "median_luma": 0.4678,
+        "p05": 0.3696,
+        "p95": 0.5209,
+        "top_mean": 0.4565,
+        "top_std": 0.0627,
         "negative_density_range": 3.3727,
         "scene": {
           "sat_frac": 0.1675,
@@ -2637,7 +2637,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -2645,11 +2645,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.9271,
-        "p05": 0.8286,
-        "p95": 0.9562,
-        "top_mean": 0.8872,
-        "top_std": 0.0614,
+        "median_luma": 0.4653,
+        "p05": 0.4142,
+        "p95": 0.4807,
+        "top_mean": 0.4444,
+        "top_std": 0.0317,
         "negative_density_range": 3.3875,
         "scene": {
           "sat_frac": 0.3038,
@@ -2779,11 +2779,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7946,
-        "p05": 0.2772,
-        "p95": 0.9196,
-        "top_mean": 0.563,
-        "top_std": 0.2617,
+        "median_luma": 0.5775,
+        "p05": 0.1932,
+        "p95": 0.6706,
+        "top_mean": 0.4062,
+        "top_std": 0.1927,
         "negative_density_range": 0.6562,
         "scene": {
           "sat_frac": 0.4104,
@@ -2881,7 +2881,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -2889,19 +2889,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7454,
-        "p05": 0.1574,
-        "p95": 0.882,
-        "top_mean": 0.5217,
-        "top_std": 0.2548,
+        "median_luma": 0.579,
+        "p05": 0.1532,
+        "p95": 0.6863,
+        "top_mean": 0.6236,
+        "top_std": 0.1,
         "negative_density_range": 1.2332,
         "scene": {
-          "sat_frac": 0.4438,
-          "dark_frac": 0.0724,
-          "neutral_frac": 0.3568,
-          "hue_concentration": 0.2734,
-          "estimator_spread_rad": 0.1955,
-          "estimator_magnitude_ratio": 1.4652
+          "sat_frac": 0.4313,
+          "dark_frac": 0.1159,
+          "neutral_frac": 0.3487,
+          "hue_concentration": 0.2514,
+          "estimator_spread_rad": 0.2031,
+          "estimator_magnitude_ratio": 1.5086
         },
         "technical_preclip": {
           "low": [
@@ -2912,30 +2912,30 @@
           "high": [
             0.0,
             0.0,
-            0.034128626836727086
+            0.034280509002351675
           ],
-          "n": 429024,
-          "above_base": 0.07368274657517217
+          "n": 430332,
+          "above_base": 0.09396156146107347
         }
       },
-      "base_source": "frame+roll",
-      "base_confidence": 0.706,
+      "base_source": "frame",
+      "base_confidence": 0.605,
       "base_dmin": [
-        0.197557,
-        0.088549,
-        0.015412
+        0.197487,
+        0.088528,
+        0.015403
       ],
       "base_contamination": 0.0114,
-      "base_black_level": 0.026299,
+      "base_black_level": 0.010853,
       "base_spatial_trend": [
-        0.0307,
-        -0.0005
+        -0.0005,
+        -0.0318
       ],
       "input_clip": {
         "low": [
           0.0,
           0.0,
-          0.034129
+          0.034281
         ],
         "high": [
           0.0,
@@ -2959,21 +2959,21 @@
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         },
         "B": {
-          "high_total": 0.034129,
-          "high_inherited": 0.034129,
+          "high_total": 0.034281,
+          "high_inherited": 0.034281,
           "high_introduced": 0.0,
           "low": null,
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.815201,
+      "dmax": 0.801422,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.453,
+        "neutral": 0.468,
         "warm": 1.0
       },
       "parity_required": true,
@@ -2999,19 +2999,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.5801,
-        "p05": 0.1519,
-        "p95": 0.9107,
-        "top_mean": 0.518,
-        "top_std": 0.2737,
+        "median_luma": 0.5281,
+        "p05": 0.1257,
+        "p95": 0.834,
+        "top_mean": 0.4697,
+        "top_std": 0.2543,
         "negative_density_range": 0.65,
         "scene": {
-          "sat_frac": 0.5183,
-          "dark_frac": 0.3005,
-          "neutral_frac": 0.246,
-          "hue_concentration": 0.3216,
+          "sat_frac": 0.5194,
+          "dark_frac": 0.3022,
+          "neutral_frac": 0.2444,
+          "hue_concentration": 0.3202,
           "estimator_spread_rad": 0.1983,
-          "estimator_magnitude_ratio": 1.359
+          "estimator_magnitude_ratio": 1.3592
         },
         "technical_preclip": {
           "low": [
@@ -3025,7 +3025,7 @@
             0.01003977985551545
           ],
           "n": 933387,
-          "above_base": 0.20251621246064067
+          "above_base": 0.20596458560775613
         }
       },
       "base_source": "frame+roll",
@@ -3077,13 +3077,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.717049,
+      "dmax": 0.716728,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.39,
+        "neutral": 0.389,
         "warm": 1.0
       },
       "parity_required": false,
@@ -3109,11 +3109,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7093,
-        "p05": 0.2081,
-        "p95": 0.8952,
-        "top_mean": 0.5295,
-        "top_std": 0.2659,
+        "median_luma": 0.5982,
+        "p05": 0.1703,
+        "p95": 0.7571,
+        "top_mean": 0.4448,
+        "top_std": 0.2269,
         "negative_density_range": 1.1543,
         "scene": {
           "sat_frac": 0.4787,
@@ -3219,11 +3219,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.563,
-        "p05": 0.1307,
-        "p95": 0.8871,
-        "top_mean": 0.5603,
-        "top_std": 0.2229,
+        "median_luma": 0.5177,
+        "p05": 0.1175,
+        "p95": 0.8181,
+        "top_mean": 0.5153,
+        "top_std": 0.2064,
         "negative_density_range": 1.2604,
         "scene": {
           "sat_frac": 0.5681,
@@ -3329,19 +3329,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.5674,
-        "p05": 0.1929,
-        "p95": 0.9054,
-        "top_mean": 0.5919,
-        "top_std": 0.197,
+        "median_luma": 0.5064,
+        "p05": 0.1613,
+        "p95": 0.8139,
+        "top_mean": 0.5283,
+        "top_std": 0.1799,
         "negative_density_range": 0.7223,
         "scene": {
-          "sat_frac": 0.5251,
-          "dark_frac": 0.2687,
-          "neutral_frac": 0.2148,
-          "hue_concentration": 0.2681,
-          "estimator_spread_rad": 0.2108,
-          "estimator_magnitude_ratio": 1.4241
+          "sat_frac": 0.5262,
+          "dark_frac": 0.2713,
+          "neutral_frac": 0.2124,
+          "hue_concentration": 0.2653,
+          "estimator_spread_rad": 0.2109,
+          "estimator_magnitude_ratio": 1.4245
         },
         "technical_preclip": {
           "low": [
@@ -3355,7 +3355,7 @@
             0.02146162309952892
           ],
           "n": 933387,
-          "above_base": 0.163705229806429
+          "above_base": 0.16656756522214258
         }
       },
       "base_source": "frame+roll",
@@ -3407,7 +3407,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.736748,
+      "dmax": 0.736389,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -3431,7 +3431,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -3439,19 +3439,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8247,
-        "p05": 0.6684,
-        "p95": 0.8886,
-        "top_mean": 0.8026,
-        "top_std": 0.1031,
+        "median_luma": 0.4721,
+        "p05": 0.3781,
+        "p95": 0.5105,
+        "top_mean": 0.4587,
+        "top_std": 0.062,
         "negative_density_range": 1.4433,
         "scene": {
-          "sat_frac": 0.1274,
+          "sat_frac": 0.1284,
           "dark_frac": 0.0,
-          "neutral_frac": 0.5886,
-          "hue_concentration": 0.556,
-          "estimator_spread_rad": 0.2262,
-          "estimator_magnitude_ratio": 1.5637
+          "neutral_frac": 0.5879,
+          "hue_concentration": 0.5603,
+          "estimator_spread_rad": 0.2261,
+          "estimator_magnitude_ratio": 1.5632
         },
         "technical_preclip": {
           "low": [
@@ -3465,7 +3465,7 @@
             0.0
           ],
           "n": 277504,
-          "above_base": 4.5644987699877e-05
+          "above_base": 4.684617158671587e-05
         }
       },
       "base_source": "frame+roll",
@@ -3517,13 +3517,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.214752,
+      "dmax": 1.21433,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.474,
+        "neutral": 0.47,
         "warm": 1.0
       },
       "parity_required": true,
@@ -3541,7 +3541,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -3549,18 +3549,18 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8457,
-        "p05": 0.7087,
-        "p95": 0.9169,
-        "top_mean": 0.8345,
-        "top_std": 0.1038,
+        "median_luma": 0.4709,
+        "p05": 0.3906,
+        "p95": 0.5126,
+        "top_mean": 0.4643,
+        "top_std": 0.0607,
         "negative_density_range": 0.9016,
         "scene": {
-          "sat_frac": 0.1592,
+          "sat_frac": 0.16,
           "dark_frac": 0.0005,
-          "neutral_frac": 0.4934,
-          "hue_concentration": 0.5036,
-          "estimator_spread_rad": 0.2556,
+          "neutral_frac": 0.4927,
+          "hue_concentration": 0.4978,
+          "estimator_spread_rad": 0.2557,
           "estimator_magnitude_ratio": 1.506
         },
         "technical_preclip": {
@@ -3575,7 +3575,7 @@
             0.0
           ],
           "n": 381024,
-          "above_base": 0.0014531018168584306
+          "above_base": 0.0014627250076985527
         }
       },
       "base_source": "frame+roll",
@@ -3627,13 +3627,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.989606,
+      "dmax": 0.989087,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.486,
+        "neutral": 0.491,
         "warm": 1.0
       },
       "parity_required": false,
@@ -3659,19 +3659,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8137,
-        "p05": 0.2738,
-        "p95": 0.9397,
-        "top_mean": 0.6816,
-        "top_std": 0.2282,
+        "median_luma": 0.551,
+        "p05": 0.1709,
+        "p95": 0.6392,
+        "top_mean": 0.4592,
+        "top_std": 0.1576,
         "negative_density_range": 0.5443,
         "scene": {
-          "sat_frac": 0.453,
-          "dark_frac": 0.0665,
-          "neutral_frac": 0.3,
-          "hue_concentration": 0.4348,
-          "estimator_spread_rad": 0.1787,
-          "estimator_magnitude_ratio": 1.1249
+          "sat_frac": 0.4526,
+          "dark_frac": 0.0669,
+          "neutral_frac": 0.3006,
+          "hue_concentration": 0.4285,
+          "estimator_spread_rad": 0.1786,
+          "estimator_magnitude_ratio": 1.1219
         },
         "technical_preclip": {
           "low": [
@@ -3685,7 +3685,7 @@
             0.0014067048287580606
           ],
           "n": 933387,
-          "above_base": 0.06897210553250331
+          "above_base": 0.06925244655575162
         }
       },
       "base_source": "frame+roll",
@@ -3737,13 +3737,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.688621,
+      "dmax": 0.688176,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.453,
+        "neutral": 0.457,
         "warm": 1.0
       },
       "parity_required": false,
@@ -3769,19 +3769,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7885,
-        "p05": 0.4352,
-        "p95": 0.918,
-        "top_mean": 0.6773,
-        "top_std": 0.192,
+        "median_luma": 0.4935,
+        "p05": 0.2727,
+        "p95": 0.5784,
+        "top_mean": 0.491,
+        "top_std": 0.0913,
         "negative_density_range": 0.694,
         "scene": {
-          "sat_frac": 0.4039,
-          "dark_frac": 0.0363,
-          "neutral_frac": 0.3269,
-          "hue_concentration": 0.4519,
-          "estimator_spread_rad": 0.1774,
-          "estimator_magnitude_ratio": 1.2008
+          "sat_frac": 0.4799,
+          "dark_frac": 0.0338,
+          "neutral_frac": 0.2729,
+          "hue_concentration": 0.464,
+          "estimator_spread_rad": 0.1742,
+          "estimator_magnitude_ratio": 1.2099
         },
         "technical_preclip": {
           "low": [
@@ -3791,31 +3791,31 @@
           ],
           "high": [
             0.0,
-            0.0,
-            0.011258141941638388
+            1.0930538613220705e-06,
+            0.011340433811216482
           ],
-          "n": 914094,
-          "above_base": 0.03245071075841215
+          "n": 914868,
+          "above_base": 0.043820529300401805
         }
       },
       "base_source": "frame",
-      "base_confidence": 0.806,
+      "base_confidence": 0.783,
       "base_dmin": [
-        0.211655,
-        0.091473,
-        0.018499
+        0.216085,
+        0.09391,
+        0.018534
       ],
-      "base_contamination": 0.0151,
-      "base_black_level": 8.3e-05,
+      "base_contamination": 0.0366,
+      "base_black_level": 0.000106,
       "base_spatial_trend": [
-        -0.0712,
-        -0.0008
+        0.0589,
+        -0.0106
       ],
       "input_clip": {
         "low": [
           0.0,
-          0.0,
-          0.011258
+          1e-06,
+          0.01134
         ],
         "high": [
           0.0,
@@ -3832,29 +3832,29 @@
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         },
         "G": {
-          "high_total": 0.0,
-          "high_inherited": 0.0,
+          "high_total": 1e-06,
+          "high_inherited": 1e-06,
           "high_introduced": 0.0,
           "low": null,
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         },
         "B": {
-          "high_total": 0.011258,
-          "high_inherited": 0.011258,
+          "high_total": 0.01134,
+          "high_inherited": 0.01134,
           "high_introduced": 0.0,
           "low": null,
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.804687,
+      "dmax": 0.734502,
       "gate": "fail",
       "blocks_export": true,
-      "chosen_candidate": "neutral",
+      "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.511,
-        "warm": 0.561
+        "neutral": 0.417,
+        "warm": 1.0
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -3871,7 +3871,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -3879,19 +3879,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.816,
-        "p05": 0.7547,
-        "p95": 0.9133,
-        "top_mean": 0.823,
-        "top_std": 0.0481,
+        "median_luma": 0.4568,
+        "p05": 0.4207,
+        "p95": 0.5141,
+        "top_mean": 0.4609,
+        "top_std": 0.0283,
         "negative_density_range": 1.1074,
         "scene": {
-          "sat_frac": 0.0914,
+          "sat_frac": 0.092,
           "dark_frac": 0.0,
-          "neutral_frac": 0.5029,
-          "hue_concentration": 0.4327,
+          "neutral_frac": 0.5023,
+          "hue_concentration": 0.4329,
           "estimator_spread_rad": 0.1738,
-          "estimator_magnitude_ratio": 1.3016
+          "estimator_magnitude_ratio": 1.3018
         },
         "technical_preclip": {
           "low": [
@@ -3981,7 +3981,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.241078,
+      "dmax": 1.240471,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4013,19 +4013,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6838,
-        "p05": 0.0015,
-        "p95": 0.9314,
-        "top_mean": 0.4793,
-        "top_std": 0.2621,
+        "median_luma": 0.6453,
+        "p05": 0.0013,
+        "p95": 0.8811,
+        "top_mean": 0.4511,
+        "top_std": 0.2482,
         "negative_density_range": 0.6484,
         "scene": {
-          "sat_frac": 0.7148,
-          "dark_frac": 0.1492,
+          "sat_frac": 0.7144,
+          "dark_frac": 0.1497,
           "neutral_frac": 0.1935,
-          "hue_concentration": 0.3063,
-          "estimator_spread_rad": 0.1946,
-          "estimator_magnitude_ratio": 1.2288
+          "hue_concentration": 0.3064,
+          "estimator_spread_rad": 0.1945,
+          "estimator_magnitude_ratio": 1.2289
         },
         "technical_preclip": {
           "low": [
@@ -4039,7 +4039,7 @@
             0.0028123382905482935
           ],
           "n": 933387,
-          "above_base": 0.15992080455373817
+          "above_base": 0.1599790154923235
         }
       },
       "base_source": "frame+roll",
@@ -4091,7 +4091,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.69074,
+      "dmax": 0.690551,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4115,27 +4115,27 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7968,
-        "p05": 0.5493,
-        "p95": 0.9298,
-        "top_mean": 0.7254,
-        "top_std": 0.1364,
+        "median_luma": 0.4785,
+        "p05": 0.3223,
+        "p95": 0.5622,
+        "top_mean": 0.4335,
+        "top_std": 0.086,
         "negative_density_range": 0.5758,
         "scene": {
-          "sat_frac": 0.2536,
+          "sat_frac": 0.2542,
           "dark_frac": 0.0046,
-          "neutral_frac": 0.4033,
-          "hue_concentration": 0.2538,
+          "neutral_frac": 0.4026,
+          "hue_concentration": 0.2496,
           "estimator_spread_rad": 0.2258,
-          "estimator_magnitude_ratio": 1.2955
+          "estimator_magnitude_ratio": 1.2959
         },
         "technical_preclip": {
           "low": [
@@ -4149,7 +4149,7 @@
             0.0007538513379241224
           ],
           "n": 462956,
-          "above_base": 0.004717510951364709
+          "above_base": 0.004763591644418332
         }
       },
       "base_source": "frame+roll",
@@ -4201,7 +4201,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.671731,
+      "dmax": 0.671548,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4225,7 +4225,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -4233,19 +4233,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8805,
-        "p05": 0.7838,
-        "p95": 0.9314,
-        "top_mean": 0.8506,
-        "top_std": 0.0492,
+        "median_luma": 0.4669,
+        "p05": 0.4129,
+        "p95": 0.4954,
+        "top_mean": 0.4502,
+        "top_std": 0.0275,
         "negative_density_range": 0.7188,
         "scene": {
-          "sat_frac": 0.0044,
+          "sat_frac": 0.0046,
           "dark_frac": 0.0,
-          "neutral_frac": 0.8545,
+          "neutral_frac": 0.8539,
           "hue_concentration": 0.3126,
           "estimator_spread_rad": 0.2106,
-          "estimator_magnitude_ratio": 1.296
+          "estimator_magnitude_ratio": 1.2964
         },
         "technical_preclip": {
           "low": [
@@ -4335,7 +4335,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 0.931778,
+      "dmax": 0.931171,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -4367,19 +4367,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7824,
-        "p05": 0.1612,
-        "p95": 0.9049,
-        "top_mean": 0.7322,
-        "top_std": 0.2034,
+        "median_luma": 0.5685,
+        "p05": 0.0976,
+        "p95": 0.6603,
+        "top_mean": 0.5312,
+        "top_std": 0.1509,
         "negative_density_range": 0.451,
         "scene": {
           "sat_frac": 0.5198,
-          "dark_frac": 0.0863,
+          "dark_frac": 0.087,
           "neutral_frac": 0.1701,
-          "hue_concentration": 0.3435,
-          "estimator_spread_rad": 0.1561,
-          "estimator_magnitude_ratio": 1.1338
+          "hue_concentration": 0.3397,
+          "estimator_spread_rad": 0.156,
+          "estimator_magnitude_ratio": 1.1337
         },
         "technical_preclip": {
           "low": [
@@ -4393,7 +4393,7 @@
             0.0009117332896215611
           ],
           "n": 933387,
-          "above_base": 0.08384660739150356
+          "above_base": 0.08448692771594205
         }
       },
       "base_source": "frame+roll",
@@ -4445,7 +4445,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.610751,
+      "dmax": 0.610298,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
@@ -4469,7 +4469,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -4477,11 +4477,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7554,
-        "p05": 0.3976,
-        "p95": 0.8844,
-        "top_mean": 0.7294,
-        "top_std": 0.1469,
+        "median_luma": 0.5075,
+        "p05": 0.2594,
+        "p95": 0.597,
+        "top_mean": 0.4897,
+        "top_std": 0.1008,
         "negative_density_range": 0.6373,
         "scene": {
           "sat_frac": 0.5205,
@@ -4587,19 +4587,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8298,
-        "p05": 0.109,
-        "p95": 0.9444,
-        "top_mean": 0.7456,
-        "top_std": 0.2388,
+        "median_luma": 0.5754,
+        "p05": 0.0614,
+        "p95": 0.6575,
+        "top_mean": 0.5156,
+        "top_std": 0.1693,
         "negative_density_range": 0.4057,
         "scene": {
-          "sat_frac": 0.557,
-          "dark_frac": 0.0903,
-          "neutral_frac": 0.1766,
-          "hue_concentration": 0.3768,
-          "estimator_spread_rad": 0.1464,
-          "estimator_magnitude_ratio": 1.2096
+          "sat_frac": 0.5566,
+          "dark_frac": 0.0913,
+          "neutral_frac": 0.1768,
+          "hue_concentration": 0.3719,
+          "estimator_spread_rad": 0.1463,
+          "estimator_magnitude_ratio": 1.2053
         },
         "technical_preclip": {
           "low": [
@@ -4613,7 +4613,7 @@
             0.0005121134106217464
           ],
           "n": 933387,
-          "above_base": 0.10341762491513881
+          "above_base": 0.10392009602305011
         }
       },
       "base_source": "frame+roll",
@@ -4665,13 +4665,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.460247,
+      "dmax": 0.459854,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.387,
+        "neutral": 0.391,
         "warm": 1.0
       },
       "parity_required": false,
@@ -4697,11 +4697,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8238,
-        "p05": 0.2137,
-        "p95": 0.9381,
-        "top_mean": 0.755,
-        "top_std": 0.2144,
+        "median_luma": 0.543,
+        "p05": 0.1293,
+        "p95": 0.6207,
+        "top_mean": 0.4969,
+        "top_std": 0.1435,
         "negative_density_range": 0.4448,
         "scene": {
           "sat_frac": 0.5745,
@@ -4799,7 +4799,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -4807,19 +4807,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6515,
-        "p05": 0.3845,
-        "p95": 0.9356,
-        "top_mean": 0.6384,
-        "top_std": 0.1247,
+        "median_luma": 0.4655,
+        "p05": 0.2696,
+        "p95": 0.6752,
+        "top_mean": 0.4558,
+        "top_std": 0.0919,
         "negative_density_range": 0.8,
         "scene": {
-          "sat_frac": 0.5345,
-          "dark_frac": 0.0249,
-          "neutral_frac": 0.2139,
-          "hue_concentration": 0.4329,
+          "sat_frac": 0.5357,
+          "dark_frac": 0.0255,
+          "neutral_frac": 0.2131,
+          "hue_concentration": 0.4334,
           "estimator_spread_rad": 0.2323,
-          "estimator_magnitude_ratio": 1.6649
+          "estimator_magnitude_ratio": 1.666
         },
         "technical_preclip": {
           "low": [
@@ -4833,7 +4833,7 @@
             0.0
           ],
           "n": 384540,
-          "above_base": 0.05945632010540733
+          "above_base": 0.06011945007888213
         }
       },
       "base_source": "generic_prior",
@@ -4909,13 +4909,13 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.270317,
+      "dmax": 1.26971,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.311,
+        "neutral": 0.31,
         "warm": 1.0
       },
       "parity_required": false,
@@ -4933,7 +4933,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -4941,19 +4941,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7745,
-        "p05": 0.6914,
-        "p95": 0.945,
-        "top_mean": 0.7778,
-        "top_std": 0.0411,
+        "median_luma": 0.4554,
+        "p05": 0.4041,
+        "p95": 0.5604,
+        "top_mean": 0.4574,
+        "top_std": 0.0253,
         "negative_density_range": 1.355,
         "scene": {
-          "sat_frac": 0.0236,
+          "sat_frac": 0.0239,
           "dark_frac": 0.0,
-          "neutral_frac": 0.6945,
-          "hue_concentration": 0.2543,
+          "neutral_frac": 0.6935,
+          "hue_concentration": 0.2546,
           "estimator_spread_rad": 0.1886,
-          "estimator_magnitude_ratio": 1.3901
+          "estimator_magnitude_ratio": 1.3907
         },
         "technical_preclip": {
           "low": [
@@ -5043,7 +5043,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.403569,
+      "dmax": 1.402962,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5067,19 +5067,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8222,
-        "p05": 0.5112,
-        "p95": 0.9179,
-        "top_mean": 0.7858,
-        "top_std": 0.0925,
+        "median_luma": 0.4988,
+        "p05": 0.3025,
+        "p95": 0.5592,
+        "top_mean": 0.4758,
+        "top_std": 0.0584,
         "negative_density_range": 0.5403,
         "scene": {
           "sat_frac": 0.1665,
@@ -5177,27 +5177,27 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7964,
-        "p05": 0.5568,
-        "p95": 0.8977,
-        "top_mean": 0.7537,
-        "top_std": 0.086,
+        "median_luma": 0.4815,
+        "p05": 0.3297,
+        "p95": 0.5456,
+        "top_mean": 0.4545,
+        "top_std": 0.0545,
         "negative_density_range": 0.7193,
         "scene": {
-          "sat_frac": 0.1457,
+          "sat_frac": 0.1484,
           "dark_frac": 0.0053,
-          "neutral_frac": 0.5374,
-          "hue_concentration": 0.3726,
+          "neutral_frac": 0.5348,
+          "hue_concentration": 0.3706,
           "estimator_spread_rad": 0.1779,
-          "estimator_magnitude_ratio": 1.3948
+          "estimator_magnitude_ratio": 1.3986
         },
         "technical_preclip": {
           "low": [
@@ -5211,7 +5211,7 @@
             0.024486177884615386
           ],
           "n": 332800,
-          "above_base": 0.006122796474358975
+          "above_base": 0.00617988782051282
         }
       },
       "base_source": "frame+roll",
@@ -5263,14 +5263,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.771369,
+      "dmax": 0.771426,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.71,
-        "warm": 0.76
+        "neutral": 0.712,
+        "warm": 0.762
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -5287,7 +5287,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -5295,11 +5295,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7153,
-        "p05": 0.2501,
-        "p95": 0.8836,
-        "top_mean": 0.7346,
-        "top_std": 0.1425,
+        "median_luma": 0.5349,
+        "p05": 0.1793,
+        "p95": 0.6638,
+        "top_mean": 0.5498,
+        "top_std": 0.109,
         "negative_density_range": 1.234,
         "scene": {
           "sat_frac": 0.5231,
@@ -5397,7 +5397,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -5405,11 +5405,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8215,
-        "p05": 0.1802,
-        "p95": 0.9176,
-        "top_mean": 0.7884,
-        "top_std": 0.1658,
+        "median_luma": 0.5911,
+        "p05": 0.1194,
+        "p95": 0.6619,
+        "top_mean": 0.5668,
+        "top_std": 0.1219,
         "negative_density_range": 0.6424,
         "scene": {
           "sat_frac": 0.3443,
@@ -5507,7 +5507,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -5515,19 +5515,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7121,
-        "p05": 0.0542,
-        "p95": 0.8612,
-        "top_mean": 0.7157,
-        "top_std": 0.1151,
+        "median_luma": 0.5263,
+        "p05": 0.0396,
+        "p95": 0.6396,
+        "top_mean": 0.5292,
+        "top_std": 0.0872,
         "negative_density_range": 0.6751,
         "scene": {
-          "sat_frac": 0.582,
-          "dark_frac": 0.0519,
-          "neutral_frac": 0.1837,
-          "hue_concentration": 0.5246,
-          "estimator_spread_rad": 0.2273,
-          "estimator_magnitude_ratio": 2.2137
+          "sat_frac": 0.5831,
+          "dark_frac": 0.052,
+          "neutral_frac": 0.1829,
+          "hue_concentration": 0.5254,
+          "estimator_spread_rad": 0.2275,
+          "estimator_magnitude_ratio": 2.2165
         },
         "technical_preclip": {
           "low": [
@@ -5541,7 +5541,7 @@
             0.0
           ],
           "n": 291060,
-          "above_base": 0.07323117799308275
+          "above_base": 0.0736285760095284
         }
       },
       "base_source": "generic_prior",
@@ -5617,13 +5617,13 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.102897,
+      "dmax": 1.10229,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.246,
+        "neutral": 0.245,
         "warm": 1.0
       },
       "parity_required": false,
@@ -5641,7 +5641,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -5649,19 +5649,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8121,
-        "p05": 0.71,
-        "p95": 0.9098,
-        "top_mean": 0.7912,
-        "top_std": 0.0662,
+        "median_luma": 0.4647,
+        "p05": 0.4034,
+        "p95": 0.5233,
+        "top_mean": 0.4521,
+        "top_std": 0.0397,
         "negative_density_range": 1.2281,
         "scene": {
-          "sat_frac": 0.0695,
+          "sat_frac": 0.0702,
           "dark_frac": 0.0,
-          "neutral_frac": 0.5489,
-          "hue_concentration": 0.2122,
-          "estimator_spread_rad": 0.2242,
-          "estimator_magnitude_ratio": 1.425
+          "neutral_frac": 0.548,
+          "hue_concentration": 0.2119,
+          "estimator_spread_rad": 0.2243,
+          "estimator_magnitude_ratio": 1.4258
         },
         "technical_preclip": {
           "low": [
@@ -5723,7 +5723,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.127277,
+      "dmax": 1.12667,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -5747,7 +5747,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -5755,19 +5755,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.5635,
-        "p05": 0.3398,
-        "p95": 0.9025,
-        "top_mean": 0.7552,
-        "top_std": 0.155,
+        "median_luma": 0.4381,
+        "p05": 0.2574,
+        "p95": 0.7099,
+        "top_mean": 0.5917,
+        "top_std": 0.1244,
         "negative_density_range": 1.339,
         "scene": {
-          "sat_frac": 0.5516,
-          "dark_frac": 0.0498,
-          "neutral_frac": 0.2023,
-          "hue_concentration": 0.2836,
+          "sat_frac": 0.5556,
+          "dark_frac": 0.0509,
+          "neutral_frac": 0.2004,
+          "hue_concentration": 0.2779,
           "estimator_spread_rad": 0.1887,
-          "estimator_magnitude_ratio": 1.3441
+          "estimator_magnitude_ratio": 1.3486
         },
         "technical_preclip": {
           "low": [
@@ -5781,7 +5781,7 @@
             0.0
           ],
           "n": 428350,
-          "above_base": 0.053317769736586126
+          "above_base": 0.05442122874596319
         }
       },
       "base_source": "frame+roll",
@@ -5833,13 +5833,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.041536,
+      "dmax": 1.041337,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.373,
+        "neutral": 0.371,
         "warm": 1.0
       },
       "parity_required": true,
@@ -5857,7 +5857,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -5865,19 +5865,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.5939,
-        "p05": 0.2759,
-        "p95": 0.9249,
-        "top_mean": 0.7784,
-        "top_std": 0.1521,
+        "median_luma": 0.4703,
+        "p05": 0.2101,
+        "p95": 0.7395,
+        "top_mean": 0.6203,
+        "top_std": 0.1239,
         "negative_density_range": 0.7716,
         "scene": {
-          "sat_frac": 0.5201,
-          "dark_frac": 0.1443,
-          "neutral_frac": 0.3195,
-          "hue_concentration": 0.2764,
-          "estimator_spread_rad": 0.2331,
-          "estimator_magnitude_ratio": 1.3568
+          "sat_frac": 0.5207,
+          "dark_frac": 0.1462,
+          "neutral_frac": 0.3196,
+          "hue_concentration": 0.2747,
+          "estimator_spread_rad": 0.2332,
+          "estimator_magnitude_ratio": 1.3574
         },
         "technical_preclip": {
           "low": [
@@ -5891,7 +5891,7 @@
             0.01183540649766441
           ],
           "n": 495378,
-          "above_base": 0.09628943285060432
+          "above_base": 0.0975073580175139
         }
       },
       "base_source": "frame+roll",
@@ -5943,7 +5943,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.853629,
+      "dmax": 0.853311,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
@@ -5967,7 +5967,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -5975,19 +5975,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7978,
-        "p05": 0.7207,
-        "p95": 0.9373,
-        "top_mean": 0.8216,
-        "top_std": 0.0509,
+        "median_luma": 0.4596,
+        "p05": 0.413,
+        "p95": 0.5439,
+        "top_mean": 0.4739,
+        "top_std": 0.0308,
         "negative_density_range": 0.7108,
         "scene": {
-          "sat_frac": 0.0551,
+          "sat_frac": 0.0557,
           "dark_frac": 0.0,
-          "neutral_frac": 0.5143,
-          "hue_concentration": 0.5273,
+          "neutral_frac": 0.5131,
+          "hue_concentration": 0.5277,
           "estimator_spread_rad": 0.2323,
-          "estimator_magnitude_ratio": 1.4243
+          "estimator_magnitude_ratio": 1.4251
         },
         "technical_preclip": {
           "low": [
@@ -6077,13 +6077,13 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.275505,
+      "dmax": 1.274898,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.493,
+        "neutral": 0.492,
         "warm": 1.0
       },
       "parity_required": false,
@@ -6101,7 +6101,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6109,19 +6109,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.795,
-        "p05": 0.6864,
-        "p95": 0.9282,
-        "top_mean": 0.7736,
-        "top_std": 0.0679,
+        "median_luma": 0.466,
+        "p05": 0.3993,
+        "p95": 0.5477,
+        "top_mean": 0.4528,
+        "top_std": 0.0417,
         "negative_density_range": 1.3432,
         "scene": {
-          "sat_frac": 0.0791,
+          "sat_frac": 0.0796,
           "dark_frac": 0.0,
-          "neutral_frac": 0.6087,
-          "hue_concentration": 0.467,
+          "neutral_frac": 0.6079,
+          "hue_concentration": 0.4672,
           "estimator_spread_rad": 0.23,
-          "estimator_magnitude_ratio": 1.4813
+          "estimator_magnitude_ratio": 1.4821
         },
         "technical_preclip": {
           "low": [
@@ -6211,14 +6211,14 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.183236,
+      "dmax": 1.182629,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.527,
-        "warm": 0.577
+        "neutral": 0.526,
+        "warm": 0.576
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -6235,7 +6235,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6243,19 +6243,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7503,
-        "p05": 0.7096,
-        "p95": 0.9233,
-        "top_mean": 0.7696,
-        "top_std": 0.0646,
+        "median_luma": 0.4439,
+        "p05": 0.4186,
+        "p95": 0.5513,
+        "top_mean": 0.4559,
+        "top_std": 0.0401,
         "negative_density_range": 0.8443,
         "scene": {
-          "sat_frac": 0.0241,
+          "sat_frac": 0.0243,
           "dark_frac": 0.0,
-          "neutral_frac": 0.6009,
-          "hue_concentration": 0.4773,
+          "neutral_frac": 0.5992,
+          "hue_concentration": 0.4776,
           "estimator_spread_rad": 0.1935,
-          "estimator_magnitude_ratio": 1.2071
+          "estimator_magnitude_ratio": 1.2075
         },
         "technical_preclip": {
           "low": [
@@ -6317,14 +6317,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.066368,
+      "dmax": 1.065761,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.583,
-        "warm": 0.633
+        "neutral": 0.582,
+        "warm": 0.632
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -6341,7 +6341,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6349,19 +6349,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7645,
-        "p05": 0.7334,
-        "p95": 0.9289,
-        "top_mean": 0.7884,
-        "top_std": 0.0569,
+        "median_luma": 0.4435,
+        "p05": 0.4245,
+        "p95": 0.5437,
+        "top_mean": 0.458,
+        "top_std": 0.0347,
         "negative_density_range": 0.5997,
         "scene": {
-          "sat_frac": 0.0483,
+          "sat_frac": 0.0493,
           "dark_frac": 0.0,
-          "neutral_frac": 0.3917,
-          "hue_concentration": 0.327,
-          "estimator_spread_rad": 0.2319,
-          "estimator_magnitude_ratio": 1.2923
+          "neutral_frac": 0.3896,
+          "hue_concentration": 0.3282,
+          "estimator_spread_rad": 0.232,
+          "estimator_magnitude_ratio": 1.2929
         },
         "technical_preclip": {
           "low": [
@@ -6423,7 +6423,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.000092,
+      "dmax": 0.999485,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6447,7 +6447,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6455,19 +6455,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8138,
-        "p05": 0.7327,
-        "p95": 0.915,
-        "top_mean": 0.8104,
-        "top_std": 0.0612,
+        "median_luma": 0.4604,
+        "p05": 0.4122,
+        "p95": 0.5205,
+        "top_mean": 0.4584,
+        "top_std": 0.0364,
         "negative_density_range": 0.858,
         "scene": {
-          "sat_frac": 0.006,
+          "sat_frac": 0.0061,
           "dark_frac": 0.0,
-          "neutral_frac": 0.7536,
-          "hue_concentration": 0.3076,
+          "neutral_frac": 0.7527,
+          "hue_concentration": 0.3075,
           "estimator_spread_rad": 0.1825,
-          "estimator_magnitude_ratio": 1.2162
+          "estimator_magnitude_ratio": 1.2166
         },
         "technical_preclip": {
           "low": [
@@ -6529,7 +6529,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.091599,
+      "dmax": 1.090992,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6553,7 +6553,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6561,19 +6561,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8238,
-        "p05": 0.752,
-        "p95": 0.9224,
-        "top_mean": 0.8244,
-        "top_std": 0.0578,
+        "median_luma": 0.4588,
+        "p05": 0.4167,
+        "p95": 0.5165,
+        "top_mean": 0.4592,
+        "top_std": 0.0339,
         "negative_density_range": 0.5677,
         "scene": {
-          "sat_frac": 0.0155,
+          "sat_frac": 0.0158,
           "dark_frac": 0.0,
-          "neutral_frac": 0.5834,
-          "hue_concentration": 0.2889,
-          "estimator_spread_rad": 0.2142,
-          "estimator_magnitude_ratio": 1.2554
+          "neutral_frac": 0.582,
+          "hue_concentration": 0.2888,
+          "estimator_spread_rad": 0.2143,
+          "estimator_magnitude_ratio": 1.2559
         },
         "technical_preclip": {
           "low": [
@@ -6635,7 +6635,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.987534,
+      "dmax": 0.986927,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6659,7 +6659,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6667,19 +6667,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7571,
-        "p05": 0.6488,
-        "p95": 0.9424,
-        "top_mean": 0.7453,
-        "top_std": 0.0754,
+        "median_luma": 0.4616,
+        "p05": 0.3926,
+        "p95": 0.5797,
+        "top_mean": 0.4541,
+        "top_std": 0.048,
         "negative_density_range": 1.1574,
         "scene": {
-          "sat_frac": 0.068,
+          "sat_frac": 0.0689,
           "dark_frac": 0.0006,
-          "neutral_frac": 0.489,
-          "hue_concentration": 0.4304,
+          "neutral_frac": 0.488,
+          "hue_concentration": 0.4307,
           "estimator_spread_rad": 0.2025,
-          "estimator_magnitude_ratio": 1.3363
+          "estimator_magnitude_ratio": 1.3369
         },
         "technical_preclip": {
           "low": [
@@ -6693,7 +6693,7 @@
             0.0
           ],
           "n": 933387,
-          "above_base": 0.0006646046423759205
+          "above_base": 0.0006649617646985298
         }
       },
       "base_source": "generic_prior",
@@ -6741,7 +6741,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.45657,
+      "dmax": 1.455963,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6765,7 +6765,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -6773,19 +6773,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8044,
-        "p05": 0.6887,
-        "p95": 0.9674,
-        "top_mean": 0.787,
-        "top_std": 0.0743,
+        "median_luma": 0.4629,
+        "p05": 0.393,
+        "p95": 0.5612,
+        "top_mean": 0.4524,
+        "top_std": 0.0449,
         "negative_density_range": 1.6609,
         "scene": {
-          "sat_frac": 0.0164,
+          "sat_frac": 0.0166,
           "dark_frac": 0.0,
-          "neutral_frac": 0.6041,
-          "hue_concentration": 0.3346,
+          "neutral_frac": 0.6031,
+          "hue_concentration": 0.3344,
           "estimator_spread_rad": 0.1858,
-          "estimator_magnitude_ratio": 1.2625
+          "estimator_magnitude_ratio": 1.2629
         },
         "technical_preclip": {
           "low": [
@@ -6847,7 +6847,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.223939,
+      "dmax": 1.223332,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -6879,11 +6879,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6814,
-        "p05": 0.334,
-        "p95": 0.8979,
-        "top_mean": 0.7731,
-        "top_std": 0.1049,
+        "median_luma": 0.5229,
+        "p05": 0.2506,
+        "p95": 0.6927,
+        "top_mean": 0.5948,
+        "top_std": 0.0823,
         "negative_density_range": 0.7378,
         "scene": {
           "sat_frac": 0.4835,
@@ -6981,7 +6981,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -6989,11 +6989,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7009,
-        "p05": 0.4803,
-        "p95": 0.9038,
-        "top_mean": 0.7772,
-        "top_std": 0.1064,
+        "median_luma": 0.4816,
+        "p05": 0.325,
+        "p95": 0.6256,
+        "top_mean": 0.5358,
+        "top_std": 0.0755,
         "negative_density_range": 1.403,
         "scene": {
           "sat_frac": 0.4311,
@@ -7099,11 +7099,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6225,
-        "p05": 0.0908,
-        "p95": 0.9006,
-        "top_mean": 0.4297,
-        "top_std": 0.2501,
+        "median_luma": 0.5329,
+        "p05": 0.0754,
+        "p95": 0.7742,
+        "top_mean": 0.3665,
+        "top_std": 0.2156,
         "negative_density_range": 0.6622,
         "scene": {
           "sat_frac": 0.5835,
@@ -7209,11 +7209,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6491,
-        "p05": 0.2062,
-        "p95": 0.9192,
-        "top_mean": 0.5161,
-        "top_std": 0.24,
+        "median_luma": 0.5128,
+        "p05": 0.1562,
+        "p95": 0.7304,
+        "top_mean": 0.4061,
+        "top_std": 0.1922,
         "negative_density_range": 1.2114,
         "scene": {
           "sat_frac": 0.5991,
@@ -7319,19 +7319,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6895,
-        "p05": 0.025,
-        "p95": 0.9238,
-        "top_mean": 0.6952,
-        "top_std": 0.2417,
+        "median_luma": 0.5982,
+        "p05": 0.0196,
+        "p95": 0.8045,
+        "top_mean": 0.6033,
+        "top_std": 0.2121,
         "negative_density_range": 0.6565,
         "scene": {
-          "sat_frac": 0.756,
-          "dark_frac": 0.153,
-          "neutral_frac": 0.1156,
-          "hue_concentration": 0.4794,
-          "estimator_spread_rad": 0.2301,
-          "estimator_magnitude_ratio": 1.2266
+          "sat_frac": 0.7559,
+          "dark_frac": 0.1539,
+          "neutral_frac": 0.1158,
+          "hue_concentration": 0.4768,
+          "estimator_spread_rad": 0.23,
+          "estimator_magnitude_ratio": 1.2236
         },
         "technical_preclip": {
           "low": [
@@ -7345,7 +7345,7 @@
             0.005820244945842899
           ],
           "n": 593274,
-          "above_base": 0.19284231793965914
+          "above_base": 0.19344574906928896
         }
       },
       "base_source": "frame+roll",
@@ -7397,13 +7397,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.763025,
+      "dmax": 0.762675,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.254,
+        "neutral": 0.255,
         "warm": 1.0
       },
       "parity_required": false,
@@ -7429,19 +7429,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.541,
-        "p05": 0.0002,
-        "p95": 0.9091,
-        "top_mean": 0.5357,
-        "top_std": 0.3435,
+        "median_luma": 0.9278,
+        "p05": 0.001,
+        "p95": 1.0,
+        "top_mean": 0.7116,
+        "top_std": 0.4118,
         "negative_density_range": 0.9568,
         "scene": {
-          "sat_frac": 0.8292,
-          "dark_frac": 0.3268,
-          "neutral_frac": 0.0634,
-          "hue_concentration": 0.331,
-          "estimator_spread_rad": 0.1906,
-          "estimator_magnitude_ratio": 1.1889
+          "sat_frac": 0.8296,
+          "dark_frac": 0.3271,
+          "neutral_frac": 0.0639,
+          "hue_concentration": 0.3329,
+          "estimator_spread_rad": 0.1905,
+          "estimator_magnitude_ratio": 1.1886
         },
         "technical_preclip": {
           "low": [
@@ -7455,7 +7455,7 @@
             0.02646834477498093
           ],
           "n": 655500,
-          "above_base": 0.39237121789982204
+          "above_base": 0.39277701500127127
         }
       },
       "base_source": "frame+roll",
@@ -7507,13 +7507,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.722871,
+      "dmax": 0.7227,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.224,
+        "neutral": 0.225,
         "warm": 1.0
       },
       "parity_required": true,
@@ -7539,11 +7539,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6623,
-        "p05": 0.001,
-        "p95": 0.9248,
-        "top_mean": 0.4011,
-        "top_std": 0.3691,
+        "median_luma": 0.7841,
+        "p05": 0.0014,
+        "p95": 1.0,
+        "top_mean": 0.4619,
+        "top_std": 0.4177,
         "negative_density_range": 0.7276,
         "scene": {
           "sat_frac": 0.6237,
@@ -7649,19 +7649,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6569,
-        "p05": 0.0002,
-        "p95": 0.9246,
-        "top_mean": 0.2975,
-        "top_std": 0.3648,
+        "median_luma": 0.953,
+        "p05": 0.0009,
+        "p95": 1.0,
+        "top_mean": 0.3933,
+        "top_std": 0.4532,
         "negative_density_range": 0.5982,
         "scene": {
-          "sat_frac": 0.7041,
-          "dark_frac": 0.3173,
-          "neutral_frac": 0.1107,
-          "hue_concentration": 0.3604,
+          "sat_frac": 0.7043,
+          "dark_frac": 0.3177,
+          "neutral_frac": 0.1108,
+          "hue_concentration": 0.357,
           "estimator_spread_rad": 0.18,
-          "estimator_magnitude_ratio": 1.1372
+          "estimator_magnitude_ratio": 1.1373
         },
         "technical_preclip": {
           "low": [
@@ -7675,7 +7675,7 @@
             0.006853276998138927
           ],
           "n": 318096,
-          "above_base": 0.348656799624432
+          "above_base": 0.34881188907331956
         }
       },
       "base_source": "frame+roll",
@@ -7727,13 +7727,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.595596,
+      "dmax": 0.595342,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.328,
+        "neutral": 0.33,
         "warm": 1.0
       },
       "parity_required": false,
@@ -7759,11 +7759,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6005,
-        "p05": 0.2334,
-        "p95": 0.8796,
-        "top_mean": 0.544,
-        "top_std": 0.2223,
+        "median_luma": 0.4959,
+        "p05": 0.1883,
+        "p95": 0.7303,
+        "top_mean": 0.4488,
+        "top_std": 0.1858,
         "negative_density_range": 1.1436,
         "scene": {
           "sat_frac": 0.6902,
@@ -7869,11 +7869,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6719,
-        "p05": 0.0976,
-        "p95": 0.9074,
-        "top_mean": 0.5849,
-        "top_std": 0.2507,
+        "median_luma": 0.5479,
+        "p05": 0.0741,
+        "p95": 0.7433,
+        "top_mean": 0.4765,
+        "top_std": 0.2066,
         "negative_density_range": 0.63,
         "scene": {
           "sat_frac": 0.6382,
@@ -7971,27 +7971,27 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7195,
-        "p05": 0.4879,
-        "p95": 0.9045,
-        "top_mean": 0.7424,
-        "top_std": 0.122,
+        "median_luma": 0.4709,
+        "p05": 0.3129,
+        "p95": 0.5969,
+        "top_mean": 0.4865,
+        "top_std": 0.083,
         "negative_density_range": 1.2302,
         "scene": {
-          "sat_frac": 0.6048,
-          "dark_frac": 0.0108,
-          "neutral_frac": 0.0816,
-          "hue_concentration": 0.3629,
-          "estimator_spread_rad": 0.1677,
-          "estimator_magnitude_ratio": 1.2293
+          "sat_frac": 0.6047,
+          "dark_frac": 0.011,
+          "neutral_frac": 0.0815,
+          "hue_concentration": 0.3612,
+          "estimator_spread_rad": 0.1676,
+          "estimator_magnitude_ratio": 1.2286
         },
         "technical_preclip": {
           "low": [
@@ -8005,7 +8005,7 @@
             0.059746162072027986
           ],
           "n": 441384,
-          "above_base": 0.048920365637781765
+          "above_base": 0.04864094152332965
         }
       },
       "base_source": "frame+roll",
@@ -8057,13 +8057,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.870588,
+      "dmax": 0.870493,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.273,
+        "neutral": 0.274,
         "warm": 1.0
       },
       "parity_required": true,
@@ -8081,27 +8081,27 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7446,
-        "p05": 0.5403,
-        "p95": 0.9122,
-        "top_mean": 0.77,
-        "top_std": 0.1042,
+        "median_luma": 0.4683,
+        "p05": 0.3342,
+        "p95": 0.5782,
+        "top_mean": 0.485,
+        "top_std": 0.0683,
         "negative_density_range": 0.6228,
         "scene": {
-          "sat_frac": 0.4998,
+          "sat_frac": 0.4993,
           "dark_frac": 0.0034,
-          "neutral_frac": 0.1303,
-          "hue_concentration": 0.4783,
-          "estimator_spread_rad": 0.1988,
-          "estimator_magnitude_ratio": 1.1993
+          "neutral_frac": 0.1302,
+          "hue_concentration": 0.4738,
+          "estimator_spread_rad": 0.1987,
+          "estimator_magnitude_ratio": 1.1992
         },
         "technical_preclip": {
           "low": [
@@ -8115,7 +8115,7 @@
             0.023106656632687968
           ],
           "n": 409276,
-          "above_base": 0.03273096883276811
+          "above_base": 0.032530615037285354
         }
       },
       "base_source": "frame+roll",
@@ -8167,13 +8167,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.872837,
+      "dmax": 0.872672,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.373,
+        "neutral": 0.377,
         "warm": 1.0
       },
       "parity_required": false,
@@ -8199,11 +8199,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.5674,
-        "p05": 0.2235,
-        "p95": 0.9208,
-        "top_mean": 0.5216,
-        "top_std": 0.2078,
+        "median_luma": 0.4902,
+        "p05": 0.1893,
+        "p95": 0.7997,
+        "top_mean": 0.4502,
+        "top_std": 0.1819,
         "negative_density_range": 0.8564,
         "scene": {
           "sat_frac": 0.7496,
@@ -8309,11 +8309,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6048,
-        "p05": 0.2835,
-        "p95": 0.9283,
-        "top_mean": 0.5494,
-        "top_std": 0.2034,
+        "median_luma": 0.4839,
+        "p05": 0.2218,
+        "p95": 0.7479,
+        "top_mean": 0.4387,
+        "top_std": 0.1657,
         "negative_density_range": 1.3356,
         "scene": {
           "sat_frac": 0.719,
@@ -8411,19 +8411,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7738,
-        "p05": 0.5552,
-        "p95": 0.9158,
-        "top_mean": 0.7968,
-        "top_std": 0.1174,
+        "median_luma": 0.4764,
+        "p05": 0.3363,
+        "p95": 0.5675,
+        "top_mean": 0.4912,
+        "top_std": 0.0751,
         "negative_density_range": 0.7531,
         "scene": {
           "sat_frac": 0.4325,
@@ -8521,7 +8521,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -8529,19 +8529,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8022,
-        "p05": 0.7038,
-        "p95": 0.9044,
-        "top_mean": 0.8245,
-        "top_std": 0.0687,
+        "median_luma": 0.4644,
+        "p05": 0.4047,
+        "p95": 0.5264,
+        "top_mean": 0.4779,
+        "top_std": 0.0417,
         "negative_density_range": 1.3452,
         "scene": {
-          "sat_frac": 0.0554,
+          "sat_frac": 0.0558,
           "dark_frac": 0.0,
-          "neutral_frac": 0.5053,
-          "hue_concentration": 0.1954,
-          "estimator_spread_rad": 0.1819,
-          "estimator_magnitude_ratio": 1.3451
+          "neutral_frac": 0.5044,
+          "hue_concentration": 0.1953,
+          "estimator_spread_rad": 0.182,
+          "estimator_magnitude_ratio": 1.3457
         },
         "technical_preclip": {
           "low": [
@@ -8631,7 +8631,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.245829,
+      "dmax": 1.245221,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -8656,25 +8656,25 @@
         "saturated_dominant": false,
         "night_like": false,
         "bright_uniform_top": false,
-        "low_result_contrast": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8288,
-        "p05": 0.5,
-        "p95": 0.8925,
-        "top_mean": 0.7842,
-        "top_std": 0.1568,
+        "median_luma": 0.4887,
+        "p05": 0.2852,
+        "p95": 0.528,
+        "top_mean": 0.461,
+        "top_std": 0.0971,
         "negative_density_range": 1.4212,
         "scene": {
-          "sat_frac": 0.1423,
-          "dark_frac": 0.0034,
-          "neutral_frac": 0.4812,
-          "hue_concentration": 0.4404,
-          "estimator_spread_rad": 0.2449,
+          "sat_frac": 0.1436,
+          "dark_frac": 0.0035,
+          "neutral_frac": 0.4805,
+          "hue_concentration": 0.4351,
+          "estimator_spread_rad": 0.245,
           "estimator_magnitude_ratio": 1.5449
         },
         "technical_preclip": {
@@ -8689,7 +8689,7 @@
             0.0
           ],
           "n": 250900,
-          "above_base": 0.002771356450112927
+          "above_base": 0.002860369337053275
         }
       },
       "base_source": "frame+roll",
@@ -8741,14 +8741,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.231541,
+      "dmax": 1.230855,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.554,
-        "warm": 0.604
+        "neutral": 0.559,
+        "warm": 0.609
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -8773,19 +8773,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7612,
-        "p05": 0.3305,
-        "p95": 0.9168,
-        "top_mean": 0.5698,
-        "top_std": 0.1852,
+        "median_luma": 0.5284,
+        "p05": 0.2175,
+        "p95": 0.6402,
+        "top_mean": 0.3911,
+        "top_std": 0.1322,
         "negative_density_range": 0.9428,
         "scene": {
-          "sat_frac": 0.4524,
-          "dark_frac": 0.0668,
-          "neutral_frac": 0.2915,
-          "hue_concentration": 0.3523,
+          "sat_frac": 0.4535,
+          "dark_frac": 0.0679,
+          "neutral_frac": 0.291,
+          "hue_concentration": 0.3516,
           "estimator_spread_rad": 0.2283,
-          "estimator_magnitude_ratio": 1.3503
+          "estimator_magnitude_ratio": 1.3508
         },
         "technical_preclip": {
           "low": [
@@ -8799,7 +8799,7 @@
             0.0
           ],
           "n": 594000,
-          "above_base": 0.06963692480359147
+          "above_base": 0.07051122334455667
         }
       },
       "base_source": "frame+roll",
@@ -8851,13 +8851,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.922122,
+      "dmax": 0.921298,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.435,
+        "neutral": 0.433,
         "warm": 1.0
       },
       "parity_required": false,
@@ -8875,7 +8875,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -8883,19 +8883,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8998,
-        "p05": 0.7685,
-        "p95": 0.9323,
-        "top_mean": 0.9091,
-        "top_std": 0.0217,
+        "median_luma": 0.4692,
+        "p05": 0.397,
+        "p95": 0.4871,
+        "top_mean": 0.4744,
+        "top_std": 0.0119,
         "negative_density_range": 0.5202,
         "scene": {
-          "sat_frac": 0.0525,
+          "sat_frac": 0.0528,
           "dark_frac": 0.0,
-          "neutral_frac": 0.7666,
-          "hue_concentration": 0.411,
-          "estimator_spread_rad": 0.2229,
-          "estimator_magnitude_ratio": 1.328
+          "neutral_frac": 0.7655,
+          "hue_concentration": 0.4115,
+          "estimator_spread_rad": 0.223,
+          "estimator_magnitude_ratio": 1.3286
         },
         "technical_preclip": {
           "low": [
@@ -8985,14 +8985,14 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 0.790012,
+      "dmax": 0.789405,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.61,
-        "warm": 0.66
+        "neutral": 0.609,
+        "warm": 0.659
       },
       "parity_required": false,
       "has_nlp_reference": false
@@ -9009,7 +9009,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -9017,19 +9017,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8712,
-        "p05": 0.7389,
-        "p95": 0.9216,
-        "top_mean": 0.839,
-        "top_std": 0.0626,
+        "median_luma": 0.4704,
+        "p05": 0.3953,
+        "p95": 0.4991,
+        "top_mean": 0.4521,
+        "top_std": 0.0356,
         "negative_density_range": 0.6369,
         "scene": {
-          "sat_frac": 0.0355,
+          "sat_frac": 0.0357,
           "dark_frac": 0.0,
-          "neutral_frac": 0.6639,
-          "hue_concentration": 0.2747,
-          "estimator_spread_rad": 0.1848,
-          "estimator_magnitude_ratio": 1.2995
+          "neutral_frac": 0.6629,
+          "hue_concentration": 0.2749,
+          "estimator_spread_rad": 0.1849,
+          "estimator_magnitude_ratio": 1.3
         },
         "technical_preclip": {
           "low": [
@@ -9119,7 +9119,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 0.905205,
+      "dmax": 0.904597,
       "gate": "fail",
       "blocks_export": true,
       "chosen_candidate": "neutral",
@@ -9143,7 +9143,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": true,
         "shadow_clip": false,
@@ -9151,19 +9151,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.89,
-        "p05": 0.8249,
-        "p95": 0.9374,
-        "top_mean": 0.9052,
-        "top_std": 0.0302,
+        "median_luma": 0.4624,
+        "p05": 0.4268,
+        "p95": 0.4884,
+        "top_mean": 0.4708,
+        "top_std": 0.0166,
         "negative_density_range": 0.5696,
         "scene": {
-          "sat_frac": 0.0114,
+          "sat_frac": 0.0115,
           "dark_frac": 0.0,
-          "neutral_frac": 0.7802,
-          "hue_concentration": 0.3067,
-          "estimator_spread_rad": 0.2207,
-          "estimator_magnitude_ratio": 1.2805
+          "neutral_frac": 0.7795,
+          "hue_concentration": 0.3071,
+          "estimator_spread_rad": 0.2208,
+          "estimator_magnitude_ratio": 1.2809
         },
         "technical_preclip": {
           "low": [
@@ -9253,7 +9253,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 0.958738,
+      "dmax": 0.958131,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9277,7 +9277,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -9285,19 +9285,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8715,
-        "p05": 0.8017,
-        "p95": 0.9251,
-        "top_mean": 0.89,
-        "top_std": 0.0301,
+        "median_luma": 0.4639,
+        "p05": 0.4248,
+        "p95": 0.494,
+        "top_mean": 0.4743,
+        "top_std": 0.0169,
         "negative_density_range": 0.667,
         "scene": {
           "sat_frac": 0.0014,
           "dark_frac": 0.0,
-          "neutral_frac": 0.8694,
-          "hue_concentration": 0.2396,
-          "estimator_spread_rad": 0.1983,
-          "estimator_magnitude_ratio": 1.2782
+          "neutral_frac": 0.8689,
+          "hue_concentration": 0.2398,
+          "estimator_spread_rad": 0.1984,
+          "estimator_magnitude_ratio": 1.2785
         },
         "technical_preclip": {
           "low": [
@@ -9387,7 +9387,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.077699,
+      "dmax": 1.077092,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9419,11 +9419,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.0427,
-        "p05": 0.0,
-        "p95": 0.9088,
-        "top_mean": 0.2054,
-        "top_std": 0.3124,
+        "median_luma": 0.0787,
+        "p05": 0.0007,
+        "p95": 1.0,
+        "top_mean": 0.3143,
+        "top_std": 0.428,
         "negative_density_range": 0.4187,
         "scene": {
           "sat_frac": 0.8181,
@@ -9529,11 +9529,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7332,
-        "p05": 0.0005,
-        "p95": 0.9319,
-        "top_mean": 0.5119,
-        "top_std": 0.3459,
+        "median_luma": 0.8004,
+        "p05": 0.0006,
+        "p95": 0.9964,
+        "top_mean": 0.5576,
+        "top_std": 0.3755,
         "negative_density_range": 0.5197,
         "scene": {
           "sat_frac": 0.6425,
@@ -9639,19 +9639,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8112,
-        "p05": 0.0031,
-        "p95": 0.9344,
-        "top_mean": 0.6163,
-        "top_std": 0.3023,
+        "median_luma": 0.6988,
+        "p05": 0.0022,
+        "p95": 0.8064,
+        "top_mean": 0.5294,
+        "top_std": 0.2621,
         "negative_density_range": 0.438,
         "scene": {
-          "sat_frac": 0.559,
-          "dark_frac": 0.1355,
-          "neutral_frac": 0.159,
-          "hue_concentration": 0.2783,
-          "estimator_spread_rad": 0.16,
-          "estimator_magnitude_ratio": 1.102
+          "sat_frac": 0.5583,
+          "dark_frac": 0.1357,
+          "neutral_frac": 0.1591,
+          "hue_concentration": 0.276,
+          "estimator_spread_rad": 0.1599,
+          "estimator_magnitude_ratio": 1.1012
         },
         "technical_preclip": {
           "low": [
@@ -9662,10 +9662,10 @@
           "high": [
             0.0,
             0.0,
-            0.0017613272951091026
+            0.0017623986620769305
           ],
           "n": 933387,
-          "above_base": 0.14449062036075783
+          "above_base": 0.1446123990727676
         }
       },
       "base_source": "frame+roll",
@@ -9709,21 +9709,21 @@
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         },
         "B": {
-          "high_total": 0.001768,
+          "high_total": 0.001769,
           "high_inherited": 0.001739,
-          "high_introduced": 2.9e-05,
+          "high_introduced": 3e-05,
           "low": null,
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.640492,
+      "dmax": 0.640377,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.39,
+        "neutral": 0.391,
         "warm": 1.0
       },
       "parity_required": false,
@@ -9749,11 +9749,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7882,
-        "p05": 0.002,
-        "p95": 0.9262,
-        "top_mean": 0.5643,
-        "top_std": 0.332,
+        "median_luma": 0.7398,
+        "p05": 0.0017,
+        "p95": 0.8699,
+        "top_mean": 0.5294,
+        "top_std": 0.312,
         "negative_density_range": 0.6034,
         "scene": {
           "sat_frac": 0.6181,
@@ -9859,17 +9859,17 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.7461,
-        "p05": 0.3012,
-        "p95": 0.9311,
-        "top_mean": 0.7347,
-        "top_std": 0.2226,
+        "median_luma": 0.5103,
+        "p05": 0.194,
+        "p95": 0.6414,
+        "top_mean": 0.5025,
+        "top_std": 0.1568,
         "negative_density_range": 0.6112,
         "scene": {
-          "sat_frac": 0.3139,
-          "dark_frac": 0.0791,
-          "neutral_frac": 0.5202,
-          "hue_concentration": 0.2872,
+          "sat_frac": 0.3141,
+          "dark_frac": 0.0798,
+          "neutral_frac": 0.5198,
+          "hue_concentration": 0.2898,
           "estimator_spread_rad": 0.1948,
           "estimator_magnitude_ratio": 1.1449
         },
@@ -9885,7 +9885,7 @@
             0.0
           ],
           "n": 570024,
-          "above_base": 0.0672585715689164
+          "above_base": 0.06762990096323429
         }
       },
       "base_source": "frame+roll",
@@ -9937,7 +9937,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.908843,
+      "dmax": 0.908502,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -9961,7 +9961,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -9969,19 +9969,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8423,
-        "p05": 0.7035,
-        "p95": 0.9095,
-        "top_mean": 0.8132,
-        "top_std": 0.0654,
+        "median_luma": 0.4727,
+        "p05": 0.3909,
+        "p95": 0.5124,
+        "top_mean": 0.4556,
+        "top_std": 0.0386,
         "negative_density_range": 1.1283,
         "scene": {
-          "sat_frac": 0.036,
+          "sat_frac": 0.0362,
           "dark_frac": 0.0,
-          "neutral_frac": 0.7378,
-          "hue_concentration": 0.2618,
-          "estimator_spread_rad": 0.1834,
-          "estimator_magnitude_ratio": 1.3003
+          "neutral_frac": 0.7372,
+          "hue_concentration": 0.2617,
+          "estimator_spread_rad": 0.1835,
+          "estimator_magnitude_ratio": 1.3007
         },
         "technical_preclip": {
           "low": [
@@ -10043,7 +10043,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.068467,
+      "dmax": 1.067859,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -10067,7 +10067,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -10075,19 +10075,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7836,
-        "p05": 0.668,
-        "p95": 0.923,
-        "top_mean": 0.7706,
-        "top_std": 0.0856,
+        "median_luma": 0.4572,
+        "p05": 0.3864,
+        "p95": 0.5425,
+        "top_mean": 0.4493,
+        "top_std": 0.0524,
         "negative_density_range": 1.3969,
         "scene": {
-          "sat_frac": 0.0541,
+          "sat_frac": 0.0545,
           "dark_frac": 0.0,
-          "neutral_frac": 0.584,
-          "hue_concentration": 0.4006,
-          "estimator_spread_rad": 0.1775,
-          "estimator_magnitude_ratio": 1.2741
+          "neutral_frac": 0.5833,
+          "hue_concentration": 0.4009,
+          "estimator_spread_rad": 0.1776,
+          "estimator_magnitude_ratio": 1.2745
         },
         "technical_preclip": {
           "low": [
@@ -10149,7 +10149,7 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 1.375443,
+      "dmax": 1.374836,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -10174,26 +10174,26 @@
         "saturated_dominant": false,
         "night_like": false,
         "bright_uniform_top": false,
-        "low_result_contrast": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.6738,
-        "p05": 0.3004,
-        "p95": 0.9357,
-        "top_mean": 0.716,
-        "top_std": 0.1678,
+        "median_luma": 0.4541,
+        "p05": 0.3736,
+        "p95": 0.5482,
+        "top_mean": 0.4556,
+        "top_std": 0.0591,
         "negative_density_range": 0.8682,
         "scene": {
-          "sat_frac": 0.5734,
-          "dark_frac": 0.0842,
-          "neutral_frac": 0.3041,
-          "hue_concentration": 0.2393,
-          "estimator_spread_rad": 0.2201,
-          "estimator_magnitude_ratio": 1.2811
+          "sat_frac": 0.3228,
+          "dark_frac": 0.0,
+          "neutral_frac": 0.3635,
+          "hue_concentration": 0.5903,
+          "estimator_spread_rad": 0.253,
+          "estimator_magnitude_ratio": 1.4437
         },
         "technical_preclip": {
           "low": [
@@ -10207,27 +10207,23 @@
             0.0
           ],
           "n": 491608,
-          "above_base": 0.07650946824841473
+          "above_base": 0.0020863506425173443
         }
       },
-      "base_source": "frame",
-      "base_confidence": 0.522,
-      "base_dmin": [
-        0.209235,
-        0.076958,
-        0.01789
-      ],
-      "base_contamination": 0.0277,
-      "base_black_level": 0.014339,
+      "base_source": "generic_prior",
+      "base_confidence": 0.0,
+      "base_dmin": null,
+      "base_contamination": 1.0,
+      "base_black_level": null,
       "base_spatial_trend": [
-        -0.1623,
-        0.0075
+        0.0,
+        0.0
       ],
       "input_clip": {
         "low": [
           0.0,
           0.0,
-          0.009259
+          0.009294
         ],
         "high": [
           0.0,
@@ -10258,14 +10254,42 @@
           "low_reason": "低端剪裁的输入端对应量是 above_base（透射率超片基），不在本函数口径内，不假装能归因"
         }
       },
-      "best_rejected_region": null,
-      "dmax": 0.992623,
-      "gate": "warn",
+      "best_rejected_region": {
+        "roi": [
+          1090.0,
+          495.0,
+          1183.0,
+          605.0
+        ],
+        "confidence": 0.397,
+        "contamination": 0.0493,
+        "kept_frac": 0.9507,
+        "rel_spread": 0.0682,
+        "mad": [
+          0.0472,
+          0.0432,
+          0.0682
+        ],
+        "scores": {
+          "size": 1.0,
+          "purity": 1.0,
+          "spread": 0.397
+        },
+        "binding_score": "spread",
+        "median_transmittance": [
+          0.200458,
+          0.074416,
+          0.017001
+        ],
+        "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
+      },
+      "dmax": 1.218641,
+      "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.334,
+        "neutral": 0.379,
         "warm": 1.0
       },
       "parity_required": false,
@@ -10291,11 +10315,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7696,
-        "p05": 0.05,
-        "p95": 0.9336,
-        "top_mean": 0.6664,
-        "top_std": 0.2499,
+        "median_luma": 0.5801,
+        "p05": 0.0365,
+        "p95": 0.7062,
+        "top_mean": 0.5012,
+        "top_std": 0.1909,
         "negative_density_range": 0.4708,
         "scene": {
           "sat_frac": 0.6501,
@@ -10401,19 +10425,19 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8485,
-        "p05": 0.2259,
-        "p95": 0.9403,
-        "top_mean": 0.8031,
-        "top_std": 0.158,
+        "median_luma": 0.5191,
+        "p05": 0.1219,
+        "p95": 0.5777,
+        "top_mean": 0.4903,
+        "top_std": 0.1003,
         "negative_density_range": 0.4116,
         "scene": {
-          "sat_frac": 0.4404,
-          "dark_frac": 0.016,
-          "neutral_frac": 0.2671,
-          "hue_concentration": 0.2397,
-          "estimator_spread_rad": 0.2253,
-          "estimator_magnitude_ratio": 1.0904
+          "sat_frac": 0.4399,
+          "dark_frac": 0.0162,
+          "neutral_frac": 0.2674,
+          "hue_concentration": 0.2361,
+          "estimator_spread_rad": 0.2252,
+          "estimator_magnitude_ratio": 1.0887
         },
         "technical_preclip": {
           "low": [
@@ -10427,7 +10451,7 @@
             1.8009710836082816e-05
           ],
           "n": 277628,
-          "above_base": 0.06608963553147858
+          "above_base": 0.06633096565668209
         }
       },
       "base_source": "frame+roll",
@@ -10479,13 +10503,13 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.52218,
+      "dmax": 0.52196,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "preserve",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.456,
+        "neutral": 0.457,
         "warm": 1.0
       },
       "parity_required": false,
@@ -10511,19 +10535,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.827,
-        "p05": 0.1113,
-        "p95": 0.8997,
-        "top_mean": 0.7522,
-        "top_std": 0.2322,
+        "median_luma": 0.5393,
+        "p05": 0.0671,
+        "p95": 0.5885,
+        "top_mean": 0.4898,
+        "top_std": 0.1535,
         "negative_density_range": 1.276,
         "scene": {
-          "sat_frac": 0.2272,
-          "dark_frac": 0.0555,
-          "neutral_frac": 0.5574,
-          "hue_concentration": 0.4451,
+          "sat_frac": 0.2278,
+          "dark_frac": 0.0557,
+          "neutral_frac": 0.5562,
+          "hue_concentration": 0.4517,
           "estimator_spread_rad": 0.1916,
-          "estimator_magnitude_ratio": 1.4611
+          "estimator_magnitude_ratio": 1.4612
         },
         "technical_preclip": {
           "low": [
@@ -10537,7 +10561,7 @@
             0.0
           ],
           "n": 703644,
-          "above_base": 0.04921380698193973
+          "above_base": 0.04951651687501066
         }
       },
       "base_source": "frame+roll",
@@ -10589,14 +10613,14 @@
         }
       },
       "best_rejected_region": null,
-      "dmax": 0.893922,
+      "dmax": 0.893497,
       "gate": "warn",
       "blocks_export": false,
       "chosen_candidate": "neutral",
       "candidate_confidence": {
         "preserve": 1.0,
-        "neutral": 0.619,
-        "warm": 0.669
+        "neutral": 0.613,
+        "warm": 0.663
       },
       "parity_required": true,
       "has_nlp_reference": true
@@ -10621,11 +10645,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8707,
-        "p05": 0.3632,
-        "p95": 0.9263,
-        "top_mean": 0.8124,
-        "top_std": 0.1818,
+        "median_luma": 0.5126,
+        "p05": 0.2017,
+        "p95": 0.5467,
+        "top_mean": 0.4769,
+        "top_std": 0.1112,
         "negative_density_range": 0.7103,
         "scene": {
           "sat_frac": 0.182,
@@ -10723,7 +10747,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -10731,19 +10755,19 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8653,
-        "p05": 0.725,
-        "p95": 0.9183,
-        "top_mean": 0.8213,
-        "top_std": 0.0568,
+        "median_luma": 0.4732,
+        "p05": 0.3925,
+        "p95": 0.5037,
+        "top_mean": 0.4479,
+        "top_std": 0.0326,
         "negative_density_range": 1.0869,
         "scene": {
-          "sat_frac": 0.0251,
+          "sat_frac": 0.0253,
           "dark_frac": 0.0,
-          "neutral_frac": 0.7118,
+          "neutral_frac": 0.7109,
           "hue_concentration": 0.2935,
           "estimator_spread_rad": 0.1824,
-          "estimator_magnitude_ratio": 1.2499
+          "estimator_magnitude_ratio": 1.2502
         },
         "technical_preclip": {
           "low": [
@@ -10833,7 +10857,7 @@
         ],
         "note": "该区未通过置信度门槛，**未参与**任何计算；数字仅作诊断"
       },
-      "dmax": 1.081392,
+      "dmax": 1.080785,
       "gate": "needs_review",
       "blocks_export": false,
       "chosen_candidate": "neutral",
@@ -10865,11 +10889,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8417,
-        "p05": 0.3581,
-        "p95": 0.9289,
-        "top_mean": 0.7228,
-        "top_std": 0.182,
+        "median_luma": 0.5311,
+        "p05": 0.2157,
+        "p95": 0.5882,
+        "top_mean": 0.4537,
+        "top_std": 0.1182,
         "negative_density_range": 0.6521,
         "scene": {
           "sat_frac": 0.3453,
@@ -10975,11 +10999,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7788,
-        "p05": 0.1219,
-        "p95": 0.8991,
-        "top_mean": 0.6055,
-        "top_std": 0.2458,
+        "median_luma": 0.5734,
+        "p05": 0.0828,
+        "p95": 0.664,
+        "top_mean": 0.4438,
+        "top_std": 0.1831,
         "negative_density_range": 1.1701,
         "scene": {
           "sat_frac": 0.4478,
@@ -11085,11 +11109,11 @@
         "no_nlp_reference": true
       },
       "audit": {
-        "median_luma": 0.8312,
-        "p05": 0.3571,
-        "p95": 0.9285,
-        "top_mean": 0.7155,
-        "top_std": 0.1884,
+        "median_luma": 0.5351,
+        "p05": 0.2203,
+        "p95": 0.5999,
+        "top_mean": 0.4584,
+        "top_std": 0.1247,
         "negative_density_range": 0.6806,
         "scene": {
           "sat_frac": 0.3971,
@@ -11195,11 +11219,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.809,
-        "p05": 0.3611,
-        "p95": 0.9287,
-        "top_mean": 0.721,
-        "top_std": 0.1732,
+        "median_luma": 0.5241,
+        "p05": 0.2239,
+        "p95": 0.6043,
+        "top_mean": 0.4651,
+        "top_std": 0.116,
         "negative_density_range": 1.0419,
         "scene": {
           "sat_frac": 0.447,
@@ -11305,11 +11329,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7828,
-        "p05": 0.1674,
-        "p95": 0.9528,
-        "top_mean": 0.6649,
-        "top_std": 0.2769,
+        "median_luma": 0.5409,
+        "p05": 0.1141,
+        "p95": 0.6614,
+        "top_mean": 0.4593,
+        "top_std": 0.1928,
         "negative_density_range": 1.1355,
         "scene": {
           "sat_frac": 0.8045,
@@ -11439,11 +11463,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7934,
-        "p05": 0.4159,
-        "p95": 0.951,
-        "top_mean": 0.7356,
-        "top_std": 0.2192,
+        "median_luma": 0.4827,
+        "p05": 0.2464,
+        "p95": 0.5809,
+        "top_mean": 0.4464,
+        "top_std": 0.1359,
         "negative_density_range": 1.1617,
         "scene": {
           "sat_frac": 0.8826,
@@ -11573,11 +11597,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8017,
-        "p05": 0.043,
-        "p95": 0.9306,
-        "top_mean": 0.6452,
-        "top_std": 0.2932,
+        "median_luma": 0.5892,
+        "p05": 0.028,
+        "p95": 0.6863,
+        "top_mean": 0.4729,
+        "top_std": 0.2176,
         "negative_density_range": 1.1724,
         "scene": {
           "sat_frac": 0.2845,
@@ -11683,11 +11707,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7751,
-        "p05": 0.0567,
-        "p95": 0.9478,
-        "top_mean": 0.725,
-        "top_std": 0.2758,
+        "median_luma": 0.6119,
+        "p05": 0.0428,
+        "p95": 0.7504,
+        "top_mean": 0.5728,
+        "top_std": 0.219,
         "negative_density_range": 1.3643,
         "scene": {
           "sat_frac": 0.7114,
@@ -11809,7 +11833,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -11817,11 +11841,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8224,
-        "p05": 0.4402,
-        "p95": 0.9356,
-        "top_mean": 0.8396,
-        "top_std": 0.125,
+        "median_luma": 0.4982,
+        "p05": 0.2582,
+        "p95": 0.5702,
+        "top_mean": 0.5095,
+        "top_std": 0.078,
         "negative_density_range": 1.6281,
         "scene": {
           "sat_frac": 0.3117,
@@ -11951,11 +11975,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7731,
-        "p05": 0.1667,
-        "p95": 0.9517,
-        "top_mean": 0.7457,
-        "top_std": 0.2289,
+        "median_luma": 0.4919,
+        "p05": 0.1051,
+        "p95": 0.6095,
+        "top_mean": 0.475,
+        "top_std": 0.148,
         "negative_density_range": 1.2693,
         "scene": {
           "sat_frac": 0.6889,
@@ -12085,11 +12109,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7571,
-        "p05": 0.1784,
-        "p95": 0.9414,
-        "top_mean": 0.6156,
-        "top_std": 0.2949,
+        "median_luma": 0.5001,
+        "p05": 0.1177,
+        "p95": 0.6261,
+        "top_mean": 0.4066,
+        "top_std": 0.1972,
         "negative_density_range": 1.0381,
         "scene": {
           "sat_frac": 0.6302,
@@ -12219,11 +12243,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7545,
-        "p05": 0.2819,
-        "p95": 0.9529,
-        "top_mean": 0.6573,
-        "top_std": 0.2154,
+        "median_luma": 0.5123,
+        "p05": 0.1823,
+        "p95": 0.6513,
+        "top_mean": 0.4449,
+        "top_std": 0.1496,
         "negative_density_range": 1.9873,
         "scene": {
           "sat_frac": 0.4647,
@@ -12325,11 +12349,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6668,
-        "p05": 0.1612,
-        "p95": 0.9313,
-        "top_mean": 0.8272,
-        "top_std": 0.111,
+        "median_luma": 0.5314,
+        "p05": 0.1214,
+        "p95": 0.7464,
+        "top_mean": 0.6617,
+        "top_std": 0.0902,
         "negative_density_range": 1.3496,
         "scene": {
           "sat_frac": 0.478,
@@ -12435,11 +12459,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7317,
-        "p05": 0.3078,
-        "p95": 0.9245,
-        "top_mean": 0.788,
-        "top_std": 0.149,
+        "median_luma": 0.5138,
+        "p05": 0.2074,
+        "p95": 0.6532,
+        "top_mean": 0.5545,
+        "top_std": 0.1075,
         "negative_density_range": 1.0566,
         "scene": {
           "sat_frac": 0.4757,
@@ -12545,11 +12569,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8083,
-        "p05": 0.4164,
-        "p95": 0.9541,
-        "top_mean": 0.7652,
-        "top_std": 0.1877,
+        "median_luma": 0.5015,
+        "p05": 0.2503,
+        "p95": 0.5954,
+        "top_mean": 0.4741,
+        "top_std": 0.1204,
         "negative_density_range": 1.3636,
         "scene": {
           "sat_frac": 0.5029,
@@ -12679,11 +12703,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8334,
-        "p05": 0.1332,
-        "p95": 0.9269,
-        "top_mean": 0.7348,
-        "top_std": 0.243,
+        "median_luma": 0.5813,
+        "p05": 0.0848,
+        "p95": 0.6482,
+        "top_mean": 0.5117,
+        "top_std": 0.1711,
         "negative_density_range": 1.3388,
         "scene": {
           "sat_frac": 0.2877,
@@ -12781,19 +12805,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": false,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8021,
-        "p05": 0.471,
-        "p95": 0.9395,
-        "top_mean": 0.8249,
-        "top_std": 0.1237,
+        "median_luma": 0.4837,
+        "p05": 0.2756,
+        "p95": 0.57,
+        "top_mean": 0.498,
+        "top_std": 0.0778,
         "negative_density_range": 1.6597,
         "scene": {
           "sat_frac": 0.2732,
@@ -12899,11 +12923,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7328,
-        "p05": 0.3927,
-        "p95": 0.9323,
-        "top_mean": 0.6504,
-        "top_std": 0.2081,
+        "median_luma": 0.4909,
+        "p05": 0.2554,
+        "p95": 0.6292,
+        "top_mean": 0.4341,
+        "top_std": 0.1434,
         "negative_density_range": 1.1622,
         "scene": {
           "sat_frac": 0.4553,
@@ -13009,11 +13033,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6772,
-        "p05": 0.2147,
-        "p95": 0.9335,
-        "top_mean": 0.6532,
-        "top_std": 0.2451,
+        "median_luma": 0.5083,
+        "p05": 0.1534,
+        "p95": 0.7055,
+        "top_mean": 0.4903,
+        "top_std": 0.1877,
         "negative_density_range": 0.8471,
         "scene": {
           "sat_frac": 0.5724,
@@ -13119,11 +13143,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6361,
-        "p05": 0.0768,
-        "p95": 0.9455,
-        "top_mean": 0.6419,
-        "top_std": 0.3163,
+        "median_luma": 0.5311,
+        "p05": 0.0632,
+        "p95": 0.7927,
+        "top_mean": 0.5366,
+        "top_std": 0.2661,
         "negative_density_range": 1.376,
         "scene": {
           "sat_frac": 0.7167,
@@ -13225,11 +13249,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8522,
-        "p05": 0.2605,
-        "p95": 0.9403,
-        "top_mean": 0.8787,
-        "top_std": 0.0923,
+        "median_luma": 0.574,
+        "p05": 0.1643,
+        "p95": 0.6351,
+        "top_mean": 0.5924,
+        "top_std": 0.064,
         "negative_density_range": 1.1743,
         "scene": {
           "sat_frac": 0.2673,
@@ -13335,11 +13359,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6832,
-        "p05": 0.3071,
-        "p95": 0.9327,
-        "top_mean": 0.6067,
-        "top_std": 0.2559,
+        "median_luma": 0.4863,
+        "p05": 0.2113,
+        "p95": 0.6692,
+        "top_mean": 0.4313,
+        "top_std": 0.1855,
         "negative_density_range": 0.9267,
         "scene": {
           "sat_frac": 0.7355,
@@ -13445,11 +13469,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6125,
-        "p05": 0.2631,
-        "p95": 0.9373,
-        "top_mean": 0.6219,
-        "top_std": 0.2439,
+        "median_luma": 0.4739,
+        "p05": 0.1974,
+        "p95": 0.7311,
+        "top_mean": 0.4816,
+        "top_std": 0.1926,
         "negative_density_range": 0.7685,
         "scene": {
           "sat_frac": 0.5338,
@@ -13547,7 +13571,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": false,
+        "bright_uniform_top": true,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -13555,11 +13579,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6198,
-        "p05": 0.0855,
-        "p95": 0.9238,
-        "top_mean": 0.6457,
-        "top_std": 0.1611,
+        "median_luma": 0.5371,
+        "p05": 0.0714,
+        "p95": 0.8039,
+        "top_mean": 0.5598,
+        "top_std": 0.1413,
         "negative_density_range": 1.0101,
         "scene": {
           "sat_frac": 0.5916,
@@ -13665,11 +13689,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.5681,
-        "p05": 0.1975,
-        "p95": 0.9114,
-        "top_mean": 0.4243,
-        "top_std": 0.2219,
+        "median_luma": 0.5138,
+        "p05": 0.1757,
+        "p95": 0.8271,
+        "top_mean": 0.3827,
+        "top_std": 0.2022,
         "negative_density_range": 0.9582,
         "scene": {
           "sat_frac": 0.6883,
@@ -13775,11 +13799,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7297,
-        "p05": 0.0002,
-        "p95": 0.9495,
-        "top_mean": 0.5795,
-        "top_std": 0.329,
+        "median_luma": 0.9279,
+        "p05": 0.0005,
+        "p95": 1.0,
+        "top_mean": 0.6863,
+        "top_std": 0.3676,
         "negative_density_range": 1.0742,
         "scene": {
           "sat_frac": 0.7814,
@@ -13909,11 +13933,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.4618,
-        "p05": 0.0179,
-        "p95": 0.9327,
-        "top_mean": 0.5545,
-        "top_std": 0.2576,
+        "median_luma": 0.5445,
+        "p05": 0.0236,
+        "p95": 1.0,
+        "top_mean": 0.6354,
+        "top_std": 0.2765,
         "negative_density_range": 0.8827,
         "scene": {
           "sat_frac": 0.6518,
@@ -14019,11 +14043,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7805,
-        "p05": 0.3751,
-        "p95": 0.9144,
-        "top_mean": 0.7065,
-        "top_std": 0.1685,
+        "median_luma": 0.5157,
+        "p05": 0.2388,
+        "p95": 0.6071,
+        "top_mean": 0.4652,
+        "top_std": 0.1149,
         "negative_density_range": 1.5049,
         "scene": {
           "sat_frac": 0.2755,
@@ -14129,11 +14153,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7993,
-        "p05": 0.0638,
-        "p95": 0.9236,
-        "top_mean": 0.6007,
-        "top_std": 0.2964,
+        "median_luma": 0.6081,
+        "p05": 0.0446,
+        "p95": 0.7045,
+        "top_mean": 0.4549,
+        "top_std": 0.2282,
         "negative_density_range": 1.5096,
         "scene": {
           "sat_frac": 0.2803,
@@ -14239,11 +14263,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7952,
-        "p05": 0.2113,
-        "p95": 0.9472,
-        "top_mean": 0.8421,
-        "top_std": 0.0639,
+        "median_luma": 0.5716,
+        "p05": 0.1445,
+        "p95": 0.6837,
+        "top_mean": 0.6063,
+        "top_std": 0.0471,
         "negative_density_range": 1.0271,
         "scene": {
           "sat_frac": 0.5965,
@@ -14373,11 +14397,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7615,
-        "p05": 0.2695,
-        "p95": 0.9144,
-        "top_mean": 0.5735,
-        "top_std": 0.2484,
+        "median_luma": 0.5156,
+        "p05": 0.1729,
+        "p95": 0.6224,
+        "top_mean": 0.3857,
+        "top_std": 0.1713,
         "negative_density_range": 1.3255,
         "scene": {
           "sat_frac": 0.5726,
@@ -14507,11 +14531,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7328,
-        "p05": 0.3491,
-        "p95": 0.9162,
-        "top_mean": 0.6955,
-        "top_std": 0.205,
+        "median_luma": 0.5055,
+        "p05": 0.2328,
+        "p95": 0.636,
+        "top_mean": 0.4794,
+        "top_std": 0.1448,
         "negative_density_range": 0.9511,
         "scene": {
           "sat_frac": 0.4247,
@@ -14617,11 +14641,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8403,
-        "p05": 0.001,
-        "p95": 0.9334,
-        "top_mean": 0.7536,
-        "top_std": 0.2321,
+        "median_luma": 0.8026,
+        "p05": 0.0009,
+        "p95": 0.8918,
+        "top_mean": 0.7197,
+        "top_std": 0.222,
         "negative_density_range": 1.108,
         "scene": {
           "sat_frac": 0.4284,
@@ -14751,11 +14775,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7521,
-        "p05": 0.0423,
-        "p95": 0.9147,
-        "top_mean": 0.5731,
-        "top_std": 0.1886,
+        "median_luma": 0.5722,
+        "p05": 0.0316,
+        "p95": 0.6986,
+        "top_mean": 0.4333,
+        "top_std": 0.1461,
         "negative_density_range": 2.1915,
         "scene": {
           "sat_frac": 0.3023,
@@ -14861,11 +14885,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6994,
-        "p05": 0.0008,
-        "p95": 0.9407,
-        "top_mean": 0.6374,
-        "top_std": 0.2925,
+        "median_luma": 0.7443,
+        "p05": 0.0009,
+        "p95": 0.9898,
+        "top_mean": 0.6767,
+        "top_std": 0.3092,
         "negative_density_range": 1.1781,
         "scene": {
           "sat_frac": 0.759,
@@ -14995,11 +15019,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8,
-        "p05": 0.384,
-        "p95": 0.93,
-        "top_mean": 0.6991,
-        "top_std": 0.217,
+        "median_luma": 0.5158,
+        "p05": 0.2394,
+        "p95": 0.6027,
+        "top_mean": 0.4494,
+        "top_std": 0.1427,
         "negative_density_range": 1.6271,
         "scene": {
           "sat_frac": 0.4981,
@@ -15129,11 +15153,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7818,
-        "p05": 0.1349,
-        "p95": 0.9498,
-        "top_mean": 0.6856,
-        "top_std": 0.2062,
+        "median_luma": 0.5289,
+        "p05": 0.0884,
+        "p95": 0.6458,
+        "top_mean": 0.4626,
+        "top_std": 0.1424,
         "negative_density_range": 1.2475,
         "scene": {
           "sat_frac": 0.556,
@@ -15263,11 +15287,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7579,
-        "p05": 0.1644,
-        "p95": 0.9453,
-        "top_mean": 0.6563,
-        "top_std": 0.2447,
+        "median_luma": 0.5054,
+        "p05": 0.1052,
+        "p95": 0.6345,
+        "top_mean": 0.4372,
+        "top_std": 0.1657,
         "negative_density_range": 1.3005,
         "scene": {
           "sat_frac": 0.6094,
@@ -15397,11 +15421,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7936,
-        "p05": 0.1326,
-        "p95": 0.9313,
-        "top_mean": 0.6547,
-        "top_std": 0.2708,
+        "median_luma": 0.5776,
+        "p05": 0.0864,
+        "p95": 0.6803,
+        "top_mean": 0.4752,
+        "top_std": 0.1993,
         "negative_density_range": 1.0307,
         "scene": {
           "sat_frac": 0.3657,
@@ -15499,7 +15523,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -15507,11 +15531,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8366,
-        "p05": 0.6465,
-        "p95": 0.9327,
-        "top_mean": 0.8581,
-        "top_std": 0.0568,
+        "median_luma": 0.4635,
+        "p05": 0.353,
+        "p95": 0.52,
+        "top_mean": 0.4761,
+        "top_std": 0.0332,
         "negative_density_range": 1.1101,
         "scene": {
           "sat_frac": 0.2205,
@@ -15641,11 +15665,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7757,
-        "p05": 0.0005,
-        "p95": 0.9289,
-        "top_mean": 0.4606,
-        "top_std": 0.3563,
+        "median_luma": 0.9326,
+        "p05": 0.0007,
+        "p95": 1.0,
+        "top_mean": 0.5492,
+        "top_std": 0.4198,
         "negative_density_range": 2.1596,
         "scene": {
           "sat_frac": 0.623,
@@ -15775,11 +15799,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7625,
-        "p05": 0.0007,
-        "p95": 0.9389,
-        "top_mean": 0.6874,
-        "top_std": 0.2691,
+        "median_luma": 0.8458,
+        "p05": 0.0009,
+        "p95": 0.9938,
+        "top_mean": 0.7554,
+        "top_std": 0.2909,
         "negative_density_range": 2.2686,
         "scene": {
           "sat_frac": 0.6036,
@@ -15909,11 +15933,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7594,
-        "p05": 0.0005,
-        "p95": 0.9432,
-        "top_mean": 0.6642,
-        "top_std": 0.2976,
+        "median_luma": 0.9432,
+        "p05": 0.0009,
+        "p95": 1.0,
+        "top_mean": 0.7845,
+        "top_std": 0.3329,
         "negative_density_range": 2.2486,
         "scene": {
           "sat_frac": 0.6409,
@@ -16043,11 +16067,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.833,
-        "p05": 0.438,
-        "p95": 0.9288,
-        "top_mean": 0.6586,
-        "top_std": 0.2068,
+        "median_luma": 0.525,
+        "p05": 0.2672,
+        "p95": 0.5875,
+        "top_mean": 0.4118,
+        "top_std": 0.133,
         "negative_density_range": 2.2437,
         "scene": {
           "sat_frac": 0.3227,
@@ -16153,11 +16177,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.74,
-        "p05": 0.0012,
-        "p95": 0.9135,
-        "top_mean": 0.6297,
-        "top_std": 0.2386,
+        "median_luma": 0.7208,
+        "p05": 0.0011,
+        "p95": 0.8902,
+        "top_mean": 0.6133,
+        "top_std": 0.2326,
         "negative_density_range": 2.024,
         "scene": {
           "sat_frac": 0.5922,
@@ -16287,11 +16311,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7174,
-        "p05": 0.0004,
-        "p95": 0.9061,
-        "top_mean": 0.6258,
-        "top_std": 0.2118,
+        "median_luma": 0.7767,
+        "p05": 0.0005,
+        "p95": 0.9759,
+        "top_mean": 0.6781,
+        "top_std": 0.2279,
         "negative_density_range": 2.095,
         "scene": {
           "sat_frac": 0.6834,
@@ -16421,11 +16445,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7581,
-        "p05": 0.2039,
-        "p95": 0.9113,
-        "top_mean": 0.6045,
-        "top_std": 0.2784,
+        "median_luma": 0.5636,
+        "p05": 0.1428,
+        "p95": 0.6801,
+        "top_mean": 0.4477,
+        "top_std": 0.21,
         "negative_density_range": 2.1073,
         "scene": {
           "sat_frac": 0.4576,
@@ -16523,19 +16547,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8322,
-        "p05": 0.5481,
-        "p95": 0.9222,
-        "top_mean": 0.8181,
-        "top_std": 0.1029,
+        "median_luma": 0.4938,
+        "p05": 0.3181,
+        "p95": 0.5495,
+        "top_mean": 0.4851,
+        "top_std": 0.0637,
         "negative_density_range": 2.0297,
         "scene": {
           "sat_frac": 0.3389,
@@ -16657,19 +16681,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8504,
-        "p05": 0.5925,
-        "p95": 0.9224,
-        "top_mean": 0.8047,
-        "top_std": 0.1035,
+        "median_luma": 0.4938,
+        "p05": 0.3375,
+        "p95": 0.5375,
+        "top_mean": 0.4661,
+        "top_std": 0.0627,
         "negative_density_range": 2.1087,
         "scene": {
           "sat_frac": 0.3686,
@@ -16799,11 +16823,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8089,
-        "p05": 0.0008,
-        "p95": 0.9427,
-        "top_mean": 0.6202,
-        "top_std": 0.356,
+        "median_luma": 0.9268,
+        "p05": 0.0011,
+        "p95": 0.9988,
+        "top_mean": 0.6845,
+        "top_std": 0.3826,
         "negative_density_range": 2.1734,
         "scene": {
           "sat_frac": 0.8436,
@@ -16901,7 +16925,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -16909,11 +16933,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8289,
-        "p05": 0.6593,
-        "p95": 0.9411,
-        "top_mean": 0.7517,
-        "top_std": 0.0809,
+        "median_luma": 0.4625,
+        "p05": 0.3632,
+        "p95": 0.5281,
+        "top_mean": 0.4172,
+        "top_std": 0.0473,
         "negative_density_range": 2.0688,
         "scene": {
           "sat_frac": 0.1686,
@@ -17035,19 +17059,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8502,
-        "p05": 0.4868,
-        "p95": 0.9332,
-        "top_mean": 0.7915,
-        "top_std": 0.1461,
+        "median_luma": 0.5006,
+        "p05": 0.2777,
+        "p95": 0.5517,
+        "top_mean": 0.4646,
+        "top_std": 0.0896,
         "negative_density_range": 2.3011,
         "scene": {
           "sat_frac": 0.3002,
@@ -17177,11 +17201,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7926,
-        "p05": 0.3282,
-        "p95": 0.934,
-        "top_mean": 0.7188,
-        "top_std": 0.1658,
+        "median_luma": 0.5421,
+        "p05": 0.2152,
+        "p95": 0.6417,
+        "top_mean": 0.49,
+        "top_std": 0.1168,
         "negative_density_range": 2.1283,
         "scene": {
           "sat_frac": 0.5175,
@@ -17287,11 +17311,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7436,
-        "p05": 0.0552,
-        "p95": 0.9422,
-        "top_mean": 0.5706,
-        "top_std": 0.2739,
+        "median_luma": 0.6106,
+        "p05": 0.0439,
+        "p95": 0.7761,
+        "top_mean": 0.4674,
+        "top_std": 0.2265,
         "negative_density_range": 2.1793,
         "scene": {
           "sat_frac": 0.5478,
@@ -17397,11 +17421,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6957,
-        "p05": 0.1218,
-        "p95": 0.9405,
-        "top_mean": 0.6585,
-        "top_std": 0.2567,
+        "median_luma": 0.5463,
+        "p05": 0.0945,
+        "p95": 0.7424,
+        "top_mean": 0.5173,
+        "top_std": 0.2043,
         "negative_density_range": 2.0459,
         "scene": {
           "sat_frac": 0.6043,
@@ -17507,11 +17531,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7221,
-        "p05": 0.1161,
-        "p95": 0.9417,
-        "top_mean": 0.6644,
-        "top_std": 0.2354,
+        "median_luma": 0.5506,
+        "p05": 0.0865,
+        "p95": 0.7217,
+        "top_mean": 0.506,
+        "top_std": 0.1824,
         "negative_density_range": 2.053,
         "scene": {
           "sat_frac": 0.5862,
@@ -17609,7 +17633,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -17617,11 +17641,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8434,
-        "p05": 0.7206,
-        "p95": 0.9373,
-        "top_mean": 0.8106,
-        "top_std": 0.0773,
+        "median_luma": 0.4616,
+        "p05": 0.3909,
+        "p95": 0.5156,
+        "top_mean": 0.4427,
+        "top_std": 0.0445,
         "negative_density_range": 2.0436,
         "scene": {
           "sat_frac": 0.0579,
@@ -17751,11 +17775,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.5564,
-        "p05": 0.0004,
-        "p95": 0.9373,
-        "top_mean": 0.3566,
-        "top_std": 0.3516,
+        "median_luma": 0.7896,
+        "p05": 0.001,
+        "p95": 1.0,
+        "top_mean": 0.4562,
+        "top_std": 0.4273,
         "negative_density_range": 2.0459,
         "scene": {
           "sat_frac": 0.7517,
@@ -17885,11 +17909,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.737,
-        "p05": 0.0578,
-        "p95": 0.9453,
-        "top_mean": 0.7026,
-        "top_std": 0.2878,
+        "median_luma": 0.6289,
+        "p05": 0.049,
+        "p95": 0.8087,
+        "top_mean": 0.6,
+        "top_std": 0.2469,
         "negative_density_range": 2.0364,
         "scene": {
           "sat_frac": 0.6311,
@@ -18019,11 +18043,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.3921,
-        "p05": 0.0124,
-        "p95": 0.8993,
-        "top_mean": 0.2458,
-        "top_std": 0.2731,
+        "median_luma": 0.5087,
+        "p05": 0.0177,
+        "p95": 1.0,
+        "top_mean": 0.3119,
+        "top_std": 0.3409,
         "negative_density_range": 2.0612,
         "scene": {
           "sat_frac": 0.85,
@@ -18129,11 +18153,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6041,
-        "p05": 0.0026,
-        "p95": 0.9149,
-        "top_mean": 0.4669,
-        "top_std": 0.343,
+        "median_luma": 0.6619,
+        "p05": 0.0031,
+        "p95": 0.9928,
+        "top_mean": 0.5088,
+        "top_std": 0.3721,
         "negative_density_range": 2.0766,
         "scene": {
           "sat_frac": 0.7599,
@@ -18263,11 +18287,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.552,
-        "p05": 0.0448,
-        "p95": 0.9134,
-        "top_mean": 0.4631,
-        "top_std": 0.3392,
+        "median_luma": 0.5485,
+        "p05": 0.0446,
+        "p95": 0.9077,
+        "top_mean": 0.4602,
+        "top_std": 0.3371,
         "negative_density_range": 2.0756,
         "scene": {
           "sat_frac": 0.7715,
@@ -18389,19 +18413,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.871,
-        "p05": 0.5372,
-        "p95": 0.9425,
-        "top_mean": 0.8308,
-        "top_std": 0.1476,
+        "median_luma": 0.5005,
+        "p05": 0.3003,
+        "p95": 0.5434,
+        "top_mean": 0.4766,
+        "top_std": 0.0875,
         "negative_density_range": 2.3756,
         "scene": {
           "sat_frac": 0.1518,
@@ -18531,11 +18555,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8368,
-        "p05": 0.042,
-        "p95": 0.9282,
-        "top_mean": 0.8094,
-        "top_std": 0.2039,
+        "median_luma": 0.6215,
+        "p05": 0.0288,
+        "p95": 0.691,
+        "top_mean": 0.6013,
+        "top_std": 0.1526,
         "negative_density_range": 2.1102,
         "scene": {
           "sat_frac": 0.4176,
@@ -18641,11 +18665,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8122,
-        "p05": 0.029,
-        "p95": 0.891,
-        "top_mean": 0.6473,
-        "top_std": 0.2558,
+        "median_luma": 0.6562,
+        "p05": 0.0216,
+        "p95": 0.7207,
+        "top_mean": 0.522,
+        "top_std": 0.2073,
         "negative_density_range": 2.1735,
         "scene": {
           "sat_frac": 0.4924,
@@ -18751,11 +18775,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7427,
-        "p05": 0.0008,
-        "p95": 0.9027,
-        "top_mean": 0.6281,
-        "top_std": 0.2423,
+        "median_luma": 0.7903,
+        "p05": 0.0009,
+        "p95": 0.9567,
+        "top_mean": 0.6684,
+        "top_std": 0.2573,
         "negative_density_range": 2.2476,
         "scene": {
           "sat_frac": 0.5024,
@@ -18885,11 +18909,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7248,
+        "median_luma": 0.7316,
         "p05": 0.0009,
-        "p95": 0.905,
-        "top_mean": 0.6318,
-        "top_std": 0.227,
+        "p95": 0.9133,
+        "top_mean": 0.6378,
+        "top_std": 0.2291,
         "negative_density_range": 2.225,
         "scene": {
           "sat_frac": 0.5645,
@@ -19011,7 +19035,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -19019,11 +19043,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8046,
-        "p05": 0.356,
-        "p95": 0.9241,
-        "top_mean": 0.7393,
-        "top_std": 0.1332,
+        "median_luma": 0.5138,
+        "p05": 0.217,
+        "p95": 0.5929,
+        "top_mean": 0.4706,
+        "top_std": 0.0878,
         "negative_density_range": 2.1888,
         "scene": {
           "sat_frac": 0.3839,
@@ -19121,7 +19145,7 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
+        "bright_uniform_top": false,
         "low_result_contrast": false,
         "highlight_clip": false,
         "shadow_clip": false,
@@ -19129,11 +19153,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7462,
-        "p05": 0.1969,
-        "p95": 0.915,
-        "top_mean": 0.8271,
-        "top_std": 0.1077,
+        "median_luma": 0.4857,
+        "p05": 0.1272,
+        "p95": 0.5995,
+        "top_mean": 0.5403,
+        "top_std": 0.0722,
         "negative_density_range": 2.1307,
         "scene": {
           "sat_frac": 0.4158,
@@ -19255,19 +19279,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8633,
-        "p05": 0.564,
-        "p95": 0.9353,
-        "top_mean": 0.8131,
-        "top_std": 0.1161,
+        "median_luma": 0.4922,
+        "p05": 0.3138,
+        "p95": 0.5352,
+        "top_mean": 0.4623,
+        "top_std": 0.0692,
         "negative_density_range": 2.3669,
         "scene": {
           "sat_frac": 0.2084,
@@ -19361,19 +19385,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8512,
-        "p05": 0.5593,
-        "p95": 0.9381,
-        "top_mean": 0.8317,
-        "top_std": 0.1176,
+        "median_luma": 0.4941,
+        "p05": 0.3172,
+        "p95": 0.5467,
+        "top_mean": 0.4822,
+        "top_std": 0.0713,
         "negative_density_range": 2.2047,
         "scene": {
           "sat_frac": 0.2649,
@@ -19495,19 +19519,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8613,
-        "p05": 0.6156,
-        "p95": 0.9389,
-        "top_mean": 0.86,
-        "top_std": 0.0905,
+        "median_luma": 0.4882,
+        "p05": 0.3426,
+        "p95": 0.5342,
+        "top_mean": 0.4874,
+        "top_std": 0.0537,
         "negative_density_range": 2.182,
         "scene": {
           "sat_frac": 0.1662,
@@ -19629,19 +19653,19 @@
         "hue_concentrated": false,
         "saturated_dominant": false,
         "night_like": false,
-        "bright_uniform_top": true,
-        "low_result_contrast": false,
+        "bright_uniform_top": false,
+        "low_result_contrast": true,
         "highlight_clip": false,
         "shadow_clip": false,
         "low_base_confidence": true,
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.8503,
-        "p05": 0.5119,
-        "p95": 0.9371,
-        "top_mean": 0.8098,
-        "top_std": 0.1205,
+        "median_luma": 0.4997,
+        "p05": 0.2923,
+        "p95": 0.5529,
+        "top_mean": 0.4749,
+        "top_std": 0.0738,
         "negative_density_range": 2.2945,
         "scene": {
           "sat_frac": 0.2613,
@@ -19771,11 +19795,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.7205,
-        "p05": 0.0005,
-        "p95": 0.9296,
-        "top_mean": 0.5884,
-        "top_std": 0.2978,
+        "median_luma": 0.9215,
+        "p05": 0.0009,
+        "p95": 1.0,
+        "top_mean": 0.722,
+        "top_std": 0.3477,
         "negative_density_range": 2.1898,
         "scene": {
           "sat_frac": 0.6921,
@@ -19905,11 +19929,11 @@
         "no_nlp_reference": false
       },
       "audit": {
-        "median_luma": 0.6894,
-        "p05": 0.0005,
-        "p95": 0.9344,
-        "top_mean": 0.6245,
-        "top_std": 0.2585,
+        "median_luma": 0.8656,
+        "p05": 0.0009,
+        "p95": 1.0,
+        "top_mean": 0.7542,
+        "top_std": 0.2929,
         "negative_density_range": 2.2253,
         "scene": {
           "sat_frac": 0.6468,
@@ -20025,9 +20049,10 @@
     "rolls": 5,
     "this_run_frames": 169,
     "partial_run": false,
-    "replaced_ids": 0,
+    "replaced_ids": 169,
     "kept_from_previous": 0,
-    "dropped_keys": 132,
+    "dropped_ids": 0,
+    "key_scheme_changed": false,
     "unique_keys": 169
   }
 }
