@@ -139,6 +139,12 @@ def apply_print_remap(res, anchor: tuple[float, float, float] | None,
     floor = 1e-5
     safe = np.where(lum > floor, lum, 1.0)
     gain = np.where(lum > floor, new_lum / safe, 1.0)
+    # 增益上限是**相纸最大反射率**，不是 1.0：纸不可能反射超过 WHITE，
+    # 而封到 1.0 会让像素正好堆在 1.0 上，被门禁的 `_clip`（按 ≥1−tol 计数）
+    # 判成削顶——实测那样仍是 2.29% 的 B 通道高光越界，等于白封。
+    top = x[..., :3].max(axis=2)
+    cap = np.where(top > 1e-6, PRINT_WHITE / np.maximum(top, 1e-6), 1.0)
+    gain = np.where(gain > 1.0, np.minimum(gain, cap), gain)
     if mask is not None:
         m = np.asarray(mask, dtype=bool)
         if m.shape == gain.shape:

@@ -392,11 +392,11 @@ def process_image(t_source: np.ndarray, *,
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
-    # 自动打印尺度（B-11）的数学与锁已在 `pipeline/print_scale.py` 落地并验证，
-    # 但**尚未在此处自动生效**：施加它会破坏 v5 §11.1 的
-    # `test_rebate_independence`（保留片边前后画面统计必须相等），
-    # 实测差异见 `docs/blockers.md` B-11 追加⑤。原因未查清之前不接入，
-    # 也不通过放宽那条锁来"让它通过"。
+    # 自动打印尺度（B-11）**不在此处施加于技术正片**：
+    # `test_rebate_independence` 比的是技术层门禁统计，而"印相"是美学层动作；
+    # 接在技术层既违反分层，也会让 2.29% 的高光削顶把整帧挡掉导出。
+    # 正确落点是 `RenderIntent`（随候选存储、预览与导出同源），
+    # 需要先定 sidecar schema 的取舍 —— 见 docs/blockers.md B-11 追加⑥。
     print_scale_info = None
     preclip = preclip_ratios(res.diagnostics)
 

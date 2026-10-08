@@ -182,3 +182,28 @@ def test_preview_field_matches_the_remapped_positive():
     assert np.allclose(out.preview_srgb, encode_srgb(out.positive_linear), atol=1e-6)
     assert out.diagnostics == old.diagnostics
     assert abs(math.log10(PRINT_AIM)) > 0
+
+
+def test_remap_introduces_no_new_highlight_clipping():
+    """**这条锁是被实测逼出来的**：接上打印尺度后，非保留片边那次
+    B 通道高光越界 **2.29%**，已越过门禁 1% 的失败线（`CLIP_FAIL_FRAC`）
+    ——等于让整帧被挡导出。根因是"按亮度算增益再乘三通道"会把比亮度更亮的
+    通道推过天花板；而把增益封到 1.0 也没用，像素会正好堆在 1.0 上，
+    仍被 `_clip`（按 ≥1−tol 计数）判成削顶。上限必须是**相纸最大反射率**。
+    """
+    rng = np.random.default_rng(5)
+    base = np.array([0.28, 0.11, 0.031])
+    d = 0.05 + 0.9 * rng.random((120, 120))
+    t = base[None, None, :] * np.power(10.0, -d)[..., None]
+    t[:40, :, 2] *= 2.6                      # 人造"比亮度更亮的 B 通道"高光
+    a = density_anchor(positive_density(np.clip(t, 0, None), base))
+    assert a is not None
+    old = invert(np.clip(t, 0, None), InvertParams(dmin=tuple(base), dmax=2.0))
+    new, info = apply_print_remap(old, a, 2.0)
+    assert info is not None
+    y = new.positive_linear[..., :3]
+    assert float(y.max()) <= PRINT_WHITE + 1e-6, (
+        f"重映射后最大反射率 {y.max():.4f} 超过相纸天花板 {PRINT_WHITE}")
+    at_ceiling = float((y >= 1.0 - 1e-6).any(axis=2).mean())
+    assert at_ceiling < 0.005, (
+        f"{at_ceiling:.2%} 的像素堆在 1.0 上，会被门禁判成高光削顶")
