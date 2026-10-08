@@ -1120,3 +1120,42 @@ intent 取值（不会分叉），技术层与门禁口径一字不动，那条�
 
 **本轮仍不接入**；已交付的是修正后的上限（`WHITE` 而非 1.0）与那把新锁，
 `tests/unit/test_print_scale.py` 共 14 道，全量 **605 passed / ruff 干净**。
+
+### B-11 追加⑦（2026-10-08）：接入美学层**通过全部相关锁，但把全量测试打成确定性段错误**
+
+按追加⑥ 的结论做了一版完整实现：锚点作为**非控件字段**进 `RenderIntent`
+（`print_anchor` / `print_dmax`，随候选存储、进 sidecar、可复算），
+`apply_render` 在色温/曝光之前施加，技术正片与门禁口径一字不动。
+
+**当时通过的**：`test_rebate_independence`（技术层没被碰）、
+v4 "恒等 intent == 技术正片"（`is_identity()` 一并要求无锚点，
+否则"只改印相"的 intent 会自称恒等并把印相丢掉）、
+`test_print_scale` 14 道、v4/v5 契约与回归层，合计 73 项目标测试全绿；
+生产路径实测 9 帧逐帧平均绝对差 **0.208 → 0.1054**
+（`luma_mean +0.012`、`std −0.016` 已咬住；`p05 +0.111`、`sat_p95 −0.193` 仍在）。
+
+**但全量测试变成确定性段错误**，对照实验：
+
+| 状态 | 结果 |
+| --- | --- |
+| 带改动（4 次全量） | **4/4 段错误**，栈顶 `theme.py:189 in apply` ← `test_v6_keep_rebate.py:34 qapp` |
+| 单独跑 `test_v6_keep_rebate.py` | 3/3 通过 |
+| `git stash` 掉改动后跑全量 | **605 passed / exit 0** |
+| 恢复改动 | 再次段错误 |
+
+⇒ **不是 B-8 的偶发**（B-8 基线 3/33），是这次改动引入的；
+崩溃点与机制对得上：`apply_render` 作用在**全分辨率**技术正片上，
+重映射要新建 `top / lum / new_lum / gain / cap / out` 六个同尺寸数组，
+45MP 帧单次约 **1.6GB 峰值**，而 `theme.apply` 正是 Qt 分配内存的地方。
+仓库早有同族记录：`state_store.py:27` 因"把全分辨率整帧塞进使用"而默认关闭高清替换。
+
+**接入前必须先做的两件事**（缺一律不接）：
+1. 把重映射**按行分块**（照 `density.invert_chunked` 的做法）；
+2. 补上"**分块结果与整帧逐比特一致**"的锁——`density.py:231` 已为反相立过这条锁，
+   新函数不能免检。
+
+**本轮已落地并保留的部分**：削顶上限从 1.0 改为**相纸最大反射率 0.80375**
+（`print_scale.print_remap_array`），并加锁
+`test_remap_introduces_no_new_highlight_clipping`（断言无通道越过天花板、
+且堆在 1.0 上的像素 < 0.5%）。`test_print_scale.py` 共 14 道，全量 605 passed。
+接入本身**已回退**，工作区与 HEAD 一致。
