@@ -25,7 +25,7 @@ from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.print_scale import (MIN_SPAN, PRINT_AIM, PRINT_WHITE,
                                                apply_print_remap, density_anchor,
                                                positive_density, print_curve,
-                                               remap_luma)
+                                               print_remap_array, remap_luma)
 
 _LUM = np.array([0.2126, 0.7152, 0.0722])
 
@@ -207,3 +207,57 @@ def test_remap_introduces_no_new_highlight_clipping():
     at_ceiling = float((y >= 1.0 - 1e-6).any(axis=2).mean())
     assert at_ceiling < 0.005, (
         f"{at_ceiling:.2%} 的像素堆在 1.0 上，会被门禁判成高光削顶")
+
+
+def test_chunked_matches_whole_frame_bit_exact():
+    """**分块不得改变结果**（逐比特）。
+
+    `density.py:231` 已为反相立了同一条锁（"mask 随行切片，保证与整帧一次
+    算完全相同"），新函数不能免检：分块实现最容易出的错就是边界行用了不同的
+    临时量或不同的归约顺序，而这种错在统计上看不出来。
+    """
+    rng = np.random.default_rng(2)
+    x = np.clip(rng.random((5000, 7, 3)) * 0.9, 0, 1).astype(np.float32)
+    mask = np.zeros((5000, 7), bool)
+    mask[:, 1:6] = True
+    a = (0.02, 0.45, 1.10)
+    whole, i1 = print_remap_array(x, a, 2.0, mask, max_chunk_pixels=10 ** 12)
+    chunked, i2 = print_remap_array(x, a, 2.0, mask, max_chunk_pixels=3 * 7 * 3)
+    assert i1 is not None and i2 is not None
+    assert i1 == i2
+    assert np.array_equal(whole, chunked), "分块与整帧结果不一致（必须逐比特相同）"
+    assert whole.dtype == np.float32, "整帧运算不该把数组抬到 float64"
+
+
+def test_chroma_gain_lifts_saturation_without_breaking_the_ceiling():
+    """色度增益：把"偏离亮度的部分"放大，亮度不变、天花板不越。
+
+    这条锁管两件事：① 它确实起作用（饱和上升）；② 它不许把最亮通道顶过
+    相纸最大反射率——上一版逐通道钳位就是在这里造出 2.29% 高光越界的。
+    """
+    import negative_lab.print_math as pm
+
+    rng = np.random.default_rng(9)
+    x = np.clip(rng.random((200, 120, 3)) * 0.85, 0, 1).astype(np.float32)
+    a = (0.02, 0.45, 1.10)
+    on, i1 = print_remap_array(x, a, 2.0)
+    saved = pm.LOOK_CHROMA_GAIN
+    try:
+        pm.LOOK_CHROMA_GAIN = 1.0
+        off, i2 = print_remap_array(x, a, 2.0)
+    finally:
+        pm.LOOK_CHROMA_GAIN = saved
+    assert i1 is not None and i2 is not None
+    s_on = float(np.percentile(on[..., :3].max(2) - on[..., :3].min(2), 95))
+    s_off = float(np.percentile(off[..., :3].max(2) - off[..., :3].min(2), 95))
+    assert s_on > s_off * 1.2, f"色度增益没起作用：{s_off:.3f} → {s_on:.3f}"
+    assert float(on[..., :3].max()) <= PRINT_WHITE + 1e-6, "色度放大顶破了相纸天花板"
+    assert float((on >= 1.0 - 1e-6).any(axis=2).mean()) < 0.005, "堆在 1.0 的像素过多"
+
+
+def test_degenerate_curve_is_refused_before_any_work():
+    """曲线不合法时**先拒再算**：不能处理到一半才抛错，留下半张图。"""
+    x = np.full((64, 8, 3), 0.4, np.float32)
+    out, info = print_remap_array(x, (0.0, 0.02, 1.0), 2.0)   # 趾部斜率 > 高光
+    assert info is None
+    assert np.array_equal(out, x), "退化时应当原样返回，而不是改一半"

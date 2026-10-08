@@ -41,6 +41,7 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
+from .print_scale import density_anchor, positive_density
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -424,6 +425,27 @@ def process_image(t_source: np.ndarray, *,
     if render_intent is not None:
         intent = render_intent.copy()
 
+    # ---- 9b) 自动打印尺度（B-11）：把这一帧画面密度分位作为"印相"决定，
+    # **写进每个候选的 intent**（可见、进 sidecar、可复算），由 `apply_render`
+    # 施加。技术正片与门禁口径一字不动（v5 §8.2），
+    # "恒等 intent == 技术正片"的 v4 契约也仍然成立（无锚点即恒等）。
+    # 用户显式 `force_params` / `render_intent` 是最终裁决，此时不施加。
+    print_scale_info = None
+    if force_params is None and render_intent is None:
+        anchor = density_anchor(positive_density(t_out, rep.params.dmin, valid_mask))
+        if anchor is not None:
+            a = [round(float(v), 5) for v in anchor]
+            for cand in (cset if cset is not None else []):
+                merged = dict(cand.intent or {})
+                merged["print_anchor"] = list(a)
+                merged["print_dmax"] = float(rep.params.dmax)
+                cand.intent = merged
+            intent = RenderIntent.from_dict(
+                {**intent.to_dict(), "print_anchor": a,
+                 "print_dmax": float(rep.params.dmax)})
+            print_scale_info = {"d_lo": a[0], "d_mid": a[1], "d_hi": a[2],
+                                "dmax_old": float(rep.params.dmax)}
+
     # ---- 10) 渲染
     rendered = apply_render(res.positive_linear, intent)
 
@@ -475,8 +497,8 @@ def process_image(t_source: np.ndarray, *,
         roi_provenance=prov,
         model_asset=asset_info,
         meta={"flatfield": flat_info,
-              "input_facts": {},
               "print_scale": print_scale_info or {},
+              "input_facts": {},
               "dust_deferred": bool(dust_mask is not None or dust_auto)})
 
 

@@ -79,6 +79,14 @@ class RenderIntent:
     blacks: float = 0.0
     vibrance: float = 0.0
     saturation: float = 0.0
+    # ---- 自动打印尺度（B-11）：**不是控件**，与 origin/notes 同类，随候选存储。
+    # 为什么放这里而不是在 service 里插一步：v4 契约要求"恒等 intent 与技术正片
+    # 逐像素等价"（在技术与渲染之间藏处理是违规的），而 v5 §8.2 的门禁只读技术正片。
+    # 放进 intent 同时满足两边：技术层与门禁口径一字不动，
+    # 印相决定可见、进 sidecar、可复算，预览与导出同源。
+    # 空 tuple = 不施加（默认，保持旧行为）。
+    print_anchor: tuple = ()           # (d_lo, d_mid, d_hi) 画面密度分位
+    print_dmax: float = 0.0            # 施加时所依据的技术 dmax（反解密度用）
     # 候选来源说明（不是控件；进入 sidecar）
     origin: str = "user"
     notes: list = field(default_factory=list)
@@ -92,10 +100,18 @@ class RenderIntent:
         return cls()
 
     def is_identity(self) -> bool:
-        return all(abs(float(getattr(self, k))) < 1e-12 for k in P0_FIELDS)
+        """恒等 = 没有控件改动，**也没有施加自动打印尺度**。
+
+        把 `print_anchor` 算进来是必须的：否则一个"只改了印相"的 intent 会自称
+        恒等，`apply_render` 的恒等短路就把印相悄悄丢了，预览与导出随即分叉。
+        """
+        return (not self.print_anchor
+                and all(abs(float(getattr(self, k))) < 1e-12 for k in P0_FIELDS))
 
     def copy(self) -> "RenderIntent":
         return RenderIntent(**{k: getattr(self, k) for k in P0_FIELDS},
+                            print_anchor=tuple(self.print_anchor or ()),
+                            print_dmax=float(self.print_dmax or 0.0),
                             origin=self.origin, notes=list(self.notes))
 
     def reset_field(self, name: str) -> None:
@@ -121,6 +137,9 @@ class RenderIntent:
     # ------------------------------------------------------------ 序列化
     def to_dict(self) -> dict:
         d = {k: float(getattr(self, k)) for k in P0_FIELDS}
+        if self.print_anchor:               # 只在施加过时才写，不动旧 schema 的形状
+            d["print_anchor"] = [float(v) for v in self.print_anchor]
+            d["print_dmax"] = float(self.print_dmax)
         d["origin"] = self.origin
         d["notes"] = list(self.notes)
         return d
@@ -134,6 +153,13 @@ class RenderIntent:
             if k in d and d[k] is not None:
                 lo, hi, _ = RANGES[k]
                 setattr(it, k, float(np.clip(float(d[k]), lo, hi)))
+        anchor = d.get("print_anchor") or ()
+        if isinstance(anchor, (list, tuple)) and len(anchor) == 3:
+            try:
+                it.print_anchor = tuple(float(v) for v in anchor)
+                it.print_dmax = float(d.get("print_dmax") or 0.0)
+            except (TypeError, ValueError):
+                it.print_anchor = ()        # 坏数据：退回"不施加"，不猜
         it.origin = str(d.get("origin", "user"))
         it.notes = list(d.get("notes") or [])
         return it
@@ -354,6 +380,16 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
     it = intent or RenderIntent()
     if it.is_identity():
         return np.clip(x, 0.0, 1.0).astype(np.float32, copy=True)
+    # 0) 自动打印尺度（B-11）：先"印相"，再叠加用户控件。
+    # 保色度（逐像素统一增益），上限是相纸最大反射率；分块执行，
+    # 因为这里是**全分辨率**整帧（未分块实测把全量测试打成 4/4 段错误，
+    # 见 docs/blockers.md B-11 追加⑦）。
+    if it.print_anchor and it.print_dmax > 0:
+        from ..print_math import print_remap_array
+        anchor = tuple(float(v) for v in it.print_anchor)
+        remapped, applied = print_remap_array(x, anchor, it.print_dmax)
+        if applied is not None:
+            x = remapped                    # 锚点退化则不动，控件照旧生效
     # 1) 色温/色调（色适应）
     m = adaptation_matrix(it.temperature, it.tint)
     if not np.array_equal(m, np.eye(3)):
