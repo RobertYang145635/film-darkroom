@@ -225,6 +225,7 @@ def process_image(t_source: np.ndarray, *,
                   frame_roi_source: tuple | None = None,     # 已废弃别名
                   frame_roi_oriented: tuple | None = None,
                   keep_rebate: bool = False,
+                  orientation_decided: bool | None = None,
                   prior: InvertParams | None = None,
                   force_params: InvertParams | None = None,
                   roll_analysis: RollAnalysis | None = None,
@@ -286,6 +287,24 @@ def process_image(t_source: np.ndarray, *,
         geo.image_area_roi = geo.image_area_roi or fr
         prov["output_crop"] = prov["output_crop"] or "user-oriented"
     geo = _auto_fill_rois(oriented, geo, tr, prov, keep_rebate=keep_rebate)
+
+    # ---- 3b) 方向**是否有人决定过**（B-12）。`rotation_degrees=0` 有两种含义：
+    # "看过、确认就是 0°"和"从没决定过的默认值"，像素完全一样，只有这个字段能分开。
+    # 与用户手工参考对照实测：决定过的帧内容相关领先 0.35~0.46，
+    # 默认帧肉眼可见地差 90°/180°。软件不猜方向，但必须说出"没决定过"。
+    prov["orientation"] = ("unstated" if orientation_decided is None
+                           else "decided" if orientation_decided else "unconfirmed")
+    orientation_reason = ""
+    if orientation_decided is False:
+        extra = []
+        if tr.mirror_horizontal:
+            extra.append("水平镜像")
+        if abs(float(tr.fine_rotation_degrees)) > 1e-9:
+            extra.append(f"微调 {float(tr.fine_rotation_degrees):+.1f}°")
+        tail = ("、" + "、".join(extra)) if extra else ""
+        orientation_reason = (
+            f"画面方向未经确认（当前按 {int(tr.rotation_degrees)}°{tail} 输出）："
+            "请在裁切页确认方向，未确认前这一帧可能是横放或倒置的")
 
     # ORIENTED 空间 ROI（钳制到画布）
     crop_o = tr.bbox_source_to_oriented(geo.output_crop_roi) if geo.output_crop_roi else None
@@ -490,9 +509,10 @@ def process_image(t_source: np.ndarray, *,
                          bool(scene_flags.get("hue_concentration", 0) > 0.7),
                      "high_saturation":
                          bool(scene_flags.get("sat_frac", 0) > 0.6)},
-        extra_review_reasons=([
-            f"自动打印尺度未施加（{print_refused}）：本帧按未印相的技术正片输出，"
-            "需要人工定 Grade"] if print_refused else None))
+        extra_review_reasons=[r for r in (
+            orientation_reason,
+            (f"自动打印尺度未施加（{print_refused}）：本帧按未印相的技术正片输出，"
+             "需要人工定 Grade") if print_refused else "") if r])
     gate.base_diagnostics = {
         "base_source": base_source, "confidence": base_conf,
         "provenance": resolved.get("provenance", {}),
@@ -576,6 +596,7 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
         pr = process_image(img, geometry=rec.geometry, ann=None, prior=prior,
                            render_intent=None, make_candidates=False,
                            flat_mode=flat_mode,
+                           orientation_decided=rec.orientation_decided,
                            capture_fingerprint=fp)
         pr.meta["input_facts"] = dict(rec.input_facts or {})
         first.append(pr)
@@ -611,6 +632,7 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
                            render_intent=render_intent, candidate=candidate,
                            make_candidates=make_candidates,
                            flat_mode=flat_mode,
+                           orientation_decided=rec.orientation_decided,
                            frame_id=rec.source_path,
                            capture_fingerprint=fp)
         pr.meta["input_facts"] = dict(rec.input_facts or {})

@@ -411,6 +411,16 @@ class FrameRecord:
     warnings: list = field(default_factory=list)
     #: v6.1 §4：当前帧「保留片边」的用户选择（导出链路的唯一数据源）。
     keep_rebate: bool = False
+    #: B-12：这一帧的**方向是不是有人决定过**。
+    #: `rotation_degrees=0` 既可能是"看过确认是 0°"，也可能是"从没决定过的默认值"，
+    #: 二者像素完全一样，只有这个字段能分开它们。实测 `1298_G200` 12 帧里
+    #: 只有 4 帧有标注文件，其余多数帧的方向是默认值；与用户手工参考对照后
+    #: 确认"方向本来就对"的帧内容相关领先 0.35~0.46，而默认帧肉眼可见地差
+    #: 90°/180°（G200-6、G200-8）。**软件不能猜方向，但必须说出没决定过。**
+    #: 三态：`None`=没人说过（不判定，单元测试与旧会话文件就是这个状态）；
+    #: `False`=明确"没决定过"⇒ 门禁给 needs_review；`True`=决定过。
+    #: 界面与验收套具**必须显式给值**，这条由 `test_orientation_flag_call_sites` 钉住。
+    orientation_decided: bool | None = None
 
     def key(self) -> str:
         return f"{self.source_path}#{self.source_sha256[:16]}"
@@ -441,15 +451,20 @@ class FrameRecord:
             "roll_id": self.roll_id,
             "warnings": list(self.warnings),
             "keep_rebate": bool(self.keep_rebate),      # v6.1 §4 显式布尔
+            "orientation_decided": (None if self.orientation_decided is None
+                                    else bool(self.orientation_decided)),   # B-12
         })
 
     @classmethod
     def from_dict(cls, d: dict) -> "FrameRecord":
-        known = set(cls.__dataclass_fields__) - {"geometry", "keep_rebate"}
+        known = set(cls.__dataclass_fields__) - {"geometry", "keep_rebate",
+                                                 "orientation_decided"}
         kw = {k: v for k, v in d.items() if k in known}
         kr = d.get("keep_rebate", False)
         # v6.1 §4：非 bool 值不能静默当真；旧文件默认 False
         kw["keep_rebate"] = kr if isinstance(kr, bool) else False
+        od = d.get("orientation_decided", None)     # B-12：旧文件=没人说过
+        kw["orientation_decided"] = od if isinstance(od, bool) else None
         kw["geometry"] = GeometryRegions.from_dict(d.get("geometry") or {})
         return cls(**kw)
 

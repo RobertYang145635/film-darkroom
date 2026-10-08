@@ -50,7 +50,8 @@ class GeometryBridgeMixin:
                       if rec.geometry.is_complete() else None),
             ann=None, roll_analysis=self.roll_analysis,
             render_intent=self._intent, candidate=self._candidate,
-            keep_rebate=True, capture_fingerprint=self._fingerprint)
+            keep_rebate=True, orientation_decided=rec.orientation_decided,
+            capture_fingerprint=self._fingerprint)
         self._positive_full = self.pr.result.positive_linear
         if seed:
             src_geo = _unscale_geometry(self.pr.geometry.roi_source_space,
@@ -137,6 +138,7 @@ class GeometryBridgeMixin:
             self._preview_pending = True
             return
         geo_snapshot = rec.geometry
+        decided_snapshot = rec.orientation_decided
         touched = self._draft_touched
         seed = bool(seed_if_untouched and not touched)
         small = self._small
@@ -153,6 +155,7 @@ class GeometryBridgeMixin:
                 ann=None, roll_analysis=roll,
                 render_intent=intent_snapshot, candidate=cand_snapshot,
                 keep_rebate=True,          # 整幅技术正片（裁切走即时合成）
+                orientation_decided=decided_snapshot,
                 capture_fingerprint=fp)
 
         def done(result: dict):
@@ -405,7 +408,7 @@ class GeometryBridgeMixin:
                 pr = ui_process_image(
                     loaded.rgb, geometry=rec.geometry,
                     render_intent=self._intent, candidate=self._candidate,
-                    keep_rebate=True)
+                    keep_rebate=True, orientation_decided=rec.orientation_decided)
                 arr = pr.result.positive_linear
         else:
             arr = tr.apply(loaded.rgb)
@@ -580,6 +583,8 @@ class GeometryBridgeMixin:
             return
         g = self.current.geometry
         g.rotation_degrees = (g.rotation_degrees + delta) % 360
+        #: B-12：用户按下旋转键就是"方向已决定"，此后不再提示"未经确认"
+        self.current.orientation_decided = True
         g.output_crop_roi = g.image_area_roi = None
         g.base_sample_rois = []
         self._draft_touched = False

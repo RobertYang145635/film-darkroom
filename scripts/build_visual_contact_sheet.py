@@ -123,6 +123,19 @@ def _orientation_from(frame: dict) -> tuple[int, float, bool]:
             bool(ann.mirror_horizontal))
 
 
+def _orientation_decided(frame: dict) -> bool:
+    """这一帧的方向**有没有人决定过**（B-12）。
+
+    标注里写 `0°` 与"根本没有标注、默认 0°"在像素上一模一样，
+    只有这个字段能分开二者；实测 `1298_G200` 12 帧只有 4 帧有标注文件。
+    读不出标注按"没决定过"算——它不是决定。
+    """
+    try:
+        return load_annotation(frame["file"]) is not None
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def _geometry(frame: dict) -> GeometryRegions:
     r = frame["rois"]
     rot, fine, mirror = _orientation_from(frame)
@@ -160,7 +173,8 @@ def process_roll_sheet(roll: str, frames: list[dict], out_dir: Path,
             geo = GeometryRegions(rotation_degrees=geo.rotation_degrees)
         rec = FrameRecord(source_path=fr["file"], source_sha256=fr["source_sha256"],
                           input_facts=dict(loaded.meta),
-                          capture_fingerprint=fp.value, geometry=geo)
+                          capture_fingerprint=fp.value, geometry=geo,
+                          orientation_decided=_orientation_decided(fr))
         records.append(rec)
         images.append(small)
         ctxs.append({"fp": fp, "step": step})

@@ -216,6 +216,13 @@ class FrameLoaderMixin:
         # 是用户标定，缓存的技术正片却是自动检测的结果，两者不一致。
         state = resolve_persistent_state(rec)
         ann = state.annotation
+        #: B-12：有持久标注（含工作草稿）= 这一帧的方向有人决定过；
+        #: 没有标注就**明确说没决定过**（三态里的 False），界面据此提示。
+        #: 已经决定过的（会话里存着 True）不被覆盖。
+        if ann is not None:
+            rec.orientation_decided = True
+        elif rec.orientation_decided is None:
+            rec.orientation_decided = False
         roll = self._analyze_roll_frames()
         cb("生成预览…")
         k = max(1, int(np.ceil(max(loaded.rgb.shape[:2]) / MAX_PREVIEW_DIM)))
@@ -236,7 +243,8 @@ class FrameLoaderMixin:
                       if seed_geo is not None else None),
             ann=None, roll_analysis=roll,
             render_intent=self._intent, candidate=self._candidate,
-            keep_rebate=True, capture_fingerprint=fp)
+            keep_rebate=True, orientation_decided=rec.orientation_decided,
+            capture_fingerprint=fp)
         return {"rec": rec, "rgb": loaded.rgb, "meta": loaded.meta,
                 "fingerprint": fp, "annotation": ann, "roll": roll,
                 "preview": pr, "small": small, "scale": k,

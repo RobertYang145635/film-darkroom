@@ -63,7 +63,8 @@ from negative_lab.pipeline.service import candidate_positive, process_roll  # no
 # 联系表脚本已经把"读图 + 几何降采样 + 生产管线"这套动作跑通过，
 # 这里复用它，坚决不开第二条管线（§0.3.4）。
 from build_visual_contact_sheet import (  # noqa: E402
-    _downscale_geometry, _geometry, _norm_negative, _row, _to_img)
+    _downscale_geometry, _geometry, _norm_negative, _orientation_decided,
+    _row, _to_img)
 
 ACCEPTANCE = ROOT / "fixtures" / "acceptance" / "manifest.json"
 VDIR = ROOT / "fixtures" / "verdicts"
@@ -152,7 +153,8 @@ def measure(max_dim: int, only_roll: str | None, limit: int | None) -> dict:
             recs.append(FrameRecord(source_path=fr["file"],
                                     source_sha256=fr["source_sha256"],
                                     input_facts=dict(loaded.meta),
-                                    capture_fingerprint=fp.value, geometry=geo))
+                                    capture_fingerprint=fp.value, geometry=geo,
+                                    orientation_decided=_orientation_decided(fr)))
             imgs.append(small)
             kept.append(fr)
         if not recs:
@@ -324,7 +326,8 @@ def render_sheets() -> dict:
             recs.append(FrameRecord(source_path=m["file"],
                                     source_sha256=src["source_sha256"],
                                     input_facts=dict(loaded.meta),
-                                    capture_fingerprint=fp.value, geometry=geo))
+                                    capture_fingerprint=fp.value, geometry=geo,
+                                    orientation_decided=_orientation_decided(src)))
             imgs.append(small)
             kept.append((entry, m, small))
         if not recs:
