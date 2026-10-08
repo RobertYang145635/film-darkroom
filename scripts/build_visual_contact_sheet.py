@@ -254,20 +254,29 @@ def _downscale_geometry(geo: GeometryRegions, src_shape, dst_shape) -> GeometryR
     sy = dst_shape[0] / src_shape[0]
     sx = dst_shape[1] / src_shape[1]
 
-    def sc(roi):
+    def sc(roi, min_side=16):
         if not roi:
             return None
         out = (int(round(roi[0] * sy)), int(round(roi[1] * sx)),
                int(round(roi[2] * sy)), int(round(roi[3] * sx)))
-        return out if out[2] - out[0] >= 16 and out[3] - out[1] >= 16 else None
+        return out if (out[2] - out[0] >= min_side
+                       and out[3] - out[1] >= min_side) else None
 
+    # **片基框的门槛必须比构图区低，且与生产同源**：未曝光片边是一条窄带
+    # （实测 `1299_G200::G200-2` 源图 744×126），降到 900px 探针分辨率就变成
+    # 74×12，用统一的 16px 规则会**静默丢掉用户亲手框的片基**，于是这一帧退回
+    # `generic_prior`——量到的"用户标定没生效"是探针的错，不是产品的错
+    # （当场实测：修前 base_sample_rois=[]、base_source=generic_prior/0.00；
+    # 修后取到 dmin=[0.338,0.129,0.038]、base_source=frame/1.00）。
+    # 4px 与 `service.py` 里 `clamp_roi(..., min_side=4)` 同一条规则，不再自创第三个门槛。
     return GeometryRegions(
         rotation_degrees=geo.rotation_degrees,
         fine_rotation_degrees=geo.fine_rotation_degrees,
         mirror_horizontal=geo.mirror_horizontal,
         output_crop_roi=sc(geo.output_crop_roi),
         image_area_roi=sc(geo.image_area_roi),
-        base_sample_rois=[r for r in (sc(x) for x in geo.base_sample_rois) if r])
+        base_sample_rois=[r for r in (sc(x, min_side=4)
+                                      for x in geo.base_sample_rois) if r])
 
 
 def main() -> int:

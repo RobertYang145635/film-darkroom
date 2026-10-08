@@ -42,7 +42,8 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
 from .model_assets import deterministic_asset
 from .params import InvertParams
 from .print_scale import (LOOK_CHROMA_GAIN, anchor_refusal_reason, centre_region,
-                          density_anchor, picture_density, print_curve)
+                          density_anchor, density_anchor_linear, picture_density,
+                          print_curve)
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -460,14 +461,22 @@ def process_image(t_source: np.ndarray, *,
                               shape=res.positive_linear.shape[:2])
         samples = picture_density(res.positive_linear, rep.params.dmax, region)
         anchor = density_anchor(samples)
+        linear_fallback = ""
         if anchor is None:
             print_refused = anchor_refusal_reason(samples)
         else:
             try:
                 print_curve(anchor)
             except ValueError as exc:
-                print_refused = str(exc)
-                anchor = None
+                #: 三点曲线解不出（趾部挤成一团）不等于"这帧不该印"。
+                #: 退成两点直线仍能压掉雾；实测 `1298_G200::G200-10`
+                #: 不退时该帧 `p05=0.292`（用户参考 0.036），是标定后最差的一帧。
+                two = density_anchor_linear(samples)
+                if two is None:
+                    print_refused = str(exc)
+                else:
+                    linear_fallback = str(exc)
+                    anchor = two
         if anchor is not None:
             a = [round(float(v), 5) for v in anchor]
             #: 片基没实测的帧**不放大色彩**：`LOOK_CHROMA_GAIN` 是对着
@@ -484,12 +493,18 @@ def process_image(t_source: np.ndarray, *,
                 {**intent.to_dict(), "print_anchor": a,
                  "print_dmax": float(rep.params.dmax),
                  "print_chroma_gain": gain_off})
-            print_scale_info = {"d_lo": a[0], "d_mid": a[1], "d_hi": a[2],
-                                "dmax_old": float(rep.params.dmax),
-                                "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
-                                "chroma_gain_reason": (
-                                    "片基未实测（generic_prior），色彩不做放大"
-                                    if gain_off else "片基已实测")}
+            print_scale_info = (
+                {"d_lo": a[0], "d_hi": a[1], "points": 2}
+                if len(a) == 2 else
+                {"d_lo": a[0], "d_mid": a[1], "d_hi": a[2], "points": 3})
+            print_scale_info.update({
+                "dmax_old": float(rep.params.dmax),
+                "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
+                "chroma_gain_reason": (
+                    "片基未实测（generic_prior），色彩不做放大"
+                    if gain_off else "片基已实测")})
+            if linear_fallback:
+                print_scale_info["two_point_fallback"] = linear_fallback
         else:
             print_scale_info = {"refused": print_refused}
 
@@ -587,6 +602,7 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
                  flat_mode: str = "strip",
                  make_candidates: bool = True,
                  capture_fingerprints: dict | None = None,
+                 model_asset=None,
                  on_frame=None) -> tuple[RollAnalysis, list[ProcessResult]]:
     """整卷两遍处理（v5 §6.2 / §1.3）。
 
@@ -596,6 +612,11 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
 
     两遍成本约 2×（解码只做一次，由调用方缓存图像）；这是"先有卷统计
     再有帧结果"的算法必然顺序，v5 §6.2.2-3 明确要求。
+
+    `model_asset`：密度域解混资产（v5 §6.3）。此前只有单帧入口能接收，
+    而生产主路径是整卷 ⇒ 资产在整卷路径上**根本不可达**，`apply_to` 与
+    `fixtures/models/` 里已训练的矩阵全是死路。两遍都必须转发，否则第一遍
+    与第二遍用不同的反相 backend，卷级片基与帧结果对不上。
     """
     first: list[ProcessResult] = []
     fps: list[str] = []
@@ -604,9 +625,11 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
             or capture_fingerprint_from_record(rec, img)
         fps.append(fp.value if fp else "")
         pr = process_image(img, geometry=rec.geometry, ann=None, prior=prior,
-                           render_intent=None, make_candidates=False,
+                           roll_analysis=None, render_intent=None,
+                           make_candidates=False,
                            flat_mode=flat_mode,
                            orientation_decided=rec.orientation_decided,
+                           model_asset=model_asset,
                            capture_fingerprint=fp)
         pr.meta["input_facts"] = dict(rec.input_facts or {})
         first.append(pr)
@@ -644,6 +667,7 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
                            flat_mode=flat_mode,
                            orientation_decided=rec.orientation_decided,
                            frame_id=rec.source_path,
+                           model_asset=model_asset,
                            capture_fingerprint=fp)
         pr.meta["input_facts"] = dict(rec.input_facts or {})
         rec.frame_analysis = {

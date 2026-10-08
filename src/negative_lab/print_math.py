@@ -45,7 +45,18 @@ PRINT_AIM = 0.18
 PRINT_WHITE = 0.80375
 #: 画面密度的三个锚点分位（三通道共用 luma 域；逐通道会引入未验证色偏，
 #: horizon 实测放宽端点让中间调 R-G 漂了 14.4 codes）。
-P_LOW, P_MID, P_HIGH = 5.0, 50.0, 95.0
+#:
+#: **`P_LOW` 由 5.0 改成 2.0**（2026-10-09 实测，`outputs/ref_look_probe/
+#: black_sweep.json`，11 帧用户手工参考、1600px 生产分辨率、用户亲手片基）：
+#: 黑点定在 p5 的含义就是"让最暗 5% 印成纯黑"，而他一侧显示 `p05` 均值
+#: 0.182、最低 0.02 —— **他不压黑**。扫 `P_LOW ∈ {0.25,0.5,1,2,5}` 的结果：
+#: 阴影偏差 `p05` 从 −0.075(p5) 收到 **+0.007**(p2)，对比偏差 +0.017 收到 **−0.000**，
+#: 四统计平均距离 0.0817 → **0.0732**；p2 是这条曲线的**内点最小值**
+#: （p1=0.0742、p0.5=0.0763、p0.25=0.0779 都更差，不是往一边推到底）。
+#: 逐帧不同意：4 帧要 p0.25、3 帧要 p5（`1298::G200-8` 在 p5 恰好 0.0466），
+#: 所以这是**一个折中的全局分位**，不是"每帧都变好"。整体亮度仍偏暗
+#: （`luma_mean` −0.061），那一条 p_low 管不了，见 B-13 追加①。
+P_LOW, P_MID, P_HIGH = 2.0, 50.0, 95.0
 #: 跨度不足时**不套曲线**：薄负片/纯色卡帧用三点解出的曲线会近乎阶跃。
 MIN_SPAN = 0.15
 #: 打印锚点只看**会被看到的那块**：画面区包围盒的中心这个比例。
@@ -185,12 +196,39 @@ def density_anchor(samples: np.ndarray | None) -> tuple[float, float, float] | N
     return lo, mid, hi
 
 
+def density_anchor_linear(samples: np.ndarray | None) -> tuple[float, float] | None:
+    """两点锚 `(d_lo, d_hi)`：三点曲线解不出时的**退化印相**。
+
+    仍然要求跨度够（否则直线也等于阶跃），但不要求中灰位置合理。
+    """
+    if samples is None or samples.size < 256:
+        return None
+    lo = float(np.percentile(samples, P_LOW))
+    hi = float(np.percentile(samples, P_HIGH))
+    if not (math.isfinite(lo) and math.isfinite(hi)) or hi - lo < MIN_SPAN:
+        return None
+    return lo, hi
+
+
 def print_curve(anchor: tuple[float, float, float], *,
                 aim: float = PRINT_AIM, white: float = PRINT_WHITE):
     """(密度控制点 x, 纸级曝光量 y)；要求斜率**递增**（先压趾部、后展高光）。
 
     纵坐标由 `paper = 1 − 10^(−v)` 反解：`v = −log10(1 − paper)`。
+
+    **两点锚 `(lo, hi)` 是合法的退化形式**：三点解不出单调曲线时
+    （画面暗部挤成一团，`mid − lo` 太小 ⇒ 趾部斜率超过高光段），
+    用"黑在 lo、白在 hi"的直线仍然把雾压掉，比**完全不印**好得多。
+    实测 `1298_G200::G200-10` 三点被拒时该帧显示域 `p05=0.292`
+    （用户参考 0.036），是标定后十一帧里最差的一帧。
     """
+    if len(anchor) == 2:
+        lo, hi = float(anchor[0]), float(anchor[1])
+        if not (hi > lo > -6.0) or hi - lo < MIN_SPAN:
+            raise ValueError(f"两点锚退化（lo {lo:.3f} / hi {hi:.3f}）")
+        return (np.array([lo, hi], dtype=np.float64),
+                np.array([0.0, -math.log10(max(1e-9, 1.0 - white))],
+                         dtype=np.float64))
     lo, mid, hi = anchor
     v_mid = -math.log10(max(1e-9, 1.0 - aim))
     v_hi = -math.log10(max(1e-9, 1.0 - white))
@@ -307,7 +345,9 @@ def print_remap_array(positive_linear: np.ndarray,
                                      None if m is None else m[y0:y1], k)
     if x.shape[-1] > 3:
         out = np.concatenate([out, x[..., 3:]], axis=2)
-    info = {"d_lo": round(anchor[0], 5), "d_mid": round(anchor[1], 5),
-            "d_hi": round(anchor[2], 5), "aim": PRINT_AIM, "white": PRINT_WHITE,
+    info = {"d_lo": round(anchor[0], 5), "d_hi": round(anchor[-1], 5),
+            "points": len(anchor), "aim": PRINT_AIM, "white": PRINT_WHITE,
             "dmax_old": round(float(dmax_old), 5), "chroma_gain": round(k, 5)}
+    if len(anchor) == 3:
+        info["d_mid"] = round(anchor[1], 5)
     return out, info

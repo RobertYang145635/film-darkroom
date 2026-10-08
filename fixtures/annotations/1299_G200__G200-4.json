@@ -7,30 +7,30 @@
   "status": "verified",
   "needs_reconfirm": false,
   "output_crop_roi": [
-    1112,
-    104,
-    7240,
-    5416
+    1008,
+    102,
+    7284,
+    5406
   ],
   "image_area_roi": [
-    1192,
-    344,
-    7128,
-    5144
+    1134,
+    288,
+    7146,
+    5142
   ],
   "base_sample_rois": [
     [
-      5984,
-      5216,
-      6576,
-      5344
+      1530,
+      5202,
+      2304,
+      5346
     ]
   ],
   "base_roi": [
-    5984,
-    5216,
-    6576,
-    5344
+    1530,
+    5202,
+    2304,
+    5346
   ],
   "neutral_refs": [],
   "exclude_mask_rois": [],
@@ -39,8 +39,11 @@
   "notes": "GUI 用户框选确认",
   "verified": true,
   "verified_by": "user",
-  "verified_date": "2026-09-03",
+  "verified_date": "2026-10-09",
   "fine_rotation_degrees": 0.0,
   "mirror_horizontal": false,
+  "keep_rebate": false,
+  "base_annotation_sha": "",
+  "draft_revision": 0,
   "frame_roi": null
 }

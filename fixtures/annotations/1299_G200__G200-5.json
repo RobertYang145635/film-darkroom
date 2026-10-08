@@ -1,15 +1,49 @@
 {
   "file": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-5.NEF",
-  "roll": "1299_G200",
-  "rotation_degrees": 90,
+  "roll": "misc",
+  "rotation_degrees": 0,
   "coordinate_space": "source",
-  "frame_roi": null,
-  "base_roi": null,
-  "neutral_rois": [],
-  "mask_rois": [],
+  "schema_version": 3,
+  "status": "verified",
+  "needs_reconfirm": false,
+  "output_crop_roi": [
+    1008,
+    102,
+    7284,
+    5406
+  ],
+  "image_area_roi": [
+    1134,
+    288,
+    7146,
+    5142
+  ],
+  "base_sample_rois": [
+    [
+      1530,
+      5202,
+      2304,
+      5346
+    ]
+  ],
+  "base_roi": [
+    1530,
+    5202,
+    2304,
+    5346
+  ],
+  "neutral_refs": [],
+  "exclude_mask_rois": [],
+  "source_sha256": "58037f5478562b81315cbea2fd1dc774d1c199f762ee38caa8741aa457a626cb",
   "reference_file": null,
-  "notes": "holdout 卷；方向目检 90CW；检测框 x0=1111 含 KODAK 字样片边带，需右移（见 outputs/visual/G200-5_1299_orient.jpg 顶带）",
-  "verified": false,
-  "verified_by": "",
-  "verified_date": ""
+  "notes": "GUI 用户框选确认",
+  "verified": true,
+  "verified_by": "user",
+  "verified_date": "2026-10-09",
+  "fine_rotation_degrees": 0.0,
+  "mirror_horizontal": false,
+  "keep_rebate": false,
+  "base_annotation_sha": "",
+  "draft_revision": 0,
+  "frame_roi": null
 }

@@ -162,7 +162,8 @@ class RenderIntent:
                 lo, hi, _ = RANGES[k]
                 setattr(it, k, float(np.clip(float(d[k]), lo, hi)))
         anchor = d.get("print_anchor") or ()
-        if isinstance(anchor, (list, tuple)) and len(anchor) == 3:
+        if isinstance(anchor, (list, tuple)) and len(anchor) in (2, 3):
+            # 2 = 两点退化印相（三点曲线解不出时），3 = 正常三点
             try:
                 it.print_anchor = tuple(float(v) for v in anchor)
                 it.print_dmax = float(d.get("print_dmax") or 0.0)
