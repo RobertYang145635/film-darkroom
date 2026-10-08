@@ -265,11 +265,13 @@ def analyze_roll(frames: list[dict], *, fingerprint: str = "",
                       analysis_version=1)
     warnings: list[str] = []
     pool, rejected = [], []
+    fp_rejected: list[str] = []
     for f in frames:
         fid = str(f.get("frame_id") or f.get("file") or "")
         fp = str(f.get("capture_fingerprint") or "")
         if fingerprint and fp and fp != fingerprint:
             rejected.append(fid)
+            fp_rejected.append(fid)
             warnings.append(f"帧 {fid} 采集指纹与本卷不一致，不参与卷级共享")
             continue
         dmin = f.get("base_dmin")
@@ -292,6 +294,7 @@ def analyze_roll(frames: list[dict], *, fingerprint: str = "",
         ra.base_source = "generic_prior"
         ra.confidence = 0.0
         ra.rejected_frames = rejected
+        ra.excluded_from_share = list(fp_rejected)
         ra.shared_with_frames = []
         return ra
     meds = np.stack([p[1] for p in pool])
@@ -355,6 +358,7 @@ def analyze_roll(frames: list[dict], *, fingerprint: str = "",
         ra.generic_scale = float(np.clip(np.median(scales), 0.02, 0.98)) \
             if scales else None
     ra.rejected_frames = rejected
+    ra.excluded_from_share = sorted(set(fp_rejected) | set(drift_rejected))
     ra.source_frames = accepted
     if drift_rejected:
         ra.split_suggested = True
@@ -373,17 +377,23 @@ def resolve_base(frame_stats: dict | None, roll: RollAnalysis | None,
 
     返回 {dmin, base_source, confidence, warnings, provenance}。
 
-    `frame_id`：本帧是否参与卷级模型由 `roll.shared_with_frames` 决定；
-    未参与（漂移/指纹冲突）的帧**不**使用卷级 dmin，但仍继承本卷共同
-    曝光尺度（§6.2.5），避免同卷颜色起点漂移。
+    `frame_id`：本帧是否可用卷级模型由 `roll.excluded_from_share` 决定——
+    **只有"自己测到了片基但与同卷漂移不符/指纹不符"的帧才被排除**。
+    自己根本没测到片基的帧正是这条继承要服务的对象（v5 §6.2.3）：
+    旧实现判的是 `frame_id in shared_with_frames`，而那个列表只装"参与汇总的帧"，
+    于是"没测到"的帧永远进不了 `elif roll_ok` 这条为它们准备的分支，
+    整卷只能退到 `generic_prior`（实测 `1299_G200` 9/11 帧如此，红通道偏 −0.35~−0.61）。
+    未参与也未排除的帧仍继承本卷共同曝光尺度（§6.2.5）。
     """
     warnings: list[str] = []
     prov: dict = {}
     fs = frame_stats or {}
     frame_ok = (fs.get("dmin") and float(fs.get("confidence") or 0)
                 >= TOLERANCE["min_base_confidence"])
+    excluded = (list(getattr(roll, "excluded_from_share", []) or [])
+                if roll is not None else [])
     in_roll_model = (frame_id is None or not roll
-                     or frame_id in roll.shared_with_frames)
+                     or frame_id not in excluded)
     roll_ok = (roll is not None and roll.base_statistics.get("dmin")
                and float(roll.confidence) >= TOLERANCE["min_base_confidence"]
                and in_roll_model)
@@ -403,7 +413,13 @@ def resolve_base(frame_stats: dict | None, roll: RollAnalysis | None,
         dmin = np.asarray(fs["dmin"], np.float64)
         source, conf = "frame", float(fs["confidence"])
         warnings.append("片基来源：本帧未曝光片基取样")
-    elif roll_ok:
+    elif roll_ok and roll.base_source == "roll":
+        #: 纯继承（本帧什么都没测到）只在卷模型**真的成卷**时发生：
+        #: `roll_partial` 意味着参与帧数不到 `min_roll_frames`，
+        #: 实测 `1299_G200` 就是这种情况——卷 dmin 由**单帧** G200-11 决定
+        #: （R=0.1967），而唯一另一帧实测 G200-10 是 0.2672（差 0.13 decade），
+        #: 用它覆盖 9 帧后三帧参考的距离从 0.128 变成 0.164，
+        #: 比"通用先验 + 不放大色彩"更糟。所以这里退回通用先验。
         dmin = np.asarray(roll.base_statistics["dmin"], np.float64)
         source = "roll"
         conf = float(roll.confidence)

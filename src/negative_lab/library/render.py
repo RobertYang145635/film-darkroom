@@ -87,6 +87,11 @@ class RenderIntent:
     # 空 tuple = 不施加（默认，保持旧行为）。
     print_anchor: tuple = ()           # (d_lo, d_mid, d_hi) 画面密度分位
     print_dmax: float = 0.0            # 施加时所依据的技术 dmax（反解密度用）
+    #: 逐帧色度增益。`0.0` = 用模块默认 `LOOK_CHROMA_GAIN`；
+    #: 片基**未实测**（generic_prior）的帧由 `service` 显式写 1.0——
+    #: 拿一个对着已标定帧拟合出来的口味系数去放大一片不知道错在哪的颜色，
+    #: 实测把 1299 两帧的饱和 p95 从 0.537/0.341 推到 0.910/0.769。
+    print_chroma_gain: float = 0.0
     # 候选来源说明（不是控件；进入 sidecar）
     origin: str = "user"
     notes: list = field(default_factory=list)
@@ -112,6 +117,7 @@ class RenderIntent:
         return RenderIntent(**{k: getattr(self, k) for k in P0_FIELDS},
                             print_anchor=tuple(self.print_anchor or ()),
                             print_dmax=float(self.print_dmax or 0.0),
+                            print_chroma_gain=float(self.print_chroma_gain or 0.0),
                             origin=self.origin, notes=list(self.notes))
 
     def reset_field(self, name: str) -> None:
@@ -140,6 +146,8 @@ class RenderIntent:
         if self.print_anchor:               # 只在施加过时才写，不动旧 schema 的形状
             d["print_anchor"] = [float(v) for v in self.print_anchor]
             d["print_dmax"] = float(self.print_dmax)
+            if float(self.print_chroma_gain or 0.0) > 0:
+                d["print_chroma_gain"] = float(self.print_chroma_gain)
         d["origin"] = self.origin
         d["notes"] = list(self.notes)
         return d
@@ -158,6 +166,7 @@ class RenderIntent:
             try:
                 it.print_anchor = tuple(float(v) for v in anchor)
                 it.print_dmax = float(d.get("print_dmax") or 0.0)
+                it.print_chroma_gain = float(d.get("print_chroma_gain") or 0.0)
             except (TypeError, ValueError):
                 it.print_anchor = ()        # 坏数据：退回"不施加"，不猜
         it.origin = str(d.get("origin", "user"))
@@ -387,7 +396,10 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
     if it.print_anchor and it.print_dmax > 0:
         from ..print_math import print_remap_array
         anchor = tuple(float(v) for v in it.print_anchor)
-        remapped, applied = print_remap_array(x, anchor, it.print_dmax)
+        remapped, applied = print_remap_array(
+            x, anchor, it.print_dmax,
+            chroma_gain=(float(it.print_chroma_gain)
+                         if float(it.print_chroma_gain or 0.0) > 0 else None))
         if applied is not None:
             x = remapped                    # 锚点退化则不动，控件照旧生效
     # 1) 色温/色调（色适应）

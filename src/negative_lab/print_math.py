@@ -218,8 +218,13 @@ def remap_luma(y_old: np.ndarray, anchor: tuple[float, float, float],
 
 
 def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
-                dmax_old: float, mask_band: np.ndarray | None) -> np.ndarray:
+                dmax_old: float, mask_band: np.ndarray | None,
+                chroma_gain: float = LOOK_CHROMA_GAIN) -> np.ndarray:
     """若干行的保色度重映射。
+
+    `chroma_gain` 是**逐帧可换**的：片基没实测的帧不该拿 1.897 去放大一片
+    不知道错在哪的颜色（见 `print_remap_array` 与 `service` 第 9b 步）。
+    参数名不能叫 `gain`——函数体里那个名字是逐像素亮度增益数组。
 
     **逐像素、无空间操作**，所以分块与整帧结果逐比特一致
     （`rgb @ _LUM_W32` 只在最后一轴归约，与行数无关）——这条由
@@ -248,7 +253,7 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # 电平与对比。**为什么必须显式做**：扣完橙色片基仍残留抑制，实测
     # 软件饱和 p95 0.212 对用户参考 0.405（差 −0.193），是成品"不够像"的主因。
     y = out @ _LUM_W32
-    out = y[..., None] + np.float32(LOOK_CHROMA_GAIN) * (out - y[..., None])
+    out = y[..., None] + np.float32(chroma_gain) * (out - y[..., None])
     # 放大色度会把最亮通道顶过天花板，所以按**整像素统一缩放**收回：
     # 同除一个系数不改通道比例（不重演上次"逐通道钳位造成青蓝偏"的错误）。
     top2 = out.max(axis=2)
@@ -262,8 +267,12 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
 def print_remap_array(positive_linear: np.ndarray,
                       anchor: tuple[float, float, float] | None,
                       dmax_old: float, mask: np.ndarray | None = None,
-                      max_chunk_pixels: int = 4_000_000):
+                      max_chunk_pixels: int = 4_000_000,
+                      chroma_gain: float | None = None):
     """**按行分块**的打印重映射，返回 (新数组, 采用记录或 None)。
+
+    `chroma_gain=None` 表示"用模块默认值"（`LOOK_CHROMA_GAIN`）；
+    生产路径会**按片基来源**传 1.0（未实测就不放大色彩），见 `service` 第 9b 步。
 
     分块是必须的，不是优化：`apply_render` 作用在**全分辨率**技术正片上，
     未分块时 45MP 帧会一次新建六个同尺寸数组（约 1.6GB 峰值），
@@ -272,6 +281,7 @@ def print_remap_array(positive_linear: np.ndarray,
     """
     if anchor is None:
         return positive_linear, None
+    k = LOOK_CHROMA_GAIN if chroma_gain is None else float(chroma_gain)
     x = np.asarray(positive_linear, dtype=np.float32)
     if x.ndim != 3 or x.shape[-1] < 3:
         return positive_linear, None
@@ -288,16 +298,16 @@ def print_remap_array(positive_linear: np.ndarray,
     rows = max(1, int(max_chunk_pixels) // row_px)
     if h <= rows:
         out = _remap_band(rgb, anchor, float(dmax_old),
-                          None if m is None else m)
+                          None if m is None else m, k)
     else:
         out = np.empty(rgb.shape, dtype=np.float32)
         for y0 in range(0, h, rows):
             y1 = min(y0 + rows, h)
             out[y0:y1] = _remap_band(rgb[y0:y1], anchor, float(dmax_old),
-                                     None if m is None else m[y0:y1])
+                                     None if m is None else m[y0:y1], k)
     if x.shape[-1] > 3:
         out = np.concatenate([out, x[..., 3:]], axis=2)
     info = {"d_lo": round(anchor[0], 5), "d_mid": round(anchor[1], 5),
             "d_hi": round(anchor[2], 5), "aim": PRINT_AIM, "white": PRINT_WHITE,
-            "dmax_old": round(float(dmax_old), 5)}
+            "dmax_old": round(float(dmax_old), 5), "chroma_gain": round(k, 5)}
     return out, info

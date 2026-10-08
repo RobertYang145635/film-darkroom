@@ -186,3 +186,112 @@ def test_outer_ring_holds_the_dark_tail_on_most_frames():
     big = sum(1 for x in deltas if x > 0.05)
     assert big >= max(2, len(deltas) // 2), (
         f"外沿携带暗部的帧太少：Δ={np.round(deltas, 3).tolist()}")
+
+
+# ---------------------------------------------------------------- 色彩放大闸门
+#: 片基未实测 ⇒ 不放大色彩（B-11 追加⑩）。这两帧是实测挑出来的对照：
+#: `1299_G200::G200-2` base_source=generic_prior 置信 0.0，
+#: `1298_G200::G200-1` base_source=frame 置信 0.79。
+UNCALIBRATED = "1299_G200::G200-2"
+CALIBRATED = "1298_G200::G200-1"
+
+
+@lru_cache(maxsize=4)
+def _run_id(fid: str):
+    """按 frame_id 跑一帧（清单里的 ROI 不完整时退回自动检测，与套具同口径）。"""
+    kit = _kit()
+    man = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    fr = next((f for f in man["frames"] if f["id"] == fid), None)
+    if fr is None:
+        raise AssertionError(f"验收清单里没有 {fid}，本锁的前提已失效")
+    t = load_linear_rgb(ROOT / fr["file"]).rgb
+    step = max(1, int(np.ceil(max(t.shape[:2]) / 1200)))
+    small = t[::step, ::step, :].copy()
+    geo = kit._downscale_geometry(kit._geometry(fr), t.shape[:2], small.shape[:2])
+    if not geo.is_complete():
+        geo = type(geo)(rotation_degrees=geo.rotation_degrees)
+    from negative_lab.pipeline.service import process_image
+    return process_image(small, geometry=geo, ann=None)
+
+
+def _sat_p95(linear) -> float:
+    """**显示域**饱和 p95（与用户参考同一口径），所以先过 sRGB 编码。"""
+    from PIL import Image as _I
+
+    from negative_lab.pipeline.density import encode_srgb
+    disp = np.asarray(encode_srgb(linear), np.float32)[..., :3]
+    im = _I.fromarray((np.clip(disp, 0, 1) * 255).round().astype(np.uint8))
+    d = np.asarray(im.resize((384, 384), _I.BILINEAR), np.float32) / 255.0
+    c = int(d.shape[0] * 0.15)
+    d = d[c:d.shape[0] - c, c:d.shape[1] - c, :]
+    return float(np.percentile(d.max(2) - d.min(2), 95))
+
+
+def test_unmeasured_base_does_not_amplify_chroma():
+    """**锁**：片基没实测的帧，intent 里的色度增益必须是 1.0，且成品饱和
+    不得高于用默认 1.897 时的饱和。
+
+    实测（`outputs/ref_look_probe/base_and_gain.txt`）：`1299::G200-2` 技术正片
+    饱和 p95 0.902，打印后不放大是 0.537、放大是 **0.910**，用户参考 0.322；
+    `1299::G200-7` 是 0.341 对 **0.769**，参考 0.357。
+    放大系数是对着**已标定**的帧拟合出来的口味值，乘到一片不知道错在哪的颜色上
+    只会把错误放大。
+    """
+    import negative_lab.print_math as pm
+
+    pr = _run_id(UNCALIBRATED)
+    assert pr.base_source == "generic_prior", (
+        f"{UNCALIBRATED} 现在片基来源是 {pr.base_source}，"
+        "本锁的前提没了——换一帧真的测不到片基的帧，别放宽断言")
+    it = pr.render_intent
+    assert it.print_anchor, "该帧应有打印锚点，否则增益根本不会施加"
+    assert float(it.print_chroma_gain) == 1.0, (
+        f"未实测片基的帧仍在放大色彩：{it.print_chroma_gain}")
+    assert pr.meta["print_scale"]["chroma_gain"] == 1.0
+    assert "未实测" in pr.meta["print_scale"]["chroma_gain_reason"]
+    tech = pr.result.positive_linear
+    off, i1 = pm.print_remap_array(tech, tuple(it.print_anchor), it.print_dmax,
+                                   chroma_gain=1.0)
+    on, i2 = pm.print_remap_array(tech, tuple(it.print_anchor), it.print_dmax,
+                                  chroma_gain=pm.LOOK_CHROMA_GAIN)
+    assert i1 is not None and i2 is not None
+    assert _sat_p95(off) <= _sat_p95(on) + 1e-6, (
+        "闸门没起作用：不放大反而更饱和")
+
+
+def test_measured_base_still_gets_the_default_gain():
+    """**负控制**：片基实测过的帧**不许**被这条规则误伤——
+    增益保持默认（intent 里写 0.0 表示"用模块默认"），成品饱和应当高于不放大时。
+    """
+    import negative_lab.print_math as pm
+
+    pr = _run_id(CALIBRATED)
+    assert pr.base_source != "generic_prior", (
+        f"{CALIBRATED} 片基来源退化成 {pr.base_source}，对照帧失效")
+    assert float(pr.render_intent.print_chroma_gain) == 0.0
+    assert float(pr.meta["print_scale"]["chroma_gain"]) == pm.LOOK_CHROMA_GAIN
+    it = pr.render_intent
+    assert it.print_anchor, "该帧应有锚点"
+    off, _i1 = pm.print_remap_array(pr.result.positive_linear,
+                                    tuple(it.print_anchor), it.print_dmax,
+                                    chroma_gain=1.0)
+    on, _i2 = pm.print_remap_array(pr.result.positive_linear,
+                                   tuple(it.print_anchor), it.print_dmax,
+                                   chroma_gain=pm.LOOK_CHROMA_GAIN)
+    assert _sat_p95(on) > _sat_p95(off), "标定帧的增益被削弱了：这条规则越界了"
+
+
+def test_chroma_gain_survives_the_intent_round_trip():
+    """决定必须**进 sidecar 且可复算**：0/1.0/自定义值都要原样回来，
+    坏数据退回 0.0（= 用默认），不许猜。"""
+    from negative_lab.library.render import RenderIntent
+
+    for v in (0.0, 1.0, 1.4):
+        it = RenderIntent(print_anchor=(0.1, 0.5, 1.0), print_dmax=1.2,
+                          print_chroma_gain=v)
+        back = RenderIntent.from_dict(it.to_dict())
+        assert float(back.print_chroma_gain) == v, (v, back.to_dict())
+    bad = RenderIntent.from_dict({"print_anchor": [0.1, 0.5, 1.0],
+                                  "print_dmax": 1.2,
+                                  "print_chroma_gain": "很饱和"})
+    assert float(bad.print_chroma_gain) == 0.0

@@ -41,8 +41,8 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
-from .print_scale import (anchor_refusal_reason, centre_region, density_anchor,
-                          picture_density, print_curve)
+from .print_scale import (LOOK_CHROMA_GAIN, anchor_refusal_reason, centre_region,
+                          density_anchor, picture_density, print_curve)
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -470,16 +470,26 @@ def process_image(t_source: np.ndarray, *,
                 anchor = None
         if anchor is not None:
             a = [round(float(v), 5) for v in anchor]
+            #: 片基没实测的帧**不放大色彩**：`LOOK_CHROMA_GAIN` 是对着
+            #: "已标定"的帧拟合出来的口味系数，乘到一片不知道错在哪的颜色上
+            #: 只会把错误放大（实测 1299 两帧饱和 p95 0.537→0.910、0.341→0.769）。
+            gain_off = (1.0 if base_source == "generic_prior" else 0.0)
             for cand in (cset if cset is not None else []):
                 merged = dict(cand.intent or {})
                 merged["print_anchor"] = list(a)
                 merged["print_dmax"] = float(rep.params.dmax)
+                merged["print_chroma_gain"] = gain_off
                 cand.intent = merged
             intent = RenderIntent.from_dict(
                 {**intent.to_dict(), "print_anchor": a,
-                 "print_dmax": float(rep.params.dmax)})
+                 "print_dmax": float(rep.params.dmax),
+                 "print_chroma_gain": gain_off})
             print_scale_info = {"d_lo": a[0], "d_mid": a[1], "d_hi": a[2],
-                                "dmax_old": float(rep.params.dmax)}
+                                "dmax_old": float(rep.params.dmax),
+                                "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
+                                "chroma_gain_reason": (
+                                    "片基未实测（generic_prior），色彩不做放大"
+                                    if gain_off else "片基已实测")}
         else:
             print_scale_info = {"refused": print_refused}
 

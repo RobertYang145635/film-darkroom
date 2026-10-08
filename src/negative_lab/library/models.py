@@ -287,6 +287,10 @@ class RollAnalysis:
     confidence: float = 0.0
     warnings: list = field(default_factory=list)
     rejected_frames: list = field(default_factory=list)   # 低置信/漂移/污染
+    #: 被**明确排除**在卷级共享之外的帧：自己测到了片基，但与同卷其他帧漂移不一致，
+    #: 或采集指纹与本卷不符。v5 §6.2.3 的继承服务对象恰恰是"自己没测到"的帧，
+    #: 它们不该出现在这个列表里（见 `resolve_base` 的 `in_roll_model`）。
+    excluded_from_share: list = field(default_factory=list)
     shared_with_frames: list = field(default_factory=list)
     split_suggested: bool = False
     base_source: str = "none"     # frame|roll|roll_partial|generic_prior
