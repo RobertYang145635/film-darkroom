@@ -19,7 +19,13 @@
 
 **两个纸级常数都不是拟合量**：`AIM=0.18` 是 horizon 的 `Paper.printAim`
 与 filmeon 的 `log10(0.18)` 共同取值；`WHITE=0.80375` 是上面那张实测相纸的最大反射率。
-控制点的三个横坐标来自**这一帧自己的密度分位数**（p5/p50/p95，三通道共用 luma）。
+控制点的三个横坐标来自**这一帧自己的分位数**（p5/p50/p95），
+且必须取在**重映射自己会读到的那个域**（`picture_density`）——
+早期版本取逐通道密度的 luma 分位，两个域隔着 0 截断并不等价，
+实测黑点只咬住了名义像素的 1/50，趾部等于没压（见 `picture_density` 文档）。
+取样区也必须落在**会被看到的那块**（`centre_region`：画面区包围盒的中心 70%）——
+整幅画面区里最暗的 5% 实测有 7/9 帧落在外沿（翻拍架照度 falloff、边缘灰尘），
+让边角决定主体的黑点，中间调就永远压不实。
 
 **施加方式**：对亮度做保色度重映射（`out = x · 新亮度/旧亮度`，逐像素统一增益），
 所以**色度比例不变**——第一版把曲线逐通道施加到密度上，对比上来了但天空变成
@@ -42,13 +48,15 @@ PRINT_WHITE = 0.80375
 P_LOW, P_MID, P_HIGH = 5.0, 50.0, 95.0
 #: 跨度不足时**不套曲线**：薄负片/纯色卡帧用三点解出的曲线会近乎阶跃。
 MIN_SPAN = 0.15
+#: 打印锚点只看**会被看到的那块**：画面区包围盒的中心这个比例。
+#: 实测依据见 `centre_region`。
+PRINT_REGION_CENTRE_FRAC = 0.70
 #: 色度增益。**这是唯一一个来自用户手工参考的量，属于"口味"不是"测量"**：
 #: 1.897 由 `1298_G200` 9 帧参考反解（中位数 `目标 sat_p95 / 软件 sat_p95`），
 #: 而留出卷 `1299_G200` **没有参考可独立验证风格**，所以它的地位与
 #: `PRINT_AIM`/`PRINT_WHITE`（外部实测相纸常数）不同，见 blockers B-11 追加⑧。
 #: 设成 1.0 即完全关闭这一步，退回"只印亮度"。
 LOOK_CHROMA_GAIN = 1.897
-_EPS = 1e-6
 #: Rec.709 luma 权重（与 `library/render.py` 同一组，不另起一份）。
 _LUM_W = np.array([0.2126, 0.7152, 0.0722], dtype=np.float64)
 #: 同一组权重的 float32 版：整帧运算用它，别把 (H,W,3) 抬到 float64
@@ -56,22 +64,105 @@ _LUM_W = np.array([0.2126, 0.7152, 0.0722], dtype=np.float64)
 _LUM_W32 = _LUM_W.astype(np.float32)
 
 
-def positive_density(t_rgb: np.ndarray, base: np.ndarray,
-                     mask: np.ndarray | None = None) -> np.ndarray | None:
-    """画面内**正密度** `d = −log10(t / base)` 的 luma 一维样本。
+def anchor_refusal_reason(samples: np.ndarray | None) -> str:
+    """为什么定不出打印曲线——**拒绝必须说得出原因**。
 
-    片基非有限或非法时返回 None（调用方必须回退到"不套曲线"，
-    而不是拿一个假 base 去算分位数）。
+    没有这句话，被拒的帧会安静地按未印相的技术正片导出，而用户看到的
+    就是"一键出图还是糊了一层奶"，且没有任何地方告诉他软件放弃了。
+    实测样本：标定卷 `1298_G200::G200-10`（中心 p5/p50/p95 =
+    0.048 / 0.128 / 0.889 decade，趾部斜率 1.413 > 高光 0.795）。
+    曲线本来可解时返回空串（调用方不该拿它当"永远有话要说"的装饰）。
     """
-    b = np.asarray(base, dtype=np.float64).reshape(-1)
-    if b.size < 3 or not np.isfinite(b[:3]).all() or (b[:3] <= 0).any():
+    if samples is None or samples.size < 256:
+        n = 0 if samples is None else int(samples.size)
+        return f"画面中心取样像素不足（{n} < 256）"
+    lo = float(np.percentile(samples, P_LOW))
+    mid = float(np.percentile(samples, P_MID))
+    hi = float(np.percentile(samples, P_HIGH))
+    if hi - lo < MIN_SPAN:
+        return (f"画面中心密度跨度仅 {hi - lo:.2f} decade"
+                f"（阈值 MIN_SPAN={MIN_SPAN}），三点曲线会近乎阶跃")
+    if mid <= lo or hi <= mid:
+        return (f"画面中心分位退化（lo {lo:.3f} / mid {mid:.3f} / hi {hi:.3f}），"
+                "黑-中灰-白次序不成立")
+    try:
+        print_curve((lo, mid, hi))
+    except ValueError as e:
+        return str(e)
+    return ""
+
+
+def centre_region(mask: np.ndarray | None,
+                  frac: float = PRINT_REGION_CENTRE_FRAC,
+                  shape: tuple | None = None) -> np.ndarray | None:
+    """把**取样**区域限制到"会被看到的那块"：画面区包围盒的中心 `frac`。
+
+    为什么锚点不能由整幅画面区决定（2026-10-08 实测，标定卷 9 帧，
+    `picture_density` 域里的 p5，整幅 → 中心）：
+    G200-8 `0.014 → 0.369`（差 0.355 decade）、G200-11 `0.087 → 0.247`、
+    G200-6 `0.132 → 0.255`、G200-1 `0.041 → 0.117`；G200-7/G200-10 无差。
+    也就是说**最暗的那 5% 基本落在画面外沿**（翻拍架的照度 falloff、
+    边缘灰尘、片基不均），拿它当黑点就等于让边角决定主体的影调：
+    黑点被拖到主体暗部之下，中间调整段压不实——实测中心构图
+    `p05=0.433` 而用户手工参考是 `0.193`，同一帧改成中心取样后是 `0.190`。
+
+    **用包围盒而不是数组中心**是刻意的：包围盒只由画面区决定，
+    所以"保留片边"开关（会改变数组尺寸）不会移动取样区，
+    这条由 `tests/unit/test_print_scale.py::test_centre_region_ignores_rebate_padding`
+    钉住。
+    """
+    if mask is None:
+        if shape is None or len(shape) < 2:
+            return None
+        h, w = int(shape[0]), int(shape[1])
+        out = np.zeros((h, w), dtype=bool)
+        cy, cx = int(round(h * (1 - frac) / 2)), int(round(w * (1 - frac) / 2))
+        out[cy:h - cy, cx:w - cx] = True
+        return out
+    m = np.asarray(mask, dtype=bool)
+    if m.ndim != 2 or not m.any():
+        return m
+    ys, xs = np.nonzero(m)
+    y0, y1 = int(ys.min()), int(ys.max()) + 1
+    x0, x1 = int(xs.min()), int(xs.max()) + 1
+    bh, bw = y1 - y0, x1 - x0
+    cy, cx = int(round(bh * (1 - frac) / 2)), int(round(bw * (1 - frac) / 2))
+    if bh - 2 * cy < 2 or bw - 2 * cx < 2:      # 包围盒太小时不再收中心
+        return m
+    out = np.zeros_like(m)
+    out[y0 + cy:y1 - cy, x0 + cx:x1 - cx] = True
+    return out & m
+
+
+def picture_density(positive_linear: np.ndarray, dmax: float,
+                    mask: np.ndarray | None = None) -> np.ndarray | None:
+    """锚点取样域 = **`remap_luma` 自己会反解出来的那个密度**。
+
+    这一版是实测逼出来的修正。原先的分位取在 `−log10(t/base)` 的**逐通道密度的
+    luma** 上，但重映射读的是**技术正片的 luma**并用
+    `d = −dmax·log10(1−y)` 反解密度。两者不等价：逐通道先做纸级形式
+    （再对负值截断到 0）后取 luma，与先取密度 luma 再做纸级形式，中间隔着
+    截断，而橙色片基让三通道密度天然不等。
+
+    实测后果（九帧标定卷，`outputs/ref_look_probe/print_reach.txt`）：
+    G200-1 名义 p5 以下按真实密度应有 **5.00%** 的像素，按反解域只有 **0.10%**；
+    G200-8 是 5.00% 对 **0.00%**——黑点根本没咬住，趾部整段没被压，
+    这就是接入打印曲线后暗部偏差仍高达 `p05 +0.110` 的原因。
+    锚点取在哪个域，就必须和施加域是同一个域，否则分位数只是名义数字。
+    代价是这个刻度**不等于物理密度**：`density.py:132` 的链条还带
+    `exposure/black/gamma/逐通道 wb_high`，所以它是"重映射自己的刻度"。
+    对印相来说这正是想要的东西——"这一帧最暗的 5% 印成纯黑"，
+    而不必假装在读密度计。
+    """
+    d = float(dmax)
+    if not math.isfinite(d) or d <= 0:
         return None
-    x = np.asarray(t_rgb, dtype=np.float64)
+    x = np.asarray(positive_linear, dtype=np.float32)
     if x.ndim != 3 or x.shape[-1] < 3:
         return None
-    with np.errstate(divide="ignore", invalid="ignore"):
-        d = -np.log10(np.clip(x[..., :3], _EPS, None) / b[:3])
-    dl = 0.2126 * d[..., 0] + 0.7152 * d[..., 1] + 0.0722 * d[..., 2]
+    # 与 `_remap_band` 逐比特同式：float32 归约 → float64 反解
+    lum = np.clip(x[..., :3] @ _LUM_W32, 0.0, 1.0 - 1e-6)
+    dl = -d * np.log10(np.maximum(1e-9, 1.0 - lum)).astype(np.float64)
     if mask is not None:
         m = np.asarray(mask, dtype=bool)
         if m.shape == dl.shape:

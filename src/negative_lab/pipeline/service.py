@@ -41,7 +41,8 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi)
 from .model_assets import deterministic_asset
 from .params import InvertParams
-from .print_scale import density_anchor, positive_density
+from .print_scale import (anchor_refusal_reason, centre_region, density_anchor,
+                          picture_density, print_curve)
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -425,14 +426,29 @@ def process_image(t_source: np.ndarray, *,
     if render_intent is not None:
         intent = render_intent.copy()
 
-    # ---- 9b) 自动打印尺度（B-11）：把这一帧画面密度分位作为"印相"决定，
+    # ---- 9b) 自动打印尺度（B-11）：把这一帧的分位（取在 `picture_density` 域，
+    # 即重映射自己会读到的那个域）作为"印相"决定，
     # **写进每个候选的 intent**（可见、进 sidecar、可复算），由 `apply_render`
     # 施加。技术正片与门禁口径一字不动（v5 §8.2），
     # "恒等 intent == 技术正片"的 v4 契约也仍然成立（无锚点即恒等）。
     # 用户显式 `force_params` / `render_intent` 是最终裁决，此时不施加。
     print_scale_info = None
+    print_refused = ""
     if force_params is None and render_intent is None:
-        anchor = density_anchor(positive_density(t_out, rep.params.dmin, valid_mask))
+        # 取样区 = 画面区包围盒的中心（边角照度 falloff / 灰尘不该决定黑点），
+        # 施加区仍是整个画面区（片边不动）。
+        region = centre_region(valid_mask,
+                              shape=res.positive_linear.shape[:2])
+        samples = picture_density(res.positive_linear, rep.params.dmax, region)
+        anchor = density_anchor(samples)
+        if anchor is None:
+            print_refused = anchor_refusal_reason(samples)
+        else:
+            try:
+                print_curve(anchor)
+            except ValueError as exc:
+                print_refused = str(exc)
+                anchor = None
         if anchor is not None:
             a = [round(float(v), 5) for v in anchor]
             for cand in (cset if cset is not None else []):
@@ -445,6 +461,8 @@ def process_image(t_source: np.ndarray, *,
                  "print_dmax": float(rep.params.dmax)})
             print_scale_info = {"d_lo": a[0], "d_mid": a[1], "d_hi": a[2],
                                 "dmax_old": float(rep.params.dmax)}
+        else:
+            print_scale_info = {"refused": print_refused}
 
     # ---- 10) 渲染
     rendered = apply_render(res.positive_linear, intent)
@@ -471,7 +489,10 @@ def process_image(t_source: np.ndarray, *,
                      "monochrome_light":
                          bool(scene_flags.get("hue_concentration", 0) > 0.7),
                      "high_saturation":
-                         bool(scene_flags.get("sat_frac", 0) > 0.6)})
+                         bool(scene_flags.get("sat_frac", 0) > 0.6)},
+        extra_review_reasons=([
+            f"自动打印尺度未施加（{print_refused}）：本帧按未印相的技术正片输出，"
+            "需要人工定 Grade"] if print_refused else None))
     gate.base_diagnostics = {
         "base_source": base_source, "confidence": base_conf,
         "provenance": resolved.get("provenance", {}),

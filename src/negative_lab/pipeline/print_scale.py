@@ -12,11 +12,13 @@ from __future__ import annotations
 import numpy as np
 
 from ..print_math import (MIN_SPAN, P_HIGH, P_LOW, P_MID, PRINT_AIM, PRINT_WHITE,
-                          density_anchor, positive_density, print_curve,
+                          PRINT_REGION_CENTRE_FRAC, anchor_refusal_reason,
+                          centre_region, density_anchor, picture_density, print_curve,
                           print_remap_array, remap_luma)
 
 __all__ = ["MIN_SPAN", "P_HIGH", "P_LOW", "P_MID", "PRINT_AIM", "PRINT_WHITE",
-           "density_anchor", "positive_density", "print_curve",
+           "PRINT_REGION_CENTRE_FRAC", "anchor_refusal_reason", "centre_region",
+           "density_anchor", "picture_density", "print_curve",
            "print_remap_array", "remap_luma", "apply_print_remap"]
 
 

@@ -3,7 +3,10 @@
 **为什么是曲线而不是指数**（2026-10-08 实测）：纸级形式 `paper = 1 − 10^(−v)`
 要求"黑→中灰"与"中灰→白"的 v 比是 **1 : 8.1**，而实测画面密度里这两段几乎等宽
 （0.479 vs 0.512 decade）⇒ `(dmax, offset)` 只能整体缩放，表达不了这个比例。
-三个横坐标来自**这一帧自己的密度分位**（p5/p50/p95，luma 域），
+三个横坐标来自**这一帧自己的分位**（p5/p50/p95），且取在 `picture_density` 域
+（技术正片亮度按 `−dmax·log10(1−y)` 反解，即重映射自己会读到的那个域）——
+取在逐通道密度 luma 上时黑点只咬住名义像素的 1/50，见
+`test_black_anchor_really_bites_in_its_own_domain`。
 两个纵坐标由纸级常数反解：`AIM=0.18`（horizon `Paper.printAim` 与 filmeon 同值）、
 `WHITE=0.80375`（实测 Endura 相纸最大反射率）——**没有一个数拟合自用户图片**。
 
@@ -22,12 +25,14 @@ import pytest
 
 from negative_lab.pipeline.density import InvertResult, encode_srgb, invert
 from negative_lab.pipeline.params import InvertParams
-from negative_lab.pipeline.print_scale import (MIN_SPAN, PRINT_AIM, PRINT_WHITE,
-                                               apply_print_remap, density_anchor,
-                                               positive_density, print_curve,
+from negative_lab.pipeline.print_scale import (MIN_SPAN, P_LOW, PRINT_AIM, PRINT_WHITE,
+                                               anchor_refusal_reason, apply_print_remap,
+                                               centre_region, density_anchor,
+                                               picture_density, print_curve,
                                                print_remap_array, remap_luma)
 
 _LUM = np.array([0.2126, 0.7152, 0.0722])
+_BASE = (0.25, 0.25, 0.25)
 
 
 def _ramp(n: int = 256, base: float = 0.25) -> np.ndarray:
@@ -36,8 +41,15 @@ def _ramp(n: int = 256, base: float = 0.25) -> np.ndarray:
     return np.broadcast_to(t[:, None, None], (n, 4, 3)).copy()
 
 
-def _anchor(img: np.ndarray, base=(0.25, 0.25, 0.25)):
-    return density_anchor(positive_density(img, np.asarray(base, float)))
+def _tech(t: np.ndarray, base=_BASE, dmax: float = 2.0) -> np.ndarray:
+    """透射率 → 技术正片（与生产同一 `invert`）。"""
+    return invert(np.clip(t, 0, None),
+                  InvertParams(dmin=tuple(base), dmax=dmax)).positive_linear
+
+
+def _anchor(positive: np.ndarray, dmax: float = 2.0):
+    """锚点取在**重映射自己会读到的域**——不是逐通道密度的 luma。"""
+    return density_anchor(picture_density(positive, dmax))
 
 
 # ------------------------------------------------- 闭式落点（本模块的承诺）
@@ -48,10 +60,9 @@ def test_anchors_land_on_the_paper_scale():
     看到"实测 0.4625 应为 0.18"以为落点错了——其实是比错了域
     （0.4625 显示编码恰好等于 0.18 线性）。
     """
-    img = _ramp()
-    a = _anchor(img)
+    old = _tech(_ramp())
+    a = _anchor(old)
     assert a is not None
-    old = invert(img, InvertParams(dmin=(0.25,) * 3, dmax=2.0)).positive_linear
     new, info = apply_print_remap(
         InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
     assert info is not None
@@ -59,6 +70,55 @@ def test_anchors_land_on_the_paper_scale():
     got = np.percentile(lum, [5, 50, 95])
     want = np.array([0.0, PRINT_AIM, PRINT_WHITE])
     assert np.allclose(got, want, atol=0.03), f"锚点没落准：{np.round(got,4)} vs {want}"
+
+
+def test_black_anchor_really_bites_in_its_own_domain():
+    """**这一条是实测逼出来的**：锚点必须和施加域同一个域。
+
+    旧实现从 `−log10(t/base)` 的**密度 luma** 取 p5，而 `remap_luma` 读的是
+    技术正片 luma 并用 `−dmax·log10(1−y)` 反解。橙色片基让三通道密度天然不等，
+    加上 `density.py:132` 的 0 截断，两个域并不重合：
+    标定卷 G200-1 名义 p5 以下按真实密度有 5.00% 像素，按反解域只有 **0.10%**，
+    G200-8 是 5.00% 对 **0.00%**——黑点等于没咬，趾部整段没压，
+    这就是曲线接上之后暗部偏差仍是 `p05 +0.110` 的原因。
+    """
+    rng = np.random.default_rng(7)
+    base = np.array([0.28, 0.11, 0.031])           # 橙片基：三通道密度天然不等
+    d3 = -0.05 + 1.05 * rng.random((160, 160, 3))  # 含"比片基还亮"的负密度尾
+    t = base[None, None, :] * np.power(10.0, -d3)
+    old = _tech(t, base)
+    a = _anchor(old)
+    assert a is not None
+    s = picture_density(old, 2.0)
+    frac = float((s <= a[0]).mean())
+    assert abs(frac - P_LOW / 100.0) < 0.01, (
+        f"锚点在自己的域里只咬住 {frac:.3%} 的像素，名义 p5={P_LOW}")
+    new, info = apply_print_remap(
+        InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
+    assert info is not None
+    dark = float((np.clip(new.positive_linear, 0, 1)[..., :3] @ _LUM <= 1e-4).mean())
+    assert dark >= 0.8 * frac, f"印到黑的只有 {dark:.3%}，锚点没落到黑"
+
+
+def test_wrong_domain_is_only_demonstrable_on_real_frames():
+    """**负控制的位置说明**：合成帧里两个域几乎重合（实测咬合率 5.86% 对 5%），
+    所以"域错配到底有多大"只能在真实底片上量——放在
+    `tests/regression/test_print_anchor_domain.py`，那条才是这条锁的反向守门人。
+    这里保留一条**合成帧必须能算出锚点**的下界，否则上面那条正锁没有检验对象。
+    """
+    rng = np.random.default_rng(7)
+    base = np.array([0.28, 0.11, 0.031])
+    d3 = -0.05 + 1.05 * rng.random((160, 160, 3))
+    t = base[None, None, :] * np.power(10.0, -d3)
+    old = _tech(t, base)
+    assert _anchor(old) is not None
+    dl = -np.log10(np.clip(t, 1e-6, None) / base[None, None, :]) @ _LUM
+    lo_old = float(np.percentile(dl.ravel(), P_LOW))
+    frac_old = float((picture_density(old, 2.0) <= lo_old).mean())
+    assert abs(frac_old - P_LOW / 100.0) < 0.01, (
+        f"合成帧的两域偏差 {frac_old:.3%} 已经变大了，本条说明需要重写")
+    assert float((picture_density(old, 2.0) < 0.0).mean()) == 0.0, (
+        "反解域不该出现负密度：0 截断正是两域错配的来源")
 
 
 def test_chroma_ratios_are_preserved_bit_for_bit():
@@ -70,9 +130,9 @@ def test_chroma_ratios_are_preserved_bit_for_bit():
     base = np.array([0.28, 0.11, 0.031])
     d = 0.15 + 1.0 * rng.random((120, 120))
     t = base[None, None, :] * np.power(10.0, -d)[..., None]
-    a = density_anchor(positive_density(t, base))
+    old = _tech(t, base)
+    a = _anchor(old)
     assert a is not None
-    old = invert(t, InvertParams(dmin=tuple(base), dmax=2.0)).positive_linear
     new, info = apply_print_remap(
         InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
     assert info is not None
@@ -97,8 +157,9 @@ def test_saturation_does_not_run_away_from_the_reference():
     base = np.array([0.28, 0.11, 0.031])
     d = 0.15 + 1.0 * rng.random((120, 120))
     t = base[None, None, :] * np.power(10.0, -d)[..., None]
-    a = density_anchor(positive_density(t, base))
-    old = invert(t, InvertParams(dmin=tuple(base), dmax=2.0)).positive_linear
+    old = _tech(t, base)
+    a = _anchor(old)
+    assert a is not None, "合成帧应当仍有可用锚点，否则这条锁失去检验对象"
     new, info = apply_print_remap(
         InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
     assert info is not None
@@ -111,9 +172,8 @@ def test_saturation_does_not_run_away_from_the_reference():
 
 def test_negative_control_old_path_is_flat_and_bright():
     """**负控制**：不施加时必须更平、中间调更亮，否则"有效"无从判断。"""
-    img = _ramp()
-    a = _anchor(img)
-    old = invert(img, InvertParams(dmin=(0.25,) * 3, dmax=2.0)).positive_linear
+    old = _tech(_ramp())
+    a = _anchor(old)
     new, info = apply_print_remap(
         InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
     lo = float((encode_srgb(old)[..., :3] @ _LUM).std())
@@ -148,18 +208,28 @@ def test_no_anchor_means_untouched():
     assert res is old and info is None
 
 
-@pytest.mark.parametrize("bad", [
-    np.array([np.nan, 0.1, 0.03]), np.array([0.0, 0.1, 0.03]),
-    np.array([-0.2, 0.1, 0.03])])
-def test_non_finite_or_non_positive_base_refuses_to_guess(bad):
-    """片基非法（回退 generic_prior 的帧）⇒ 不算分位数，不套曲线。"""
-    assert positive_density(_ramp(), bad) is None
+@pytest.mark.parametrize("bad", [np.nan, 0.0, -1.0])
+def test_invalid_dmax_refuses_to_guess(bad):
+    """曝光尺度非法 ⇒ 反解不出密度，不算分位数，不套曲线。
+
+    原来这条锁的是"片基非法（回退 generic_prior 的帧）"；锚点改从**要被重映射
+    的那个数组**取之后，片基不再是取样输入，所以那份保护转移到了这里——
+    剩下的真实输入只有 `dmax` 与数组本身。
+    """
+    assert picture_density(_tech(_ramp()), bad) is None
+
+
+def test_non_finite_positive_or_wrong_shape_refuses():
+    """整帧非有限（解码/平场出过错）或维度不对 ⇒ 取样 None，而不是抛错。"""
+    x = np.full((16, 16, 3), np.nan, np.float32)
+    assert picture_density(x, 2.0) is None
+    assert picture_density(np.zeros((16, 16), np.float32), 2.0) is None
 
 
 def test_thin_negative_is_rejected():
     """密度跨度 < MIN_SPAN 时三点曲线近乎阶跃，必须拒绝。"""
     tight = np.full((64, 64, 3), 0.25) * (1.0 + 1e-5 * np.arange(64)[:, None, None])
-    assert density_anchor(positive_density(tight, np.full(3, 0.25))) is None
+    assert density_anchor(picture_density(_tech(tight), 2.0)) is None
     assert MIN_SPAN > 0
 
 
@@ -175,9 +245,8 @@ def test_dark_pixels_are_not_divided_by_zero():
 
 def test_preview_field_matches_the_remapped_positive():
     """`preview_srgb` 必须与新正片一致——否则预览和导出会分叉。"""
-    img = _ramp()
-    old = invert(img, InvertParams(dmin=(0.25,) * 3, dmax=2.0))
-    out, info = apply_print_remap(old, _anchor(img), 2.0)
+    old = invert(_ramp(), InvertParams(dmin=(0.25,) * 3, dmax=2.0))
+    out, info = apply_print_remap(old, _anchor(old.positive_linear), 2.0)
     assert info is not None
     assert np.allclose(out.preview_srgb, encode_srgb(out.positive_linear), atol=1e-6)
     assert out.diagnostics == old.diagnostics
@@ -196,9 +265,9 @@ def test_remap_introduces_no_new_highlight_clipping():
     d = 0.05 + 0.9 * rng.random((120, 120))
     t = base[None, None, :] * np.power(10.0, -d)[..., None]
     t[:40, :, 2] *= 2.6                      # 人造"比亮度更亮的 B 通道"高光
-    a = density_anchor(positive_density(np.clip(t, 0, None), base))
-    assert a is not None
     old = invert(np.clip(t, 0, None), InvertParams(dmin=tuple(base), dmax=2.0))
+    a = _anchor(old.positive_linear)
+    assert a is not None
     new, info = apply_print_remap(old, a, 2.0)
     assert info is not None
     y = new.positive_linear[..., :3]
@@ -253,6 +322,61 @@ def test_chroma_gain_lifts_saturation_without_breaking_the_ceiling():
     assert s_on > s_off * 1.2, f"色度增益没起作用：{s_off:.3f} → {s_on:.3f}"
     assert float(on[..., :3].max()) <= PRINT_WHITE + 1e-6, "色度放大顶破了相纸天花板"
     assert float((on >= 1.0 - 1e-6).any(axis=2).mean()) < 0.005, "堆在 1.0 的像素过多"
+
+
+def test_centre_region_ignores_rebate_padding():
+    """取样区由**画面区包围盒**决定 ⇒ "保留片边"改变数组尺寸也不能移动它。
+
+    这是 v5 §11.1（保留片边不得改变画面统计）在美学层的对应物：
+    如果中心框按**数组**中心算，加一圈片边就会把黑点挪走，
+    同一帧的印相决定就随开关漂移。
+    """
+    small = np.ones((100, 140), bool)
+    r_small = centre_region(small)
+    big = np.zeros((190, 270), bool)
+    big[30:130, 60:200] = small                      # 等效于保留片边/不同裁切
+    r_big = centre_region(big)
+    assert np.array_equal(r_big[30:130, 60:200], r_small), (
+        "加了一圈片边之后取样区挪位了")
+    assert r_big.sum() == r_small.sum()
+
+
+def test_centre_region_is_subset_and_keeps_area():
+    m = np.zeros((200, 300), bool)
+    m[20:120, 40:190] = True                          # 包围盒 100x150
+    r = centre_region(m)
+    assert (r & ~m).sum() == 0, "取样区跑到画面区外"
+    want = 0.70 * 100 * 0.70 * 150
+    assert abs(int(r.sum()) - want) <= 2 * (100 + 150), (
+        f"中心区面积 {int(r.sum())} 与包围盒的 70%²={want:.0f} 差太远")
+
+
+def test_centre_region_without_mask_and_tiny_bbox():
+    """无掩膜时用给定形状取中心；包围盒小到不能再切时**原样返回**而不是给空集。"""
+    r = centre_region(None, shape=(100, 200))
+    assert r is not None and r.shape == (100, 200)
+    assert abs(int(r.sum()) - 70 * 140) <= 2 * (100 + 200)
+    tiny = np.zeros((40, 40), bool)
+    tiny[10:11, 5:40] = True                          # 包围盒高 1px：不能再切
+    assert np.array_equal(centre_region(tiny), tiny), "退化包围盒不该把取样区清空"
+    thin = np.zeros((40, 40), bool)
+    thin[10:12, 5:7] = True                           # 2x2：同样原样返回
+    assert np.array_equal(centre_region(thin), thin)
+
+
+def test_refusal_reason_states_the_measured_cause():
+    """被拒必须**说得出是哪一个闸**，且健康样本要闭嘴（负控制）。"""
+    assert "像素不足" in anchor_refusal_reason(np.zeros(10, np.float64))
+    assert anchor_refusal_reason(None)
+    flat = np.full(4096, 0.5, np.float64)
+    assert "跨度" in anchor_refusal_reason(flat)
+    # 负控制：跨度、次序、斜率都合法 ⇒ 空串（不许把这条路当装饰）
+    ok = np.concatenate([np.full(2048, 0.05), np.full(2048, 1.05)])
+    assert anchor_refusal_reason(ok) == ""
+    # 次序退化（mid == lo）
+    assert "次序不成立" in anchor_refusal_reason(
+        np.concatenate([np.full(2048, 0.5), np.full(2048, 0.5),
+                        np.full(2048, 1.0)]))
 
 
 def test_degenerate_curve_is_refused_before_any_work():

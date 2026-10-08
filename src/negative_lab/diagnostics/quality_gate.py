@@ -78,6 +78,7 @@ class QualityGate:
                  crop_confidence: float = 1.0,
                  fingerprint_confidence: float = 1.0,
                  scene_flags: dict | None = None,
+                 extra_review_reasons: list[str] | None = None,
                  saturation_p90_ratio: float = 0.75,
                  clip_warn_frac: float = CLIP_WARN_FRAC,
                  clip_fail_frac: float = CLIP_FAIL_FRAC) -> "QualityGate":
@@ -210,6 +211,11 @@ class QualityGate:
             crop_confidence=crop_confidence,
             fingerprint_confidence=fingerprint_confidence,
             scene_flags=scene_flags or {})
+        # 调用方发现的"这一帧需要人决定"的事（例如自动打印尺度无法施加）。
+        # 必须由门禁自己合并，不能在 service 里事后 append：status 就在这里派生。
+        for r in (extra_review_reasons or []):
+            if r and r not in g.review_reasons:
+                g.review_reasons.append(r)
 
         # ---- 状态优先级：fail > needs_review > warn > ok
         if g.failures:
