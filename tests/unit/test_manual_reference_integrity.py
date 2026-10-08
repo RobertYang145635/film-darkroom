@@ -65,23 +65,23 @@ def test_mapping_shape_is_self_consistent():
     assert len(frames) == 11, f"参考应有 11 张，实得 {len(frames)}"
     files = [e["reference_file"] for e in frames]
     assert len(set(files)) == len(files), "同一张图被登记了两次"
-    # 11 张图对应 **9 个帧**：G200-2 与 G200-7 各有两个版本（用户自己出的第二版），
-    # 所以 frame_id 允许重复，但重复**只能**以 variant_of 的形式出现。
-    # （第一版期望写成"frame_id 唯一"，被这条锁当场判红——**错的是期望不是实现**，
-    #  按"主帧唯一 + 变体必须指名主帧"改严，而不是放宽成不查。）
+    ids = [e["frame_id"] for e in frames]
+    assert len(set(ids)) == len(ids), (
+        f"两张参考指向同一帧：{[i for i in set(ids) if ids.count(i) > 1]}——"
+        "一张手工成品只可能对应一张底片")
+    # ⚠ 这里**原来**断言"文件名 stem 必须等于 frame_id 的帧号"，
+    # 而那条断言正是错配的来源：用户的文件名是他自己起的，
+    # `1298_G200` 与 `1299_G200` 又**同名**（都有 G200-1…G200-11），
+    # 按名字对齐就把 1299 的三帧配到了 1298。
+    # 配对现在由**内容**决定（肉眼比对，见 test_the_three_cross_roll_mismatches…），
+    # 结构上只要求"卷名与 nef 路径一致 + 帧在清单里"，不再要求名字相等。
     mains = [e for e in frames if not e["variant_of"]]
-    assert len(mains) == 9, f"主帧参考应 9 张，实得 {len(mains)}"
-    assert len({e["frame_id"] for e in mains}) == len(mains), "两个主帧指向同一帧"
+    assert len(mains) == 11, f"11 张各对应一帧，实得主帧 {len(mains)}"
     for e in frames:
         stem = pathlib.Path(e["reference_file"]).stem
         if e["variant_of"]:
-            assert e["variant_of"] == e["frame_id"].split("::")[1], (
-                f"{stem}: 变体指向的帧与 frame_id 不一致")
-            assert stem == f"{e['variant_of']}-2", (
-                f"{stem}: 变体文件名与它声称的主帧对不上")
-        else:
-            assert stem == e["frame_id"].split("::")[1], (
-                f"{stem}: 主帧文件名与 frame_id 对不上")
+            assert stem.startswith(f"{e['variant_of']}-"), (
+                f"{stem}: 变体文件名应以它声称的主帧开头")
     for e in frames:
         assert len(e["reference_sha256"]) == 64 and e["reference_bytes"] > 1_000_000, (
             f"{e['frame_id']} 的哈希/字节数不像真实成品：{e['reference_sha256'][:12]}")
@@ -132,3 +132,57 @@ def test_target_is_darker_and_more_contrasty_than_the_current_output():
             "这不像是去掉色罩的成品，目标本身可疑")
         assert s["luma_std"] > 0.10, (
             f"{e['frame_id']} 对比 std={s['luma_std']} 过低，同上")
+
+
+def test_pairing_is_structurally_consistent():
+    """**锁**：`frame_id` 的卷名必须出现在 `source_nef` 路径里，且该帧在验收清单里存在。
+
+    由来（2026-10-08 实测）：这张表当初是**按文件名**配的
+    （`G200-6.jpg ↔ 1298_G200::G200-6`），而 `1298_G200` 与 `1299_G200`
+    两卷的帧**同名**，于是把 1299 的三帧配到了 1298。
+    后果不是"少一帧数据"而是**目标被换成另一张照片**：
+    1298::G200-6 是河谷，用户的 G200-6 是公路上的白车。
+    这条锁挡不住所有错配（同名同卷仍可能错），但挡得住跨卷错配这一整类。
+    """
+    doc = _doc()
+    man = json.loads((ROOT / "fixtures" / "acceptance" / "manifest.json")
+                     .read_text(encoding="utf-8"))
+    by_id = {f["id"]: f for f in man["frames"]}
+    bad = []
+    for e in doc["frames"]:
+        roll = e["frame_id"].split("::")[0]
+        if f"/{roll}/" not in e["source_nef"]:
+            bad.append(f"{e['reference_file']} 配到 {e['frame_id']}，"
+                       f"但 nef 路径是 {e['source_nef']}")
+        if e["frame_id"] not in by_id:
+            bad.append(f"{e['frame_id']} 不在验收清单里")
+    assert not bad, "参考图配对与底片不一致：\n  " + "\n  ".join(bad)
+
+
+def test_the_three_cross_roll_mismatches_stay_corrected():
+    """钉住已修正的三条：它们是**肉眼比对内容墙**得出的，不是算法。
+
+    自动特征在这里没有分辨力（灰度相关 G200-1 对自己 0.573、对 G200-2 也 0.573；
+    边缘布局领先只有 0.00~0.08 还把 G200-10 判成 G200-4），
+    所以修正必须显式记录，被改回文件名顺序时要有人负责。
+    """
+    want = {"G200-6.jpg": "1299_G200::G200-6",
+            "G200-2-2.jpg": "1299_G200::G200-2",
+            "G200-7-2.jpg": "1299_G200::G200-7"}
+    got = {e["reference_file"].split("/")[-1]: e for e in _doc()["frames"]}
+    for name, fid in want.items():
+        assert got[name]["frame_id"] == fid, (
+            f"{name} 又配回 {got[name]['frame_id']} 了；它实际是 {fid}"
+            "（两卷帧同名，按文件名配必错）")
+        assert got[name]["variant_of"] is None, (
+            f"{name} 不是任何帧的第二版本，是另一卷的另一帧")
+
+
+def test_pairing_lock_catches_a_fabricated_cross_roll_entry():
+    """**负控制**：造一条 1298↔1299 混配的条目，结构锁必须抓到。"""
+    doc = _doc()
+    e = dict(doc["frames"][0])
+    e["frame_id"] = "1298_G200::G200-1"
+    e["source_nef"] = "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-1.NEF"
+    roll = e["frame_id"].split("::")[0]
+    assert f"/{roll}/" not in e["source_nef"], "构造失败：这条样例本身不矛盾"

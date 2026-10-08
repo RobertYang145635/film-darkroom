@@ -79,9 +79,9 @@
       "reference_file": "fixtures/provided/references/G200_manual/G200-2-2.jpg",
       "reference_sha256": "5ac07e3143efa6f5707d55fcdc54d59f3d547a2dde7409b22cee06ec3e2304fe",
       "reference_bytes": 25039882,
-      "frame_id": "1298_G200::G200-2",
-      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-2.NEF",
-      "variant_of": "G200-2",
+      "frame_id": "1299_G200::G200-2",
+      "source_nef": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-2.NEF",
+      "variant_of": null,
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-2.jpg",
       "stats": {
         "luma_mean": 0.6544,
@@ -93,7 +93,8 @@
         "sat_p95": 0.3216,
         "cast_rg_mid": 0.8591,
         "cast_bg_mid": 0.9889
-      }
+      },
+      "pairing": "2026-10-08 逐张肉眼比对内容墙修正（原先按文件名配，而 1298/1299 两卷帧同名）"
     },
     {
       "reference_file": "fixtures/provided/references/G200_manual/G200-2.jpg",
@@ -139,8 +140,8 @@
       "reference_file": "fixtures/provided/references/G200_manual/G200-6.jpg",
       "reference_sha256": "d1bffc9dbe622c1358c7a490ae590ec0df2a0005a92ec650fae7e5a01d41f942",
       "reference_bytes": 18308974,
-      "frame_id": "1298_G200::G200-6",
-      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-6.NEF",
+      "frame_id": "1299_G200::G200-6",
+      "source_nef": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-6.NEF",
       "variant_of": null,
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-6.jpg",
       "stats": {
@@ -153,15 +154,16 @@
         "sat_p95": 0.4353,
         "cast_rg_mid": 0.8871,
         "cast_bg_mid": 1.0706
-      }
+      },
+      "pairing": "2026-10-08 逐张肉眼比对内容墙修正（原先按文件名配，而 1298/1299 两卷帧同名）"
     },
     {
       "reference_file": "fixtures/provided/references/G200_manual/G200-7-2.jpg",
       "reference_sha256": "aacf8f5745303cd2ceb89093dc9906a65669d8d4276182d24b2be46f607309da",
       "reference_bytes": 21193960,
-      "frame_id": "1298_G200::G200-7",
-      "source_nef": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-7.NEF",
-      "variant_of": "G200-7",
+      "frame_id": "1299_G200::G200-7",
+      "source_nef": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-7.NEF",
+      "variant_of": null,
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-7.jpg",
       "stats": {
         "luma_mean": 0.7111,
@@ -173,7 +175,8 @@
         "sat_p95": 0.3569,
         "cast_rg_mid": 0.9507,
         "cast_bg_mid": 1.0151
-      }
+      },
+      "pairing": "2026-10-08 逐张肉眼比对内容墙修正（原先按文件名配，而 1298/1299 两卷帧同名）"
     },
     {
       "reference_file": "fixtures/provided/references/G200_manual/G200-7.jpg",
