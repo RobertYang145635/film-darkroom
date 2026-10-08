@@ -25,7 +25,8 @@ import pytest
 
 from negative_lab.pipeline.density import InvertResult, encode_srgb, invert
 from negative_lab.pipeline.params import InvertParams
-from negative_lab.pipeline.print_scale import (MIN_SPAN, P_LOW, PRINT_AIM, PRINT_WHITE,
+from negative_lab.pipeline.print_scale import (MIN_SPAN, P_HIGH, P_LOW, P_MID,
+                                               PRINT_AIM, PRINT_WHITE,
                                                anchor_refusal_reason, apply_print_remap,
                                                centre_region, density_anchor,
                                                picture_density, print_curve,
@@ -54,7 +55,12 @@ def _anchor(positive: np.ndarray, dmax: float = 2.0):
 
 # ------------------------------------------------- 闭式落点（本模块的承诺）
 def test_anchors_land_on_the_paper_scale():
-    """画面密度的 p5/p50/p95 必须分别印到 0 / AIM / WHITE。
+    """画面密度的 `P_LOW/P_MID/P_HIGH` 三个分位必须分别印到 0 / AIM / WHITE。
+
+    分位写的是**常数本身**而不是 5/50/95 字面量：`P_LOW` 与 `P_MID`
+    都对着用户手工参考改过（5→2、50→35，见 `print_math` 的注释与
+    docs/blockers.md B-13 追加①②），写死数字的锁会在改常数时"自己变红"，
+    而那恰好是它最该继续成立的时候。
 
     ⚠ 比较在**线性反射率域**做。我第一版拿显示域去比线性常数，
     看到"实测 0.4625 应为 0.18"以为落点错了——其实是比错了域
@@ -67,7 +73,7 @@ def test_anchors_land_on_the_paper_scale():
         InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
     assert info is not None
     lum = np.clip(new.positive_linear, 0, 1)[..., :3] @ _LUM
-    got = np.percentile(lum, [5, 50, 95])
+    got = np.percentile(lum, [P_LOW, P_MID, P_HIGH])
     want = np.array([0.0, PRINT_AIM, PRINT_WHITE])
     assert np.allclose(got, want, atol=0.03), f"锚点没落准：{np.round(got,4)} vs {want}"
 
@@ -171,17 +177,26 @@ def test_saturation_does_not_run_away_from_the_reference():
 
 
 def test_negative_control_old_path_is_flat_and_bright():
-    """**负控制**：不施加时必须更平、中间调更亮，否则"有效"无从判断。"""
+    """**负控制**：不施加时必须更平、暗部更浮，否则"有效"无从判断。
+
+    原来这条还要求"中间调被压暗"（`mn < mo`）。`P_MID` 从 50 改成 35 之后
+    中间调**本来就该更亮**（把第 35 分位放到相纸中灰，第 50 分位自然在它上面），
+    所以那条断言量的已经不是"打印有没有生效"，而是"中灰放在第几分位"——
+    换成与中灰位置无关的对症量：**趾部必须被压住**（暗部分位变暗，
+    这正是"奶白雾"的量）加上对比必须提升。
+    """
     old = _tech(_ramp())
     a = _anchor(old)
     new, info = apply_print_remap(
         InvertResult(positive_linear=old, preview_srgb=encode_srgb(old)), a, 2.0)
     lo = float((encode_srgb(old)[..., :3] @ _LUM).std())
     ln = float((new.preview_srgb[..., :3] @ _LUM).std())
-    mo = float(np.percentile(encode_srgb(old)[..., :3] @ _LUM, 50))
-    mn = float(np.percentile(new.preview_srgb[..., :3] @ _LUM, 50))
     assert ln > lo, f"对比没提升：{lo:.3f} → {ln:.3f}"
-    assert mn < mo, f"中间调没压回：{mo:.3f} → {mn:.3f}"
+    old_lum = encode_srgb(old)[..., :3] @ _LUM
+    new_lum = new.preview_srgb[..., :3] @ _LUM
+    toe_old = float(np.percentile(old_lum, P_LOW))
+    toe_new = float(np.percentile(new_lum, P_LOW))
+    assert toe_new < toe_old, f"趾部没压住：p{P_LOW} {toe_old:.3f} → {toe_new:.3f}"
 
 
 def test_curve_is_monotone_increasing():
@@ -370,10 +385,16 @@ def test_refusal_reason_states_the_measured_cause():
     assert anchor_refusal_reason(None)
     flat = np.full(4096, 0.5, np.float64)
     assert "跨度" in anchor_refusal_reason(flat)
-    # 负控制：跨度、次序、斜率都合法 ⇒ 空串（不许把这条路当装饰）
-    ok = np.concatenate([np.full(2048, 0.05), np.full(2048, 1.05)])
-    assert anchor_refusal_reason(ok) == ""
-    # 次序退化（mid == lo）
+    # 负控制：跨度、次序、斜率都合法 ⇒ 空串（不许把这条路当装饰）。
+    # 样本必须是**三分位都落在不同簇**的健康分布：旧版用 50/50 双峰就够了，
+    # 但 `P_MID` 从 50 改成 35 之后，双峰样本的 p35 会掉进暗簇，
+    # 它**真的**退化了（见下面"次序退化"的第一例），不能再当健康样本用。
+    ok = np.concatenate([np.full(205, 0.05), np.full(1638, 0.60),
+                         np.full(2253, 1.05)])
+    assert anchor_refusal_reason(ok) == "", anchor_refusal_reason(ok)
+    # 次序退化：暗簇占 40% ⇒ p2 与 p35 都落在暗簇里（跨度合法、次序不合法）
+    assert "次序不成立" in anchor_refusal_reason(
+        np.concatenate([np.full(1600, 0.05), np.full(2496, 1.05)]))
     assert "次序不成立" in anchor_refusal_reason(
         np.concatenate([np.full(2048, 0.5), np.full(2048, 0.5),
                         np.full(2048, 1.0)]))

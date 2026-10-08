@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "profile_id": "6ed56792d96f",
+  "name": "KodakGold200-Z8-userfit",
+  "version": 1,
+  "created_utc": "2026-10-08T21:10:26Z",
+  "modified_utc": "2026-10-08T21:10:34Z",
+  "film_type": "c41_color",
+  "device": "NIKON Z 8",
+  "light_source": "unknown",
+  "base_prior": null,
+  "exponent_prior": {
+    "reference_exponent": 1.0,
+    "red_ratio": 1.0,
+    "blue_ratio": 0.7
+  },
+  "tone_prior": null,
+  "notes": "2026-10-09 由 11 张用户手工成品反解：blue_ratio 0.7 把中间调色度向量差中位 0.0492 降到 0.0407、蓝偏 Δb 从 -0.0288 收到 -0.0092，饱和偏差几乎不变（-0.012 到 -0.018）；留出卷 1299_G200 三帧逐帧都变好（0.0201/0.0197/0.0520 到 0.0170/0.0160/0.0400）。red_ratio 方向实测无效：1.3/1.6/2.0 时 Δb 只从 -0.0288 动到 -0.0260/-0.0232/-0.0220，而饱和偏差崩到 -0.070/-0.105/-0.120。旧的学习值（red 1.1702 / blue 1.0556）方向相反，只让向量差从 0.0492 到 0.0482，却把饱和偏差压到 -0.047。**只对 Gold 200 有效，不得自动套到别的卷**：1298_G200 / 1299_G200 / 1300_CN400 三卷共用同一个 capture_fingerprint（同一台 Z 8 同一组参数），按指纹自动匹配会把 Gold200 的口味套到 CN400 上。"
+}
