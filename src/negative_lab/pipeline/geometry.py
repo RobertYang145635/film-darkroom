@@ -44,6 +44,66 @@ def mirror_h(arr: np.ndarray) -> np.ndarray:
     return np.ascontiguousarray(arr[:, ::-1, ...])
 
 
+#: **35mm 单格画框必然宽>高**（齿孔在长边上，画框 36×24）。翻拍时片带可以横躺在
+#: 相机画布里，这时量出来的画框是**高>宽**——那不是构图，是没回正。
+#: 实测 `1299_G200` 用户亲手框出的 11 帧画框全是 5940~6012 高 × 4800~4854 宽
+#: （解码画布 8280 高 × 5520 宽，竖幅），而他一侧的手工成品是 6144×5295 一类横幅。
+#: 补转的方向取**逆时针 270°（= 逆时针 90°）**：几何只断定"必须转 90/270"，
+#: 断定不了往哪边转，所以拿他那三张 1299 参考图当目标实测——
+#: 5 个网格 × 3 个中心裁切共 15 个窗口，三帧**每一格都指向逆时针**
+#: （lead(CW−CCW) 的 min −1.210 / −0.566 / −0.192，中位 −1.630 / −0.825 / −0.254；
+#: 探针 `tmp_orientation_sign2.py`）。
+#:
+#: **这个数上一版是 90（顺时针），被看图当场推翻。** 错在量法不在几何：
+#: 旧探针的 `layout()` 无条件做 `255−g`（源数组是负片，确实该反相），
+#: 可他手工做的参考图是**正片**，一起反相等于拿"我方正片 vs 他的负片"比亮度布局，
+#: 相关符号整体翻转 ⇒ 15 个窗口"高度一致"地指向一个把画面转成**上下颠倒**的角度，
+#: 而 `outputs/ref_look_probe/all11_annotated.jpg` 上 1299 三帧一眼就是倒的。
+#: 教训：**窗口自检只回答"换个取样窗口结论会不会翻"，它查不出"两边的极性对不对"**；
+#: 极性这类错只能靠看图，或靠一个已知正立的参照物来抓。
+#: 方向仍然逐帧可推翻：规则改过的帧一定带复核提示，他一键就能翻 180°。
+SIDEWAYS_FRAME_ROTATION = 270
+
+
+def frame_output_is_portrait(image_area_source, rotation_degrees: int) -> bool | None:
+    """按 SOURCE 空间画框 + 整数旋转，判断**输出**里的画框是不是高>宽。
+
+    0/180 保持画框纵横，90/270 交换它。画框缺失或正方时返回 None（无从判定）。
+    """
+    if not image_area_source:
+        return None
+    y0, x0, y1, x1 = (int(v) for v in image_area_source)
+    h, w = y1 - y0, x1 - x0
+    if h <= 0 or w <= 0 or h == w:
+        return None
+    if rotation_degrees in (90, 270):
+        h, w = w, h
+    return h > w
+
+
+def sideways_correction(image_area_source, rotation_degrees: int) -> int:
+    """画框在输出里仍是竖幅时返回**还需要补的**角度，否则 0。
+
+    只回答"要不要转 90°"这一件事（几何事实），不回答"往哪边转"（约定，
+    见 `SIDEWAYS_FRAME_ROTATION` 的实测出处与被看图推翻的经过）。
+    """
+    return SIDEWAYS_FRAME_ROTATION if frame_output_is_portrait(
+        image_area_source, rotation_degrees) else 0
+
+
+def rotate_step(image_area_source, delta: int) -> int:
+    """旋转按钮该转多少度：片带横躺的帧，一次按键翻 **180°** 而不是 90°。
+
+    还是那条几何事实：源画框高>宽（片带横躺）时，从横幅再转 90° 必定得到竖幅，
+    而 35mm 单格不存在竖幅 ⇒ 那一按要么被规则立刻补回去（看起来什么都没发生），
+    要么把他带进物理上不可能的状态。所以这种帧上 ±90 的按键执行
+    "在两个合法横幅之间翻面"的 180°；画框本来就是横的（正常扫描）时按键语义不变。
+    """
+    if delta in (90, 270) and frame_output_is_portrait(image_area_source, 0):
+        return (2 * delta) % 360
+    return delta
+
+
 def oriented_shape(src_h: int, src_w: int, deg: int,
                    mirror: bool = False) -> tuple[int, int]:
     """整数旋转/镜像后的画布尺寸（细微旋转不改变画布尺寸）。"""

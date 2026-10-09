@@ -26,7 +26,7 @@ from ..library.session import (import_session, make_frame_record,
 from ..pipeline.roll_analysis import analyze_roll
 from .state_store import (IMPORT_PROBE, MAX_PREVIEW_DIM, _CANVAS_STALE,
                           _abs, _geometry_for_job, _geometry_from_annotation,
-                          _unscale_geometry, ui_process_image)
+                          _unscale_geometry, adopted_rotation, ui_process_image)
 
 
 class FrameLoaderMixin:
@@ -300,11 +300,13 @@ class FrameLoaderMixin:
                                         self.t_source.shape[:2],
                                         self._small.shape[:2])
             rec.geometry = GeometryRegions(
-                rotation_degrees=rec.geometry.rotation_degrees,
+                rotation_degrees=adopted_rotation(
+                    self.pr, rec.geometry.rotation_degrees),
                 fine_rotation_degrees=rec.geometry.fine_rotation_degrees,
                 mirror_horizontal=rec.geometry.mirror_horizontal,
                 output_crop_roi=src_geo.get("output_crop_roi"),
                 image_area_roi=src_geo.get("image_area_roi"),
+                image_area_auto=bool(src_geo.get("image_area_auto")),
                 base_sample_rois=src_geo.get("base_sample_rois") or [])
             self._save_draft_annotation(rec, quiet=True)
         self._draft_touched = rec.geometry.is_complete()

@@ -90,6 +90,13 @@ def _geometry_from_annotation(ann: Annotation) -> GeometryRegions:
         mirror_horizontal=bool(getattr(ann, "mirror_horizontal", False)),
         output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
         image_area_roi=ann.image_area_roi,
+        #: B-14 的信任边界：**没被用户签字过的画框不驱动方向规则**。
+        #: `state_store` 自己的规矩就是"只有 `verified_by == user` 才算签字"，
+        #: 而自动检测种回的草稿正是 draft（`1298_G200::G200-1` 那份 legacy
+        #: `frame_roi` 迁移过来的草稿 `needs_reconfirm=True`，实测纵横也是竖的——
+        #: 拿它去补转就是把一个待确认的草稿当裁决）。
+        #: 代价写在交接里：他画了框但没点"确认"的帧，这条规则不会生效。
+        image_area_auto=not bool(getattr(ann, "verified", False)),
         base_sample_rois=list(ann.base_sample_rois or []))
 
 
@@ -121,6 +128,38 @@ def _as_roi(v):
         return None
 
 
+def adopted_rotation(pr, requested_degrees: int) -> int:
+    """记录里该存的旋转角度：几何规则补转过时存**生效角度**，否则存请求角度。
+
+    B-14 的 `geometry-rule` 会把竖画框顺时针补 90°，但调用方传进来的
+    `rotation_degrees` 还是 0°。记录若继续存 0°，他按下"旋转"键算的是 `0+90=90`——
+    画面本来就已经在 90°，**第一次按下看起来什么都没发生**，第二下才翻。
+    按钮必须转他看见的那张，所以这里把生效角度落回记录。
+    """
+    if pr is not None and (getattr(pr, "roi_provenance", None) or {}).get(
+            "orientation") == "geometry-rule":
+        return int(getattr(pr.geometry, "rotation_degrees", requested_degrees))
+    return int(requested_degrees)
+
+
+def rotation_stale_regions(prov: dict | None) -> tuple[bool, bool, bool]:
+    """按下旋转键之后该丢掉哪几类区域，返回 `(output_crop, image_area, base)`。
+
+    **只有自动检测给出的才该丢**：用户/标注亲手画的框存在 **SOURCE 空间**，
+    旋转只是把画布转过来看，胶片在画布里的位置没变，框也就没失效。
+    旧实现三类一起清空，代价是把他亲手画的片基框一起丢了
+    （`1299_G200` 十一帧的片基框全是他画的，B-13 追加① 量过那 0.4 decade 的差），
+    顺带把几何规则的依据也清掉了——下一帧就没有可信画框，竖片又回来。
+    """
+    p = prov or {}
+
+    def auto(key: str) -> bool:
+        return str(p.get(key) or "").startswith("auto")
+
+    area = auto("image_area")
+    return (auto("output_crop") or area, area, auto("base"))
+
+
 def _unscale_geometry(rss: dict, src_shape, small_shape) -> dict:
     """service 的 roi_source_space（small 空间坐标）-> SOURCE 全分辨率。
 
@@ -140,6 +179,9 @@ def _unscale_geometry(rss: dict, src_shape, small_shape) -> dict:
     return {
         "output_crop_roi": up(rss.get("output_crop_roi")),
         "image_area_roi": up(rss.get("image_area_roi")),
+        #: 种回草稿时必须带上"这个画框是自动检测给的"，否则它在下一轮
+        #: `process_image(geometry=...)` 里就再也分不清是不是用户画的（B-14）。
+        "image_area_auto": bool(rss.get("image_area_auto", False)),
         "base_sample_rois": [r for r in (up(x) for x in
                                          (rss.get("base_sample_rois") or []))
                              if r],

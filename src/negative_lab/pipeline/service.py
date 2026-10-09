@@ -38,7 +38,7 @@ from .auto import AutoReport, auto_analyze
 from .candidates import build_candidates
 from .density import InvertResult, invert_chunked, preclip_ratios
 from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
-                       clamp_roi)
+                       clamp_roi, frame_output_is_portrait, sideways_correction)
 from .model_assets import deterministic_asset
 from .params import InvertParams
 from .print_scale import (LOOK_CHROMA_GAIN, anchor_refusal_reason, centre_region,
@@ -182,6 +182,7 @@ def _auto_fill_rois(oriented: np.ndarray, geo: GeometryRegions,
 
     if geo.image_area_roi is None and det.get("image_area"):
         geo.image_area_roi = to_src(det["image_area"])
+        geo.image_area_auto = True
         prov["image_area"] = "auto"
     if geo.base_sample_rois == [] and det.get("base"):
         from ..calibration.border import refine_base_roi
@@ -210,6 +211,46 @@ def _auto_fill_rois(oriented: np.ndarray, geo: GeometryRegions,
 
 
 # ------------------------------------------------------------------ 单帧处理
+def _upright_rotation(geo_in: GeometryRegions, ann: Annotation | None,
+                      rotation_degrees: int,
+                      orientation_decided: bool | None) -> tuple[int, tuple | None, str]:
+    """按 **35mm 单格画框必然宽>高** 决定要不要补 90°，并说清依据的是哪个画框。
+
+    返回 `(补转角度, 依据画框, 画框来源)`。**只有用户/标注亲手框出的画框能触发它**，
+    这不是保守，是两条当场实测：
+
+    1. 用户框的纵横就是胶片在画布里的真实纵横：`1299_G200` 他亲手框的 11 帧全是
+       5958 高 × 4818 宽这一类，而他一侧的手改成品是 6144×5295 横幅——
+       这正是用户点名的竖片，也是"逆时针 270°"那个约定唯一被测过的地方
+       （它上一版是顺时针，被并排表推翻，见 `SIDEWAYS_FRAME_ROTATION` 的注释）。
+    2. 自动检测框的纵横**在这个语料上是坏的**，坏的方向还不唯一：
+       它把左右窄片边算进画面（9/11 帧 IoU 0.683~0.918，
+       `test_reference_quality.py::AUTO_CROP_GAP`，`::G200-10` 自动框 4477 高 × 5445 宽
+       而同一帧用户框是 5988 × 4836 竖的），而在合成帧上它能把一幅**横向**渐变
+       量成竖向框（`tests/unit/test_orientation_review.py` 的 `_frame(96,128)` 实测
+       被本规则补转过——像素改了、三条既有方向锁一起变红）。
+       所以自动框只用来**说话**（`portrait_now` 那条存疑提示），不用来改方向。
+    3. 他自己转过角度就不推翻（`orientation_decided is True` 且角度非 0）：
+       那样这一帧的纵横矛盾由他负责，软件必须说出来但不静默代转。
+       注意"有标注"不等于"转过"：`frame_loader` 给有标注的帧一律 decided=True，
+       而 `1299_G200` 的框全是在 `rot=0` 下画的，所以 `rot==0` 的 decided
+       不算"方向已由人工定死"。
+    """
+    rot = geo_in.rotation_degrees or rotation_degrees
+    if geo_in.image_area_roi and not geo_in.image_area_auto:
+        area, origin = tuple(geo_in.image_area_roi), "用户几何"
+    elif ann is not None and ann.image_area_roi and getattr(ann, "verified", False):
+        #: 只有他签过字的标注才算人工框：`state_store` 的规则是
+        #: "任何声明 verified 但来源不是 user 的记录一律降级 draft"，
+        #: 而自动检测种回的草稿是 draft ⇒ 不许用它决定方向。
+        area, origin = tuple(ann.image_area_roi), "标注(verified)"
+    else:
+        return 0, None, "none"
+    if orientation_decided is True and rot != 0:
+        return 0, area, origin
+    return sideways_correction(area, rot), area, origin
+
+
 def process_image(t_source: np.ndarray, *,
                   geometry: GeometryRegions | None = None,
                   rotation_degrees: int = 0,
@@ -269,6 +310,14 @@ def process_image(t_source: np.ndarray, *,
         output_crop_roi=legacy_crop, image_area_roi=legacy_area,
         base_sample_rois=legacy_base)
     geo_in = GeometryRegions.from_dict(geo_in.to_dict())      # 深拷贝
+
+    # ---- 1b) 35mm 单格画框必然宽>高（B-14）：片带横躺在画布里时输出必定是竖片。
+    # 几何规则只断定"必须转 90°/270°"，顺/逆是实测约定且逐帧可推翻（见 _upright_rotation）。
+    upright_add, upright_area, upright_from = _upright_rotation(
+        geo_in, ann, rotation_degrees, orientation_decided)
+    if upright_add:
+        geo_in.rotation_degrees = ((geo_in.rotation_degrees or rotation_degrees)
+                                   + upright_add) % 360
     tr = OrientTransform((sh, sw), geo_in.rotation_degrees or rotation_degrees,
                          geo_in.mirror_horizontal, geo_in.fine_rotation_degrees)
 
@@ -293,10 +342,26 @@ def process_image(t_source: np.ndarray, *,
     # "看过、确认就是 0°"和"从没决定过的默认值"，像素完全一样，只有这个字段能分开。
     # 与用户手工参考对照实测：决定过的帧内容相关领先 0.35~0.46，
     # 默认帧肉眼可见地差 90°/180°。软件不猜方向，但必须说出"没决定过"。
-    prov["orientation"] = ("unstated" if orientation_decided is None
-                           else "decided" if orientation_decided else "unconfirmed")
+    # B-14 在这条之上再加一层，且**只在可信画框上说话**：几何规则补转过 ⇒ 来源写
+    # `geometry-rule` 并交代依据的框；他亲手定下的方向仍然造成"高>宽的 35mm 单格"
+    # 这种物理矛盾 ⇒ 不代转但必须报存疑。自动检测框不参与这两种判断（它的纵横本身是坏的）。
+    portrait_now = (upright_area is not None and not upright_add
+                    and frame_output_is_portrait(upright_area, tr.rotation_degrees))
+    if upright_add:
+        prov["orientation"] = "geometry-rule"
+        prov["orientation_basis"] = {
+            "image_area_source": [int(v) for v in upright_area],
+            "frame_height_width": [int(upright_area[2] - upright_area[0]),
+                                   int(upright_area[3] - upright_area[1])],
+            "rotation_added": int(upright_add),
+            "rotation_applied": int(tr.rotation_degrees),
+            "area_source": upright_from,
+            "requested_by_caller": bool(orientation_decided is True)}
+    else:
+        prov["orientation"] = ("unstated" if orientation_decided is None
+                               else "decided" if orientation_decided else "unconfirmed")
     orientation_reason = ""
-    if orientation_decided is False:
+    if orientation_decided is False and not upright_add:
         extra = []
         if tr.mirror_horizontal:
             extra.append("水平镜像")
@@ -306,6 +371,21 @@ def process_image(t_source: np.ndarray, *,
         orientation_reason = (
             f"画面方向未经确认（当前按 {int(tr.rotation_degrees)}°{tail} 输出）："
             "请在裁切页确认方向，未确认前这一帧可能是横放或倒置的")
+    if upright_add:
+        ah = int(upright_area[2] - upright_area[0])
+        aw = int(upright_area[3] - upright_area[1])
+        orientation_reason = (
+            f"画面方向由 35mm 画框几何补转 {upright_add}°（{upright_from}给出的画框 "
+            f"{ah}×{aw} 是高>宽，单格 35mm 不可能这样成像；补转后 {aw}×{ah} 横幅）："
+            f"逆时针是对你那三张 1299 参考实测出来的约定、不是几何推论，"
+            f"若这一帧上下颠倒，请在裁切页再转 180°（当前按 {int(tr.rotation_degrees)}° 输出）")
+    elif portrait_now:
+        ah, aw = (int(upright_area[2] - upright_area[0]),
+                  int(upright_area[3] - upright_area[1]))
+        orientation_reason = ((orientation_reason + "；") if orientation_reason else "") + (
+            f"画面方向存疑：{upright_from}给出的画框是 {ah}×{aw}（高>宽），"
+            f"按 {int(tr.rotation_degrees)}° 输出仍然是竖幅，而 35mm 单格不可能这样成像；"
+            "这一帧的方向由人工定过，软件不推翻，请在裁切页确认")
 
     # ORIENTED 空间 ROI（钳制到画布）
     crop_o = tr.bbox_source_to_oriented(geo.output_crop_roi) if geo.output_crop_roi else None
@@ -362,6 +442,9 @@ def process_image(t_source: np.ndarray, *,
     geo_rec.roi_source_space = {
         "output_crop_roi": list(geo.output_crop_roi) if geo.output_crop_roi else None,
         "image_area_roi": list(geo.image_area_roi) if geo.image_area_roi else None,
+        #: 必须跟着回写走：`process_roll` 第二遍与批处理都从这张字典重建 `rec.geometry`，
+        #: 少这一个键，一个自动检测框换个地方就被当成"用户画的框"拿去决定方向（B-14）。
+        "image_area_auto": bool(geo.image_area_auto),
         "base_sample_rois": [list(r) for r in geo.base_sample_rois],
         "rotation_degrees": tr.rotation_degrees,
         "mirror_horizontal": tr.mirror_horizontal,
@@ -369,7 +452,11 @@ def process_image(t_source: np.ndarray, *,
         "coordinate_space": "source",
         "provenance": {k: v for k, v in prov.items()
                        if k in ("output_crop", "image_area", "base",
-                                "auto_confidence")},
+                                "auto_confidence",
+                                #: 方向"是谁决定的"必须落到 sidecar/草稿里（B-12 的三态 +
+                                #: B-14 的第四态 `geometry-rule` 与它的 `orientation_basis`）——
+                                #: 只在 review_reasons 里写一句人话，机器就查不到是谁转的。
+                                "orientation", "orientation_basis")},
     }
     cy0 = crop[0] if crop else 0
     cx0 = crop[1] if crop else 0

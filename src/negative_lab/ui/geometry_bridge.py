@@ -19,12 +19,13 @@ from PySide6.QtCore import QTimer
 
 from ..calibration.annotations import Annotation
 from ..library.models import FrameRecord, FrameStatus, GeometryRegions
-from ..pipeline.geometry import OrientTransform
+from ..pipeline.geometry import OrientTransform, rotate_step
 from . import theme
 from .preview_view import RoiKind
-from .state_store import (MAX_PREVIEW_DIM, _CANVAS_STALE, _frame_status_text,
-                          _geometry_for_job, _qrect, _shape_hw,
-                          _unscale_geometry, ui_process_image)
+from .state_store import (MAX_PREVIEW_DIM, _CANVAS_STALE, adopted_rotation,
+                          _frame_status_text, _geometry_for_job, _qrect,
+                          _shape_hw, _unscale_geometry, rotation_stale_regions,
+                          ui_process_image)
 
 KIND_LABELS = {RoiKind.OUTPUT_CROP: "输出裁切",
                RoiKind.IMAGE_AREA: "有效画面",
@@ -58,11 +59,13 @@ class GeometryBridgeMixin:
                                         self.t_source.shape[:2],
                                         self._small.shape[:2])
             rec.geometry = GeometryRegions(
-                rotation_degrees=rec.geometry.rotation_degrees,
-                fine_rotation_degrees=rec.geometry.fine_rotation_degrees,
-                mirror_horizontal=rec.geometry.mirror_horizontal,
+                rotation_degrees=adopted_rotation(self.pr,
+                                                  geo_snapshot.rotation_degrees),
+                fine_rotation_degrees=geo_snapshot.fine_rotation_degrees,
+                mirror_horizontal=geo_snapshot.mirror_horizontal,
                 output_crop_roi=src_geo.get("output_crop_roi"),
                 image_area_roi=src_geo.get("image_area_roi"),
+                image_area_auto=bool(src_geo.get("image_area_auto")),
                 base_sample_rois=src_geo.get("base_sample_rois") or [])
             self._save_draft_annotation(rec, quiet=True)
         self._show_frame()
@@ -183,11 +186,13 @@ class GeometryBridgeMixin:
                         pr.geometry.roi_source_space,
                         self.t_source.shape[:2], self._small.shape[:2])
                     rec.geometry = GeometryRegions(
-                        rotation_degrees=geo_snapshot.rotation_degrees,
+                        rotation_degrees=adopted_rotation(
+                            pr, geo_snapshot.rotation_degrees),
                         fine_rotation_degrees=geo_snapshot.fine_rotation_degrees,
                         mirror_horizontal=geo_snapshot.mirror_horizontal,
                         output_crop_roi=src_geo.get("output_crop_roi"),
                         image_area_roi=src_geo.get("image_area_roi"),
+                        image_area_auto=bool(src_geo.get("image_area_auto")),
                         base_sample_rois=src_geo.get("base_sample_rois") or [])
                     self._save_draft_annotation(rec, quiet=True)
                 self._set_status(_frame_status_text(rec, pr))
@@ -582,15 +587,32 @@ class GeometryBridgeMixin:
         if self.current is None:
             return
         g = self.current.geometry
-        g.rotation_degrees = (g.rotation_degrees + delta) % 360
+        #: B-14：几何规则（竖画框 ⇒ 逆时针补 270°）可能已经把这帧转过来了。
+        #: 记录里存的必须是**生效角度**，否则第一次按下算的是 `0+90=90`，
+        #: 而画面已经在 90°——他看到的就是一条都没动（用户定的口径：按钮转的是我看到的）。
+        # 片带横躺的帧上，±90 只会转出 35mm 不存在的竖幅，所以一次按键翻 180°
+        # （在两个合法横幅之间来回）；正常横框的帧按键语义不变。
+        trusted_area = (g.image_area_roi
+                        if g.image_area_roi and not g.image_area_auto else None)
+        g.rotation_degrees = ((adopted_rotation(self.pr, g.rotation_degrees)
+                               + rotate_step(trusted_area, delta)) % 360)
         #: B-12：用户按下旋转键就是"方向已决定"，此后不再提示"未经确认"
         self.current.orientation_decided = True
-        g.output_crop_roi = g.image_area_roi = None
-        g.base_sample_rois = []
+        #: 只丢掉自动检测给出的区域；他亲手画的画框/片基框在 SOURCE 空间，不随旋转失效
+        #: （旧实现三类一起清，等于把他为 1299 画的 11 个片基框一次按没，
+        #: 还顺手让几何规则失去依据）。
+        drop_crop, drop_area, drop_base = rotation_stale_regions(
+            getattr(self.pr, "roi_provenance", None))
+        if drop_crop:
+            g.output_crop_roi = None
+        if drop_area:
+            g.image_area_roi = None
+        if drop_base:
+            g.base_sample_rois = []
         self._draft_touched = False
         self._refresh_preview(seed_if_untouched=True)
         self._show_frame()
-        self._set_banner("方向已改变：三类区域重新检测，请确认", "info")
+        self._set_banner("方向已改变：自动检测的区域重新生成，你画的框保持不变", "info")
 
     def _mirror(self):
         if self.current is None:
