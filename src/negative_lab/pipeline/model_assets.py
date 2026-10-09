@@ -113,17 +113,27 @@ class ModelAsset:
 
 
 def deterministic_asset(*, reason: str = "无训练资产：使用确定性密度模型") -> ModelAsset:
-    """经过测试的确定性回退：A=I、无曲线、不改动端点。"""
+    """经过测试的确定性回退：A=I、无曲线、不改动端点。
+
+    **但它不是"什么都不做"**：`blue_ratio` 带产品默认值
+    `print_math.LOOK_BLUE_EXPONENT = 0.7`（对着用户手工成品量出来、留出卷逐帧
+    复验过的蓝通道指数，与 `LOOK_CHROMA_GAIN` 同地位）。矩阵仍是单位阵，
+    所以 `density-affine` 与 `power-reciprocal` 在这里逐比特等价
+    （`tests/unit/test_v4_contracts.py::test_unit_matrix_affine_matches_reciprocal_allclose`）。
+    `reason` 只在**资产被显式禁用**时才有意义，保留给调用方说明来历。
+    """
+    from ..print_math import LOOK_BLUE_EXPONENT
+
     payload = {
         "density_matrix": np.eye(3).tolist(),
         "channel_curves": [None, None, None],
-        "red_ratio": None, "blue_ratio": None,
+        "red_ratio": None, "blue_ratio": LOOK_BLUE_EXPONENT,
         "reference_exponent": None, "dmax": None,
         "disabled_reason": reason,
     }
     return ModelAsset(asset_version="deterministic-fallback-v1",
                       payload=payload, sha256=canonical_hash(payload),
-                      enabled=False,
+                      enabled=True,
                       meta={"kind": "fallback", "note": reason})
 
 

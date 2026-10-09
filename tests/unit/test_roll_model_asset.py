@@ -25,6 +25,7 @@ import ast
 import pathlib
 
 import numpy as np
+import pytest
 
 from negative_lab.library.models import FrameRecord, GeometryRegions
 from negative_lab.pipeline.model_assets import ModelAsset, canonical_hash
@@ -77,14 +78,29 @@ def test_enabled_asset_reaches_every_frame_of_a_roll():
         assert pr.model_asset.get("applied") is True, pr.model_asset
 
 
-def test_default_roll_path_keeps_the_deterministic_backend():
-    """**负控制一**：不传资产 ⇒ 单位阵 + 旧 backend（默认行为没被顺手改掉）。"""
+def test_default_roll_path_uses_the_deterministic_model_with_no_matrix():
+    """**负控制**：不传资产 ⇒ 确定性模型——**单位阵**、无曲线，
+    但带产品默认的蓝通道指数 `LOOK_BLUE_EXPONENT`。
+
+    2026-10-09 之前这条断言的是 `backend=power-reciprocal` 且
+    `model_asset.applied is False`。那一天把用户成品上量出来的蓝指数
+    （0.7，留出卷逐帧复验 + 反向负控制）放进确定性模型，因为默认路径
+    根本不调 `load_asset()`，可选 profile 用户又不会去点——
+    量出来的东西进不了产品就等于没量到。
+    **矩阵必须是单位阵**：跨通道矩阵至今没有一份通过留出证据的版本
+    （无监督去相关那份实测更差，见 B-13 追加①），所以确定性模型只许改指数、
+    不许带矩阵。
+    """
+    from negative_lab.print_math import LOOK_BLUE_EXPONENT
+
     _, results = process_roll(_roll_frames())
     ident = tuple(float(v) for v in np.eye(3).ravel())
     for pr in results:
-        assert pr.backend_name == "power-reciprocal", pr.backend_name
-        assert tuple(float(v) for v in pr.report.params.density_matrix) == ident
-        assert pr.model_asset.get("applied") is False, pr.model_asset
+        assert tuple(float(v) for v in pr.report.params.density_matrix) == ident, (
+            "确定性模型带上了跨通道矩阵——矩阵还没有通过留出的证据，不许进默认")
+        assert pr.report.params.blue_ratio == pytest.approx(LOOK_BLUE_EXPONENT)
+        assert pr.report.params.red_ratio == pytest.approx(1.0)
+        assert pr.model_asset.get("applied") is True
 
 
 def test_disabled_asset_is_not_applied_through_the_roll_path():

@@ -100,12 +100,20 @@ def test_export_keep_rebate_changes_output_size(synth_tiff, tmp_path,
     out_a, out_b = tmp_path / "a", tmp_path / "b"
     rec_a = _frame_for(synth_tiff, keep=False)
     rec_b = _frame_for(synth_tiff, keep=True)
-    r = export_roll_frames([rec_a], out_a, roll_id=None,
-                           tiff_assumption="linear")
-    assert r["ok"] == 1 and r["failed"] == 0, r["items"]
-    r2 = export_roll_frames([rec_b], out_b, roll_id=None,
-                            tiff_assumption="linear")
-    assert r2["ok"] == 1 and r2["failed"] == 0, r2["items"]
+    #: 这里要的是"导出真的跑了、没被挡"，**不是**门禁状态必须是 ok：
+    #: 合成灰度阶梯在 2026-10-09 蓝通道指数进默认之后会触发
+    #: "疑似单色光源，自动中和已降权"的复核提示（`needs_review` 不挡导出，
+    #: 这正是 B-12 那条规则的设计）。把 ok 与 needs_review 都算"跑通"，
+    #: 但 `failed`/`blocked` 必须为零，且图与 sidecar 都必须落盘。
+    def _ran(res):
+        assert res["failed"] == 0 and res["blocked"] == 0, res["items"]
+        assert res["ok"] + res["needs_review"] == 1, res["items"]
+        item = res["items"][0]
+        assert any(str(o).endswith(".tif") for o in item["outputs"]), item
+        assert any(str(o).endswith(".negative.json") for o in item["outputs"]), item
+
+    _ran(export_roll_frames([rec_a], out_a, roll_id=None, tiff_assumption="linear"))
+    _ran(export_roll_frames([rec_b], out_b, roll_id=None, tiff_assumption="linear"))
     ta = tifffile.imread(str(next(out_a.glob("*.tif"))))
     tb = tifffile.imread(str(next(out_b.glob("*.tif"))))
     assert tb.shape[0] > ta.shape[0] or tb.shape[1] > ta.shape[1], \
