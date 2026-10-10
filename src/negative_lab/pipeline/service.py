@@ -311,7 +311,7 @@ def process_image(t_source: np.ndarray, *,
         base_sample_rois=legacy_base)
     geo_in = GeometryRegions.from_dict(geo_in.to_dict())      # 深拷贝
 
-    # ---- 1b) 35mm 单格画框必然宽>高（B-14）：片带横躺在画布里时输出必定是竖片。
+    # ---- 1b) 35mm 单格画框必然宽>高（B-12 追加③）：片带横躺在画布里时输出必定是竖片。
     # 几何规则只断定"必须转 90°/270°"，顺/逆是实测约定且逐帧可推翻（见 _upright_rotation）。
     upright_add, upright_area, upright_from = _upright_rotation(
         geo_in, ann, rotation_degrees, orientation_decided)
@@ -342,7 +342,7 @@ def process_image(t_source: np.ndarray, *,
     # "看过、确认就是 0°"和"从没决定过的默认值"，像素完全一样，只有这个字段能分开。
     # 与用户手工参考对照实测：决定过的帧内容相关领先 0.35~0.46，
     # 默认帧肉眼可见地差 90°/180°。软件不猜方向，但必须说出"没决定过"。
-    # B-14 在这条之上再加一层，且**只在可信画框上说话**：几何规则补转过 ⇒ 来源写
+    # B-12 追加③ 在这条之上再加一层，且**只在可信画框上说话**：几何规则补转过 ⇒ 来源写
     # `geometry-rule` 并交代依据的框；他亲手定下的方向仍然造成"高>宽的 35mm 单格"
     # 这种物理矛盾 ⇒ 不代转但必须报存疑。自动检测框不参与这两种判断（它的纵横本身是坏的）。
     portrait_now = (upright_area is not None and not upright_add
@@ -443,7 +443,7 @@ def process_image(t_source: np.ndarray, *,
         "output_crop_roi": list(geo.output_crop_roi) if geo.output_crop_roi else None,
         "image_area_roi": list(geo.image_area_roi) if geo.image_area_roi else None,
         #: 必须跟着回写走：`process_roll` 第二遍与批处理都从这张字典重建 `rec.geometry`，
-        #: 少这一个键，一个自动检测框换个地方就被当成"用户画的框"拿去决定方向（B-14）。
+        #: 少这一个键，一个自动检测框换个地方就被当成"用户画的框"拿去决定方向（B-12 追加③）。
         "image_area_auto": bool(geo.image_area_auto),
         "base_sample_rois": [list(r) for r in geo.base_sample_rois],
         "rotation_degrees": tr.rotation_degrees,
@@ -454,7 +454,7 @@ def process_image(t_source: np.ndarray, *,
                        if k in ("output_crop", "image_area", "base",
                                 "auto_confidence",
                                 #: 方向"是谁决定的"必须落到 sidecar/草稿里（B-12 的三态 +
-                                #: B-14 的第四态 `geometry-rule` 与它的 `orientation_basis`）——
+                                #: B-12 追加③ 的第四态 `geometry-rule` 与它的 `orientation_basis`）——
                                 #: 只在 review_reasons 里写一句人话，机器就查不到是谁转的。
                                 "orientation", "orientation_basis")},
     }

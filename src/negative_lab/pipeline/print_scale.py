@@ -11,13 +11,15 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..print_math import (LOOK_CHROMA_GAIN, MIN_SPAN, P_HIGH, P_LOW, P_MID,
+from ..print_math import (LOOK_CHROMA_GAIN, LOOK_RED_EXPONENT, MIN_SPAN, P_HIGH,
+                          P_LOW, P_MID,
                           PRINT_AIM, PRINT_WHITE, PRINT_REGION_CENTRE_FRAC,
                           anchor_refusal_reason, centre_region, density_anchor,
                           density_anchor_linear, picture_density, print_curve,
                           print_remap_array, remap_luma)
 
-__all__ = ["LOOK_CHROMA_GAIN", "MIN_SPAN", "P_HIGH", "P_LOW", "P_MID", "PRINT_AIM",
+__all__ = ["LOOK_CHROMA_GAIN", "LOOK_RED_EXPONENT", "MIN_SPAN", "P_HIGH", "P_LOW",
+           "P_MID", "PRINT_AIM",
            "PRINT_WHITE", "PRINT_REGION_CENTRE_FRAC", "anchor_refusal_reason",
            "centre_region", "density_anchor", "density_anchor_linear",
            "picture_density", "print_curve",

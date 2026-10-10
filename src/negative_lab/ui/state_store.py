@@ -90,7 +90,7 @@ def _geometry_from_annotation(ann: Annotation) -> GeometryRegions:
         mirror_horizontal=bool(getattr(ann, "mirror_horizontal", False)),
         output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
         image_area_roi=ann.image_area_roi,
-        #: B-14 的信任边界：**没被用户签字过的画框不驱动方向规则**。
+        #: B-12 追加③ 的信任边界：**没被用户签字过的画框不驱动方向规则**。
         #: `state_store` 自己的规矩就是"只有 `verified_by == user` 才算签字"，
         #: 而自动检测种回的草稿正是 draft（`1298_G200::G200-1` 那份 legacy
         #: `frame_roi` 迁移过来的草稿 `needs_reconfirm=True`，实测纵横也是竖的——
@@ -131,7 +131,7 @@ def _as_roi(v):
 def adopted_rotation(pr, requested_degrees: int) -> int:
     """记录里该存的旋转角度：几何规则补转过时存**生效角度**，否则存请求角度。
 
-    B-14 的 `geometry-rule` 会把竖画框顺时针补 90°，但调用方传进来的
+    B-12 追加③ 的 `geometry-rule` 会把竖画框逆时针补 270°，但调用方传进来的
     `rotation_degrees` 还是 0°。记录若继续存 0°，他按下"旋转"键算的是 `0+90=90`——
     画面本来就已经在 90°，**第一次按下看起来什么都没发生**，第二下才翻。
     按钮必须转他看见的那张，所以这里把生效角度落回记录。
@@ -180,7 +180,7 @@ def _unscale_geometry(rss: dict, src_shape, small_shape) -> dict:
         "output_crop_roi": up(rss.get("output_crop_roi")),
         "image_area_roi": up(rss.get("image_area_roi")),
         #: 种回草稿时必须带上"这个画框是自动检测给的"，否则它在下一轮
-        #: `process_image(geometry=...)` 里就再也分不清是不是用户画的（B-14）。
+        #: `process_image(geometry=...)` 里就再也分不清是不是用户画的（B-12 追加③）。
         "image_area_auto": bool(rss.get("image_area_auto", False)),
         "base_sample_rois": [r for r in (up(x) for x in
                                          (rss.get("base_sample_rois") or []))

@@ -256,7 +256,7 @@ def test_unmeasured_base_does_not_amplify_chroma(monkeypatch):
 
     **前提的构造方式在 2026-10-11 换过一次**（断言一个字没松）：原来直接吃
     `1299_G200::G200-2` 单帧路径天然落到 `generic_prior` 这个事实，而本轮上线
-    画面内橙色亮区实测（B-15③）之后**这个事实没了**——那帧现在测得到片基。
+    画面内橙色亮区实测（B-14③）之后**这个事实没了**——那帧现在测得到片基。
     见 `_force_generic` 的作用域说明。
 
     历史依据（`outputs/ref_look_probe/base_and_gain.txt`，2026-10-08）：

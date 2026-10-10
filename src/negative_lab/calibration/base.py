@@ -82,7 +82,7 @@ def robust_dmin(base_roi: np.ndarray, trim: float = 0.10, dust_tol: float = 0.35
 
 #: 画面内片基检测（橙色签名法）的参数。每一个数都是 2026-10-11 在
 #: `1299_G200` 的 **11 帧用户亲手片基框**（绝对真值）上量出来的，
-#: 见 `docs/blockers.md` B-15 追加 与 `tmp_orange_base_estimator.py` 的打印。
+#: 见 `docs/blockers.md` B-14 追加 与 `tmp_orange_base_estimator.py` 的打印。
 ORANGE_BASE = {
     #: 候选判据 `t_R/t_G ≥`：实测片基的 R/G 在 2.6 左右（11 帧 2.53~2.69），
     #: 取 1.8 留出余量，同时把中性白漏光（R/G≈1）挡在门外。

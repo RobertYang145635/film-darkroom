@@ -1,4 +1,4 @@
-"""锁：**35mm 单格画框必然宽>高**——片带横躺时不许静默出竖片（B-14，用户点名 `G200-7` 竖片）。
+"""锁：**35mm 单格画框必然宽>高**——片带横躺时不许静默出竖片（B-12 追加③，用户点名 `G200-7` 竖片）。
 
 规则的来历与它的两条边界，都是当场量出来的，不是推理：
 
@@ -110,7 +110,7 @@ def test_sideways_strip_is_rotated_and_says_so():
 
 
 def test_rule_marking_does_not_block_export():
-    """B-12 的纪律不许被 B-14 破坏：方向提示是"请看一眼"，不是扣货。"""
+    """B-12 的纪律不许被 B-12 追加③ 破坏：方向提示是"请看一眼"，不是扣货。"""
     pr = process_image(_portrait_strip(), geometry=_geo(0, (6, 8, 122, 88)),
                        orientation_decided=True)
     assert pr.status == "needs_review", pr.status

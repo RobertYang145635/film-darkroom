@@ -144,7 +144,7 @@ class GeometryRegions:
     output_crop_roi: tuple | None = None         # 最终构图（可含片边）
     image_area_roi: tuple | None = None          # 有效画面（算法/统计）
     base_sample_rois: list = field(default_factory=list)   # 未曝光片基取样区
-    #: `image_area_roi` 是不是自动检测给的。**B-14 的画框几何规则只认人工框**：
+    #: `image_area_roi` 是不是自动检测给的。**B-12 追加③ 的画框几何规则只认人工框**：
     #: 自动框在本语料上把左右窄片边算进画面（9/11 帧 IoU 0.683~0.918），
     #: 它的**纵横**因此不可信，不能拿来决定方向。这个标记必须跟着回写走——
     #: UI/整卷处理会把检测出的框种回 `rec.geometry` 再传回 service，

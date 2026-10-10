@@ -8,10 +8,15 @@
 并且要求**逐帧**都变好——平均值变好而逐帧变差，是这个项目反复犯过的错
 （B-11 追加⑨ 的黑点、B-13 追加① 的色相角都是这样暴露的）。
 
-同时钉住方向：`red_ratio` 那条路实测无效（1.3/1.6/2.0 时 Δb 只从 −0.0288
-动到 −0.0260/−0.0232/−0.0220，饱和却崩到 −0.070/−0.105/−0.120），
-而 2026-08-31 学到的旧先验 `red 1.1702 / blue 1.0556` 的 blue 方向**与真值相反**，
-只把向量差做到 0.0482 却把饱和压到 −0.047。
+同时钉住方向：2026-08-31 学到的旧先验 `red 1.1702 / blue 1.0556` 的 blue 方向
+**与真值相反**，只把向量差做到 0.0482 却把饱和压到 −0.047。
+
+⚠ **本文件旧版此处还写着"`red_ratio` 那条路实测无效"，那句话 2026-10-11 作废**：
+它是在若干帧片基错 0.19~0.36 decade 的条件下、且只看蓝黄轴 `Δb` 与饱和得出的，
+而红斜率的误差在 `R−G` 轴上。修掉片基后重测（`docs/blockers.md` B-15⑧）：
+`red_ratio` 1.0 → 1.30 让留出卷逐帧 abs(Δ带宽RG) 从 0.0377 降到 0.0197（三帧全变好）。
+锁在 `tests/regression/test_red_slope_gain_pair.py`——**红斜率与色度增益是一对**，
+分开评会得出相反结论（上一轮就是这么错的）。
 """
 
 from __future__ import annotations
@@ -29,7 +34,7 @@ from negative_lab.library.fingerprint import capture_fingerprint
 from negative_lab.library.models import FrameRecord, GeometryRegions
 from negative_lab.pipeline.density import encode_srgb
 from negative_lab.pipeline.model_assets import ModelAsset, canonical_hash
-from negative_lab.pipeline.service import candidate_positive, process_roll
+from negative_lab.pipeline.service import process_roll
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -133,15 +138,28 @@ def _ref_chroma(path):
     return _mid_chroma(d)
 
 
-def _gaps(inputs, rr, rb):
+def _gaps(inputs, rr, rb, gain=1.897):
+    """逐帧量中间带色度向量差与 Δb。
+
+    **增益在这里被钉成 1.897**，因为本文件的全部结论（0.7 比 1.0 好、反向更糟）
+    都是在 red=1.0 × gain=1.897 下量出来的；2026-10-11 上线的
+    red 1.30 × gain 2.50 会改变这些数（留出 `G200-2` 在 2.50 增益下
+    从"逐帧都变好"变成"基本持平"），那是**那一对的结论**，
+    由 `test_red_slope_gain_pair.py` 去钉，不是把本文件的判据放宽。
+    """
+    from negative_lab.library.render import RenderIntent, apply_render
+
     frames, kept = inputs
     _, results = process_roll(frames, model_asset=_asset(rr, rb))
     out = {}
     for fr, pr in zip(kept, results):
         if fr["id"] not in REF:
             continue
-        ours = _mid_chroma(np.clip(encode_srgb(candidate_positive(
-            pr, pr.chosen_candidate or pr.candidates.default_name))[..., :3], 0, 1))
+        name = pr.chosen_candidate or pr.candidates.default_name
+        it = RenderIntent.from_dict(dict(pr.candidates.get(name).intent or {}))
+        it.print_chroma_gain = float(gain)
+        ours = _mid_chroma(np.clip(encode_srgb(apply_render(
+            pr.result.positive_linear, it))[..., :3], 0, 1))
         his = _ref_chroma(ROOT / REF[fr["id"]]["reference_file"])
         pairs = [(a, b) for a, b in zip(ours, his) if a and b]
         out[fr["id"]] = (float(np.median([np.hypot(x[0] - y[0], x[1] - y[1])

@@ -80,18 +80,21 @@ def test_enabled_asset_reaches_every_frame_of_a_roll():
 
 def test_default_roll_path_uses_the_deterministic_model_with_no_matrix():
     """**负控制**：不传资产 ⇒ 确定性模型——**单位阵**、无曲线，
-    但带产品默认的蓝通道指数 `LOOK_BLUE_EXPONENT`。
+    但带产品默认的通道指数 `LOOK_RED_EXPONENT` / `LOOK_BLUE_EXPONENT`。
 
     2026-10-09 之前这条断言的是 `backend=power-reciprocal` 且
     `model_asset.applied is False`。那一天把用户成品上量出来的蓝指数
     （0.7，留出卷逐帧复验 + 反向负控制）放进确定性模型，因为默认路径
     根本不调 `load_asset()`，可选 profile 用户又不会去点——
     量出来的东西进不了产品就等于没量到。
+    2026-10-11 红指数 1.30 同理进来（修掉片基缺陷后重测的结论，
+    留出卷三帧逐帧色相都变好；出处见 `print_math.LOOK_RED_EXPONENT` 与
+    `tests/regression/test_red_slope_gain_pair.py`）。
     **矩阵必须是单位阵**：跨通道矩阵至今没有一份通过留出证据的版本
     （无监督去相关那份实测更差，见 B-13 追加①），所以确定性模型只许改指数、
     不许带矩阵。
     """
-    from negative_lab.print_math import LOOK_BLUE_EXPONENT
+    from negative_lab.print_math import LOOK_BLUE_EXPONENT, LOOK_RED_EXPONENT
 
     _, results = process_roll(_roll_frames())
     ident = tuple(float(v) for v in np.eye(3).ravel())
@@ -99,7 +102,8 @@ def test_default_roll_path_uses_the_deterministic_model_with_no_matrix():
         assert tuple(float(v) for v in pr.report.params.density_matrix) == ident, (
             "确定性模型带上了跨通道矩阵——矩阵还没有通过留出的证据，不许进默认")
         assert pr.report.params.blue_ratio == pytest.approx(LOOK_BLUE_EXPONENT)
-        assert pr.report.params.red_ratio == pytest.approx(1.0)
+        assert pr.report.params.red_ratio == pytest.approx(LOOK_RED_EXPONENT), (
+            "默认路径没带上量出来的红指数 ⇒ 量到却吃不到，等于没量到")
         assert pr.model_asset.get("applied") is True
 
 

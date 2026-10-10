@@ -482,7 +482,7 @@ def resolve_base(frame_stats: dict | None, roll: RollAnalysis | None,
         #: 片边取样与本卷模型都不可用时，先**从画面里把片基测出来**（橙色签名法），
         #: 而不是直接给一个通道比固定、电平靠猜的通用先验。
         #: 依据：通用先验的电平实测差 0.34~0.68 decade（B-13 追加②），而橙色签名法
-        #: 在 11 帧用户亲手片基框上只差 R 0.021 / G 0.029 / B 0.073 decade（B-15 追加）。
+        #: 在 11 帧用户亲手片基框上只差 R 0.021 / G 0.029 / B 0.073 decade（B-14 追加）。
         est = _content_estimate()
         if est["dmin"] is not None:
             dmin = np.asarray(est["dmin"], np.float64)
