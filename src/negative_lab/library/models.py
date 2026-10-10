@@ -301,7 +301,7 @@ class RollAnalysis:
     excluded_from_share: list = field(default_factory=list)
     shared_with_frames: list = field(default_factory=list)
     split_suggested: bool = False
-    base_source: str = "none"     # frame|roll|roll_partial|generic_prior
+    base_source: str = "none"     # frame|roll|roll_partial|frame+roll|content_orange|generic_prior
     #: 本卷共同曝光尺度（v5 §6.2.5）：通用先验回退时全卷共用一个尺度，
     #: 不允许每帧各猜一个（否则同卷颜色起点漂移）。
     generic_scale: float | None = None

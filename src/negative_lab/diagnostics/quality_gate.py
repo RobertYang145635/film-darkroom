@@ -269,7 +269,12 @@ def _review_reasons(*, base_source: str, base_confidence: float,
     """v5 §8.3：每条提示必须说明软件实际采用了什么回退。"""
     out: list[str] = []
     if base_source == "generic_prior":
-        out.append("片基：本帧与本卷都不可用，已采用通用彩色负片先验（非实测 Dmin）")
+        out.append("片基：本帧与本卷都不可用，且画面内也找不到橙色亮区，"
+                   "已采用通用彩色负片先验（非实测 Dmin）")
+    elif base_source == "content_orange":
+        out.append("片基：本帧没有可用片边取样，已改用**画面内橙色亮区实测**"
+                   "（负片内不可能有比片基更亮的像素，漏光是中性白会被排除）；"
+                   "留出真值对照下 R/G 误差约 0.02~0.03 decade")
     elif base_source in ("roll", "roll_partial"):
         out.append("片基：本帧无可靠取样，已采用同卷其他帧的卷级片基模型")
     elif base_confidence < 0.5:

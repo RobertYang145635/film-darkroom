@@ -80,6 +80,125 @@ def robust_dmin(base_roi: np.ndarray, trim: float = 0.10, dust_tol: float = 0.35
     }
 
 
+#: 画面内片基检测（橙色签名法）的参数。每一个数都是 2026-10-11 在
+#: `1299_G200` 的 **11 帧用户亲手片基框**（绝对真值）上量出来的，
+#: 见 `docs/blockers.md` B-15 追加 与 `tmp_orange_base_estimator.py` 的打印。
+ORANGE_BASE = {
+    #: 候选判据 `t_R/t_G ≥`：实测片基的 R/G 在 2.6 左右（11 帧 2.53~2.69），
+    #: 取 1.8 留出余量，同时把中性白漏光（R/G≈1）挡在门外。
+    "rg_min": 1.8,
+    #: 候选判据 `t_R/t_B ≥`：实测片基 R/B = 8.3~9.4，取 5.0。
+    #: **这条是承重的**：去掉橙色检验只按"亮"选，蓝通道误差中位从 0.073
+    #: 恶化到 0.141、最差一帧从 0.160 恶化到 **0.568**（灯台漏光被当成了片基）。
+    "rb_min": 5.0,
+    #: 亮度门槛：低于 R 通道 p99 的这个比例就不算"片基一侧"，
+    #: 防止把画面里恰好偏橙的暗部（秋叶、红车）选进来。
+    "bright_frac": 0.25,
+    #: 取候选集的哪一分位作为片基。
+    "percentile": 99.9,
+    #: 候选像素至少要占画面区的这个比例，否则视为"本帧看不到片基"。
+    "min_candidate_frac": 0.002,
+    #: 实测留出误差（decade）：R 0.021 / G 0.029 / B 0.073（中位）。
+    #: 置信度据此给常数，不装成统计量——它表达的是"这个量级已被真值验证过"。
+    "confidence": 0.6,
+}
+
+
+def above_base_fraction(t_oriented: np.ndarray, dmin, image_area_roi=None) -> list[float]:
+    """画面区里**透射率高于 assumed 片基**的像素比例（逐通道）。
+
+    这是一个**物理判据**，不是统计判据：负片里密度 ≥ 0，所以任何像素的透射率
+    都不可能高于片基；这个比例显著大于 0 就证明 assumed 片基估低了。
+    实测（`tmp_roll_inherit_contradiction.py`，23 帧）：正常帧 ≤ 0.03，
+    唯一与卷模型矛盾且无自测片基的 `1298::G200-7` 是 R 0.259 / G 0.342 / B 0.396。
+    """
+    a = np.asarray(t_oriented, np.float64)
+    if a.ndim != 3 or a.shape[-1] < 3:
+        return [0.0, 0.0, 0.0]
+    if image_area_roi:
+        y0, x0, y1, x1 = (int(v) for v in image_area_roi)
+        a = a[max(0, y0):min(a.shape[0], y1), max(0, x0):min(a.shape[1], x1)]
+    pix = a.reshape(-1, 3)[:, :3]
+    pix = pix[np.isfinite(pix).all(axis=1) & (pix.max(axis=1) > 1e-6)]
+    if not pix.shape[0]:
+        return [0.0, 0.0, 0.0]
+    d = np.maximum(np.asarray(dmin, np.float64), 1e-9)
+    return [float((pix[:, c] > d[c]).mean()) for c in range(3)]
+
+
+def base_from_orange_signature(t_oriented: np.ndarray,
+                               image_area_roi=None,
+                               params: dict | None = None) -> dict:
+    """**画面里没有片边时，从画面里把片基测出来**（负片的橙色色罩自己会签名）。
+
+    为什么这不是"拿场景内容拟合片基"：负片里透射率**高于片基**的像素物理上不存在，
+    所以"亮"给出的是片基的上界；而片基同时是三通道里**橙色最纯**的亮区
+    （实测 R/G≈2.6、R/B≈9），翻拍台上的漏光与灯丝是**中性白**（R/G≈1），
+    过不了比值闸。两条判据取交集后，候选集里剩下的就是
+    "未被遮挡的片基本身"（未曝光片边、密度极低的场景高光区）。
+
+    实测（`tmp_orange_base_estimator.py`，11 帧用户亲手框为真值，误差=
+    `log10(估计/真值)` 的中位绝对值）：R **0.021** / G **0.029** / B **0.073**
+    decade，最差一帧 0.16；在**整卷生产路径**上重量的同批帧是 R 0.021 / G 0.024 /
+    B 0.059（`tmp_roll_inherit_contradiction.py`）。同一批帧上现行回退（通用先验）的
+    误差是 **0.34~0.68** decade（B-13 追加②）。
+    而 `1298::G200-7` 一片死青的原因是它的片基**被整卷平均值盖住**：
+    在继承值下该帧有 R 25.9% / G 34.2% / B 39.6% 的像素比 assumed 片基还亮
+    （负片物理上不可能）。⚠ 单帧跑时它是 `generic_prior`、越界比例 55%，
+    **与生产不是同一个数**——诊断必须走整卷路径。
+
+    返回 `{"dmin": ndarray|None, "confidence": float, "warnings": [...], "stats": {...}}`。
+    `dmin=None` 时调用方**必须**继续走通用先验并如实标记，不得静默造一个值。
+    """
+    p = dict(ORANGE_BASE)
+    if params:
+        p.update(params)
+    a = np.asarray(t_oriented, np.float64)
+    warnings: list[str] = []
+    if a.ndim != 3 or a.shape[-1] < 3:
+        return {"dmin": None, "confidence": 0.0,
+                "warnings": ["输入不是 (H,W,≥3) 数组：不做画面内片基检测"], "stats": {}}
+    if image_area_roi:
+        y0, x0, y1, x1 = (int(v) for v in image_area_roi)
+        a = a[max(0, y0):min(a.shape[0], y1), max(0, x0):min(a.shape[1], x1)]
+    pix = a.reshape(-1, 3)[:, :3]
+    good = np.isfinite(pix).all(axis=1) & (pix.max(axis=1) > 1e-6)
+    pix = pix[good]
+    n = int(pix.shape[0])
+    empty = {"dmin": None, "confidence": 0.0, "warnings": warnings, "stats": {"n": n}}
+    if n < 4096:
+        return {**empty, "warnings": [f"画面区可用像素不足（{n}）：不做画面内片基检测"]}
+
+    eps = 1e-9
+    rg = pix[:, 0] / np.maximum(pix[:, 1], eps)
+    rb = pix[:, 0] / np.maximum(pix[:, 2], eps)
+    bright = pix[:, 0] > float(np.percentile(pix[:, 0], 99)) * float(p["bright_frac"])
+    sel = pix[bright & (rg >= float(p["rg_min"])) & (rb >= float(p["rb_min"]))]
+    frac = float(sel.shape[0]) / max(n, 1)
+    if sel.shape[0] < max(256, int(p["min_candidate_frac"] * n)):
+        return {**empty, "stats": {"n": n, "candidate_frac": round(frac, 6)},
+                "warnings": [f"画面内橙色亮区只占 {frac:.3%}：这帧看不到片基，"
+                             "不采用画面内估计"]}
+
+    dmin = np.percentile(sel, float(p["percentile"]), axis=0)
+    viol = [(pix[:, c] > dmin[c]).mean() for c in range(3)]
+    conf = float(p["confidence"])
+    if max(viol) > 0.05:
+        warnings.append(
+            f"画面内片基估计后仍有 {max(viol):.1%} 像素透射率高于片基"
+            "（漏光或片基空间不均），置信度下调")
+        conf = round(conf * 0.5, 3)
+    warnings.append(
+        f"片基由画面内橙色亮区估计（候选 {frac:.2%}，"
+        f"p{float(p['percentile']):g}）：这是实测估计，不是未曝光片边取样")
+    return {"dmin": dmin.astype(np.float64), "confidence": conf,
+            "warnings": warnings,
+            "stats": {"n": n, "candidate_frac": round(frac, 6),
+                      "percentile": float(p["percentile"]),
+                      "above_base": [round(float(v), 4) for v in viol],
+                      "dmin": [round(float(v), 6) for v in dmin]}}
+
+
 def estimate_dmax_offset(film_roi: np.ndarray, dmin: np.ndarray,
                          black: float = 0.0) -> dict:
     """从画面区域估计 Dmax 与扫描曝光偏置（§4.5.4）。

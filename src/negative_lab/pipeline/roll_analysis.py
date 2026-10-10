@@ -18,6 +18,7 @@ import math
 
 import numpy as np
 
+from ..calibration.base import above_base_fraction, base_from_orange_signature
 from ..library.models import RollAnalysis
 
 EPS = 1e-6
@@ -39,6 +40,14 @@ TOLERANCE = {
     "max_contamination": 0.80,       # 取样区污染比例上限（齿孔带可到 ~0.8）
     "min_roll_frames": 2,            # 卷级模型最少可靠帧数
 }
+
+#: **继承卷级片基前的物理闸**：一帧里透射率高于 assumed 片基的像素比例上限。
+#: 负片密度 ≥ 0 ⇒ 这个比例本该是 0，只应由尘点/噪声占据。
+#: 实测 23 帧（`tmp_roll_inherit_contradiction.py`，2026-10-11）：正常帧 ≤ 0.03，
+#: 唯一与继承值矛盾且无自测片基的 `1298::G200-7` 是 0.259/0.342/0.396。
+#: 0.15 取在两者之间（离两端都至少 5 倍），不是拟合量。
+#: 与 NegPy 的卷内离群判据同性质（它的 `POOL_OUTLIER_DISTANCE` 是 0.30 log D）。
+INHERIT_VIOLATION_TRIGGER = 0.15
 
 # ------------------------------------------------------------- 通用先验
 #: 下沉到叶子 constants.py（io/sidecar.py 也要用，且不能再指向 pipeline）。
@@ -388,6 +397,15 @@ def resolve_base(frame_stats: dict | None, roll: RollAnalysis | None,
     warnings: list[str] = []
     prov: dict = {}
     fs = frame_stats or {}
+
+    def _content_estimate() -> dict:
+        """画面内橙色亮区实测。测不到时 `dmin` 为 None，**拒绝原因必须带回来**，
+        不许在这一步静默吞掉——否则调用方退到通用先验时说不清为什么退。"""
+        if t_oriented is None:
+            return {"dmin": None, "warnings": ["没有画面数据：不做画面内片基检测"],
+                    "stats": {}}
+        return base_from_orange_signature(t_oriented, image_area_roi)
+
     frame_ok = (fs.get("dmin") and float(fs.get("confidence") or 0)
                 >= TOLERANCE["min_base_confidence"])
     excluded = (list(getattr(roll, "excluded_from_share", []) or [])
@@ -419,27 +437,77 @@ def resolve_base(frame_stats: dict | None, roll: RollAnalysis | None,
         #: 实测 `1299_G200` 就是这种情况——卷 dmin 由**单帧** G200-11 决定
         #: （R=0.1967），而唯一另一帧实测 G200-10 是 0.2672（差 0.13 decade），
         #: 用它覆盖 9 帧后三帧参考的距离从 0.128 变成 0.164，
-        #: 比"通用先验 + 不放大色彩"更糟。所以这里退回通用先验。
-        dmin = np.asarray(roll.base_statistics["dmin"], np.float64)
-        source = "roll"
-        conf = float(roll.confidence)
-        prov = {"source_frames": list(roll.source_frames)}
-        warnings.append(
-            f"本帧没有可靠片基，已使用同卷 {len(roll.source_frames)} 帧的卷级"
-            f"片基模型（来源帧：{', '.join(roll.source_frames[:4])}"
-            f"{'…' if len(roll.source_frames) > 4 else ''}）")
+        #: 比"通用先验 + 不放大色彩"更糟。所以那里退回通用先验。
+        #:
+        #: **纯继承之前先问一句物理**：这一帧里有没有像素比继承来的片基还亮？
+        #: 负片密度 ≥ 0 ⇒ 不可能。实测 23 帧里正常帧 ≤ 0.03，而
+        #: `1298::G200-7` 在继承值下 R 0.259 / G 0.342 / B 0.396 越界，
+        #: 画面内橙色实测比继承值高 +0.187/+0.279/+0.357 decade——
+        #: 超过本模块**早已冻结**的卷内漂移容差 `max_base_rel_drift`。
+        #: 这条分支存在的意义：漂移容差过去只用来拒绝"参与卷模型的帧"，
+        #: 从不检查"继承卷模型的帧"，于是一帧与全卷不符的画面被整卷平均值盖住。
+        roll_dmin = np.asarray(roll.base_statistics["dmin"], np.float64)
+        est = _content_estimate()
+        e = None if est["dmin"] is None else np.asarray(est["dmin"], np.float64)
+        drift = viol = None
+        if e is not None:
+            drift = np.log10(np.maximum(e, 1e-9) / np.maximum(roll_dmin, 1e-9))
+            viol = above_base_fraction(t_oriented, roll_dmin, image_area_roi)
+        if (e is not None and max(viol) > INHERIT_VIOLATION_TRIGGER
+                and bool((drift > TOLERANCE["max_base_rel_drift"]).any())):
+            dmin, conf = e, float(est["confidence"])
+            source = "content_orange"
+            prov = {**est["stats"], "inherited_roll": [round(float(v), 6) for v in roll_dmin],
+                    "drift_decade": [round(float(v), 3) for v in drift],
+                    "above_base_under_roll": [round(float(v), 3) for v in viol],
+                    "source_frames": list(roll.source_frames)}
+            warnings.extend(est["warnings"])
+            warnings.append(
+                f"片基来源改为画面内实测：继承本卷 {len(roll.source_frames)} 帧的卷级模型后，"
+                f"本帧仍有 {max(viol):.0%} 的像素透射率高于该片基"
+                f"（负片物理上不可能），画面内橙色亮区实测比继承值高 "
+                f"{np.max(drift):.2f} decade，已超过冻结容差 "
+                f"{TOLERANCE['max_base_rel_drift']}。本帧没有可用片边取样，"
+                "所以采用画面内实测而不是整卷平均。")
+        else:
+            dmin = roll_dmin
+            source = "roll"
+            conf = float(roll.confidence)
+            prov = {"source_frames": list(roll.source_frames)}
+            warnings.append(
+                f"本帧没有可靠片基，已使用同卷 {len(roll.source_frames)} 帧的卷级"
+                f"片基模型（来源帧：{', '.join(roll.source_frames[:4])}"
+                f"{'…' if len(roll.source_frames) > 4 else ''}）")
     else:
-        dmin, conf = generic_base(t_oriented, image_area_roi,
-                                  scale=getattr(roll, "generic_scale", None)
-                                  if roll is not None else None)
-        source = "generic_prior"
-        scale_note = (f"（本卷共同曝光尺度 {getattr(roll, 'generic_scale', 0):.3f}）"
-                      if roll is not None and getattr(roll, "generic_scale", None)
-                      else "")
-        warnings.append(
-            "本帧与本卷都没有可用片基：使用版本化通用彩色负片先验给出保守预览"
-            f"{scale_note}（{GENERIC_PRIOR['asset_version']}）。这不是实测 Dmin，"
-            "结果标记为待复核。")
+        #: 片边取样与本卷模型都不可用时，先**从画面里把片基测出来**（橙色签名法），
+        #: 而不是直接给一个通道比固定、电平靠猜的通用先验。
+        #: 依据：通用先验的电平实测差 0.34~0.68 decade（B-13 追加②），而橙色签名法
+        #: 在 11 帧用户亲手片基框上只差 R 0.021 / G 0.029 / B 0.073 decade（B-15 追加）。
+        est = _content_estimate()
+        if est["dmin"] is not None:
+            dmin = np.asarray(est["dmin"], np.float64)
+            conf = float(est["confidence"])
+            source = "content_orange"
+            prov = dict(est["stats"])
+            warnings.extend(est["warnings"])
+            warnings.append(
+                "片基来源：画面内橙色亮区估计（没有可用片边取样，也不是通用先验）。"
+                "判据是物理的——负片内不存在透射率高于片基的像素，而片基是亮区里"
+                "橙色最纯的那一块；漏光是中性白，过不了比值闸。")
+        else:
+            warnings.extend(est["warnings"])
+            dmin, conf = generic_base(t_oriented, image_area_roi,
+                                      scale=getattr(roll, "generic_scale", None)
+                                      if roll is not None else None)
+            source = "generic_prior"
+            scale_note = (f"（本卷共同曝光尺度 {getattr(roll, 'generic_scale', 0):.3f}）"
+                          if roll is not None and getattr(roll, "generic_scale", None)
+                          else "")
+            warnings.append(
+                "本帧与本卷都没有可用片基，且画面内也找不到橙色亮区："
+                f"使用版本化通用彩色负片先验给出保守预览{scale_note}"
+                f"（{GENERIC_PRIOR['asset_version']}）。这不是实测 Dmin，"
+                "结果标记为待复核。")
     return {"dmin": [float(v) for v in dmin], "base_source": source,
             "confidence": round(float(conf), 3), "warnings": warnings,
             "provenance": prov}

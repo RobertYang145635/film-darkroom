@@ -200,7 +200,7 @@ def validate_sidecar(doc: dict) -> list[str]:
             errs.append("base_sample_rois must be a list")
         if doc.get("base", {}).get("base_source") not in (
                 "frame", "roll", "roll_partial", "frame+roll", "generic_prior",
-                "none"):
+                "content_orange", "none"):
             errs.append(f"unknown base.base_source "
                         f"{doc.get('base', {}).get('base_source')!r}")
     return errs

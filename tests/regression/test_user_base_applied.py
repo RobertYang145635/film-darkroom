@@ -92,15 +92,28 @@ def test_user_base_box_drives_the_frame(prepared):
         f"dmin 与他框里的实测值不符：{dmin} vs {USER_DMIN}")
 
 
-def test_negative_control_removing_the_box_moves_base_04_decade(prepared):
-    """负控制：去掉用户的框，这一帧的片基就换一个数量级。
+def test_negative_control_removing_the_box_changes_the_source_not_the_level(prepared):
+    """负控制（2026-10-11 换过判据）：去掉用户的框，**来源必须变**，
+    而片基数值**不该再大幅变化**。
 
-    这条同时说明上面的通过**不是**因为"自动检测本来就能给出同一个值"。
+    原来这条断言的是"去掉框 ⇒ 红通道片基差 0.25 decade 以上"，
+    用来证明上面的正锁不是因为"自动检测本来就能给出同一个值"。
+    本轮上线画面内橙色亮区实测（B-15③）之后，那个 0.4 decade 的差**消失了**——
+    因为退路不再是"通道比固定、电平靠猜"的通用先验，而是**另一个独立测量**。
+    旧断言因此不再能区分任何东西（它量的是"先验有多错"，不是"框有没有被用"）。
+
+    换成两条更强的：
+    ① `base_source` 必须从 `frame` 变成 `content_orange`——框真的在驱动结果；
+    ② 两条独立路径的差必须 **< 0.10 decade**——画面内实测不许悄悄跑偏。
+       （留出真值上它是 R 0.021 / G 0.024 / B 0.059；0.10 是留了三倍余量，
+        谁把判据改坏，这个差就会涨，这条就会红。）
     """
     pr = _run(prepared, [])
     dmin = np.array(pr.report.params.dmin, np.float64)
     gap = float(abs(np.log10(dmin[0]) - np.log10(USER_DMIN[0])))
-    assert pr.base_source != "frame" or gap > 0.25, (
-        f"去掉用户框后 base_source={pr.base_source}、Δdecade(R)={gap:.3f}："
-        "自动检测居然也能给出同一个片基，上面的正锁就没有区分力")
-    assert gap > 0.25, f"Δdecade(R)={gap:.3f} 过小，钉不住'标定丢失'这种回归"
+    assert pr.base_source == "content_orange", (
+        f"去掉用户框后来源是 {pr.base_source}，既不是人工取样也不是画面内实测——"
+        "正锁失去区分力")
+    assert gap < 0.10, (
+        f"Δdecade(R)={gap:.3f}：画面内实测与用户框差得比留出证据（0.021）远得多，"
+        "判据被改坏了")

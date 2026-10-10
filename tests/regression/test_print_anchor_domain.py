@@ -227,22 +227,50 @@ def _sat_p95(linear) -> float:
     return float(np.percentile(d.max(2) - d.min(2), 95))
 
 
-def test_unmeasured_base_does_not_amplify_chroma():
+def _force_generic(monkeypatch):
+    """把"片基没实测"这个**状态**造出来：只改写 `resolve_base` 的出口标签。
+
+    为什么必须这么干：这条锁要钉的是 `service` 第 9b 步那道闸
+    （`gain_off = 1.0 if base_source == "generic_prior" else 0.0`），
+    而自 2026-10-11 起，本语料里**已经没有一帧会真的落到通用先验**
+    （画面内橙色亮区实测接管了它们），合成帧也不行——自动检测在干净的
+    渐变图上照样能框出一块"片基"。所以只能闸的输入端造这个状态。
+    **这条锁的作用域因此是"闸读到的来源标签"，不是"估计器会不会失败"**；
+    后者由 `tests/unit/test_orange_base.py::test_画面内也测不到时才退回通用先验`
+    在真实调用栈上钉住。
+    """
+    import negative_lab.pipeline.service as svc
+
+    real = svc.resolve_base
+
+    def fake(*a, **kw):
+        r = real(*a, **kw)
+        return {**r, "base_source": "generic_prior", "confidence": 0.0}
+
+    monkeypatch.setattr(svc, "resolve_base", fake)
+
+
+def test_unmeasured_base_does_not_amplify_chroma(monkeypatch):
     """**锁**：片基没实测的帧，intent 里的色度增益必须是 1.0，且成品饱和
     不得高于用默认 1.897 时的饱和。
 
-    实测（`outputs/ref_look_probe/base_and_gain.txt`）：`1299::G200-2` 技术正片
-    饱和 p95 0.902，打印后不放大是 0.537、放大是 **0.910**，用户参考 0.322；
-    `1299::G200-7` 是 0.341 对 **0.769**，参考 0.357。
+    **前提的构造方式在 2026-10-11 换过一次**（断言一个字没松）：原来直接吃
+    `1299_G200::G200-2` 单帧路径天然落到 `generic_prior` 这个事实，而本轮上线
+    画面内橙色亮区实测（B-15③）之后**这个事实没了**——那帧现在测得到片基。
+    见 `_force_generic` 的作用域说明。
+
+    历史依据（`outputs/ref_look_probe/base_and_gain.txt`，2026-10-08）：
+    `1299::G200-2` 技术正片饱和 p95 0.902，打印后不放大是 0.537、放大是 **0.910**，
+    用户参考 0.322；`1299::G200-7` 是 0.341 对 **0.769**，参考 0.357。
     放大系数是对着**已标定**的帧拟合出来的口味值，乘到一片不知道错在哪的颜色上
     只会把错误放大。
     """
     import negative_lab.print_math as pm
 
-    pr = _run_id(UNCALIBRATED)
+    _force_generic(monkeypatch)
+    pr = _run_id.__wrapped__(UNCALIBRATED)
     assert pr.base_source == "generic_prior", (
-        f"{UNCALIBRATED} 现在片基来源是 {pr.base_source}，"
-        "本锁的前提没了——换一帧真的测不到片基的帧，别放宽断言")
+        f"{UNCALIBRATED} 现在片基来源是 {pr.base_source}，闸门的输入端没被造出来")
     it = pr.render_intent
     assert it.print_anchor, "该帧应有打印锚点，否则增益根本不会施加"
     assert float(it.print_chroma_gain) == 1.0, (
@@ -257,6 +285,26 @@ def test_unmeasured_base_does_not_amplify_chroma():
     assert i1 is not None and i2 is not None
     assert _sat_p95(off) <= _sat_p95(on) + 1e-6, (
         "闸门没起作用：不放大反而更饱和")
+
+
+def test_gate_keys_on_measurement_not_on_manual_box(monkeypatch):
+    """**负控制**：闸门只认"测没测到"，不认"有没有人工框"。
+
+    同一帧、同一个 `_run_id`，只把 `_force_generic` 拿掉 ⇒ 来源是实测的
+    （`frame`/`roll`/`content_orange` 之一），增益就必须回到默认放大。
+    没有这条，上一条锁可以靠"这帧根本没有打印锚点"之类的旁路蒙过去。
+    """
+    pr_plain = _run_id.__wrapped__(UNCALIBRATED)
+    assert pr_plain.base_source != "generic_prior", (
+        "对照帧现在也落到通用先验了，上一条锁与这条都失去区分力")
+    assert float(pr_plain.render_intent.print_chroma_gain) == 0.0, (
+        "0.0 是'用模块默认增益'的写法；实测帧被写成 1.0 说明闸门在误伤")
+    assert pr_plain.meta["print_scale"]["chroma_gain"] != 1.0
+
+    _force_generic(monkeypatch)
+    pr_forced = _run_id.__wrapped__(UNCALIBRATED)
+    assert float(pr_forced.render_intent.print_chroma_gain) == 1.0, (
+        "同一帧只改来源标签，闸门却没反应——它读的不是 base_source")
 
 
 def test_measured_base_still_gets_the_default_gain():
