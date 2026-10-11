@@ -42,9 +42,10 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
 from .model_assets import deterministic_asset
 from .params import InvertParams
 from .print_scale import (LOOK_CHROMA_GAIN, PRINT_LEVEL_REFERENCE_DENSITY,
-                          anchor_refusal_reason, anchor_with_level, centre_region,
+                          PRINT_MIN_DENSITY_WINDOW, anchor_refusal_reason,
+                          anchor_with_level, centre_region,
                           density_anchor, density_anchor_linear, picture_density,
-                          print_curve)
+                          print_curve, white_window_floor)
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -571,6 +572,10 @@ def process_image(t_source: np.ndarray, *,
             #: δ=0 时逐比特等于不加这一项。
             density_median = float(np.percentile(samples, 50))
             anchor, level_delta, level_note = anchor_with_level(anchor, density_median)
+            #: 窄跨度负片不拉满纸级（B-14⑳）：只抬白锚到 `lo + PRINT_MIN_DENSITY_WINDOW`，
+            #: 黑点与中灰一字不动。放在电平项**之后**，保证出厂锚一定满足窗口下限。
+            anchor_before_window = tuple(float(v) for v in anchor)
+            anchor, window_raised, window_note = white_window_floor(anchor)
             a = [round(float(v), 5) for v in anchor]
             #: 片基没实测的帧**不放大色彩**：`LOOK_CHROMA_GAIN` 是对着
             #: "已标定"的帧拟合出来的口味系数，乘到一片不知道错在哪的颜色上
@@ -598,9 +603,16 @@ def process_image(t_source: np.ndarray, *,
                     if gain_off else "片基已实测"),
                 "density_median": round(density_median, 5),
                 "level_shift": round(level_delta, 5),
-                "level_reference": PRINT_LEVEL_REFERENCE_DENSITY})
+                "level_reference": PRINT_LEVEL_REFERENCE_DENSITY,
+                "window_min": PRINT_MIN_DENSITY_WINDOW,
+                #: 抬升**之前**的白锚。两点退化锚没有中灰控制点，白锚是最后一个，
+                #: 所以取 `[-1]` 而不是 `[2]`（取 `[2]` 会在两点帧上 IndexError）。
+                "window_raw_hi": round(anchor_before_window[-1], 5),
+                "window_raised": bool(window_raised)})
             if level_note:
                 print_scale_info["level_note"] = level_note
+            if window_note:
+                print_scale_info["window_note"] = window_note
             if linear_fallback:
                 print_scale_info["two_point_fallback"] = linear_fallback
         else:

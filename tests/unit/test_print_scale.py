@@ -28,13 +28,15 @@ from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.print_scale import (MIN_SPAN, P_HIGH, P_LOW, P_MID,
                                                PRINT_AIM, PRINT_LEVEL_MAX_SHIFT,
                                                PRINT_LEVEL_REFERENCE_DENSITY,
-                                               PRINT_LEVEL_STRENGTH, PRINT_WHITE,
+                                               PRINT_LEVEL_STRENGTH,
+                                               PRINT_MIN_DENSITY_WINDOW, PRINT_WHITE,
                                                anchor_refusal_reason, anchor_with_level,
                                                apply_print_remap,
                                                centre_region, density_anchor,
                                                level_shift,
                                                picture_density, print_curve,
-                                               print_remap_array, remap_luma)
+                                               print_remap_array, remap_luma,
+                                               white_window_floor)
 
 _LUM = np.array([0.2126, 0.7152, 0.0722])
 _BASE = (0.25, 0.25, 0.25)
@@ -578,3 +580,45 @@ def test_chroma_ramp_negative_control_off_is_the_old_product(monkeypatch):
     assert not np.array_equal(shipped, inert_const), "生产默认值下这一项没进产品路径"
     assert info["chroma_gain_highlight"] == pytest.approx(0.80)
     assert info["chroma_ramp_start"] == pytest.approx(0.85)
+
+
+# ---------------------------------------------------------------------------
+# 窄跨度负片不拉满纸级（B-14⑳）：只抬白锚，黑点与中灰一字不动。
+# ---------------------------------------------------------------------------
+
+def test_window_constant_is_the_measured_value():
+    assert PRINT_MIN_DENSITY_WINDOW == pytest.approx(0.60)
+
+
+def test_window_floor_only_raises_the_white_anchor():
+    lo, mid, hi = 0.343, 0.541, 0.726          # 1298::G200-5 的真实锚（跨度 0.383）
+    out, raised, note = white_window_floor(anchor=(lo, mid, hi))
+    assert raised and note == ""
+    assert out[0] == lo and out[1] == mid, "黑点/中灰动了 = 会把电平项与阴影雾一起推翻"
+    assert out[2] == pytest.approx(lo + PRINT_MIN_DENSITY_WINDOW)
+    # 跨度本来就够的帧必须**逐比特**不变
+    wide = (0.064, 0.247, 1.051)               # 1298::G200-7，跨度 0.987
+    out2, raised2, note2 = white_window_floor(anchor=wide)
+    assert out2 == wide and not raised2 and note2 == ""
+
+
+def test_window_floor_negative_control_zero_is_the_old_product():
+    """`w_min=0` 必须整条路径恒等，否则"上线后变好"没有对照。"""
+    a = (0.343, 0.541, 0.726)
+    out, raised, _ = white_window_floor(a, w_min=0.0)
+    assert out == a and not raised
+
+
+def test_window_floor_refuses_to_break_the_curve():
+    """抬白锚会让高光段斜率掉下来；掉到趾部以下时**保持原锚并说明**，
+    与电平项同一条纪律：宁可少一个窗口下限，不许从"印"退成"不印"。"""
+    a = (0.50, 0.52, 0.53)                     # 抬到 1.10 后 s2=2.64 < s1=4.31
+    print_curve(a)                             # 自检：原锚本身合法
+    out, raised, note = white_window_floor(a)
+    assert out == a and not raised and note
+    assert "不合法" in note
+
+
+def test_two_point_anchor_gets_no_window_floor():
+    out, raised, note = white_window_floor((0.10, 0.90))
+    assert out == (0.10, 0.90) and not raised and note == ""
