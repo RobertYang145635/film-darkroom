@@ -41,7 +41,8 @@ from .geometry import (GeometryRecord, OrientTransform, apply_geometry,
                        clamp_roi, frame_output_is_portrait, sideways_correction)
 from .model_assets import deterministic_asset
 from .params import InvertParams
-from .print_scale import (LOOK_CHROMA_GAIN, anchor_refusal_reason, centre_region,
+from .print_scale import (LOOK_CHROMA_GAIN, PRINT_LEVEL_REFERENCE_DENSITY,
+                          anchor_refusal_reason, anchor_with_level, centre_region,
                           density_anchor, density_anchor_linear, picture_density,
                           print_curve)
 from .render import RenderIntent, apply_render
@@ -565,6 +566,11 @@ def process_image(t_source: np.ndarray, *,
                     linear_fallback = str(exc)
                     anchor = two
         if anchor is not None:
+            #: 电平绝对项（B-14⑭）：读**与锚同一个取样总体**（`centre_region` 里的
+            #: `picture_density`）的密度中位，只抬中灰与白、黑锚不动。
+            #: δ=0 时逐比特等于不加这一项。
+            density_median = float(np.percentile(samples, 50))
+            anchor, level_delta, level_note = anchor_with_level(anchor, density_median)
             a = [round(float(v), 5) for v in anchor]
             #: 片基没实测的帧**不放大色彩**：`LOOK_CHROMA_GAIN` 是对着
             #: "已标定"的帧拟合出来的口味系数，乘到一片不知道错在哪的颜色上
@@ -589,7 +595,12 @@ def process_image(t_source: np.ndarray, *,
                 "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
                 "chroma_gain_reason": (
                     "片基未实测（generic_prior），色彩不做放大"
-                    if gain_off else "片基已实测")})
+                    if gain_off else "片基已实测"),
+                "density_median": round(density_median, 5),
+                "level_shift": round(level_delta, 5),
+                "level_reference": PRINT_LEVEL_REFERENCE_DENSITY})
+            if level_note:
+                print_scale_info["level_note"] = level_note
             if linear_fallback:
                 print_scale_info["two_point_fallback"] = linear_fallback
         else:

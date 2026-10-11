@@ -26,9 +26,13 @@ import pytest
 from negative_lab.pipeline.density import InvertResult, encode_srgb, invert
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.print_scale import (MIN_SPAN, P_HIGH, P_LOW, P_MID,
-                                               PRINT_AIM, PRINT_WHITE,
-                                               anchor_refusal_reason, apply_print_remap,
+                                               PRINT_AIM, PRINT_LEVEL_MAX_SHIFT,
+                                               PRINT_LEVEL_REFERENCE_DENSITY,
+                                               PRINT_LEVEL_STRENGTH, PRINT_WHITE,
+                                               anchor_refusal_reason, anchor_with_level,
+                                               apply_print_remap,
                                                centre_region, density_anchor,
+                                               level_shift,
                                                picture_density, print_curve,
                                                print_remap_array, remap_luma)
 
@@ -406,3 +410,87 @@ def test_degenerate_curve_is_refused_before_any_work():
     out, info = print_remap_array(x, (0.0, 0.02, 1.0), 2.0)   # 趾部斜率 > 高光
     assert info is None
     assert np.array_equal(out, x), "退化时应当原样返回，而不是改一半"
+
+
+# ---------------------------------------------------------------------------
+# 电平的绝对项（B-14⑭）：锚点的中灰/白按取样总体的密度中位平移，黑锚不动。
+# ---------------------------------------------------------------------------
+
+def test_level_constants_are_the_measured_values():
+    """钉住上线值本身：动这三个常数必须同时动 `PRINT_LEVEL_STRENGTH` 的实测依据。"""
+    assert PRINT_LEVEL_STRENGTH == pytest.approx(0.25)
+    assert PRINT_LEVEL_REFERENCE_DENSITY == pytest.approx(0.5539)
+    assert PRINT_LEVEL_MAX_SHIFT == pytest.approx(0.12)
+
+
+def test_level_shift_is_linear_then_clamped():
+    assert level_shift(PRINT_LEVEL_REFERENCE_DENSITY) == 0.0
+    assert level_shift(0.6539) == pytest.approx(0.025)          # 浓 ⇒ 正 ⇒ 印得更亮
+    assert level_shift(0.3539) == pytest.approx(-0.05)          # 薄 ⇒ 负 ⇒ 印得更暗
+    # 限幅：病态帧（片基错让密度中位飞掉）不该被电平项二次放大
+    assert level_shift(1.55) == pytest.approx(PRINT_LEVEL_MAX_SHIFT)
+    assert level_shift(0.01) == pytest.approx(-PRINT_LEVEL_MAX_SHIFT)
+
+
+@pytest.mark.parametrize("bad", [None, float("nan"), float("inf")])
+def test_level_shift_refuses_to_guess_on_missing_input(bad):
+    assert level_shift(bad) == 0.0
+
+
+def test_level_moves_mid_and_white_but_never_the_black_anchor():
+    anchor = (0.05, 0.50, 0.95)
+    out, delta, note = anchor_with_level(anchor, 0.7539)
+    assert delta == pytest.approx(0.05) and note == ""
+    assert out[0] == anchor[0], "黑锚跟着抬 = 把已经偏高的阴影(Δp05 +0.0354)再抬一次"
+    assert out[1] == pytest.approx(anchor[1] - delta)
+    assert out[2] == pytest.approx(anchor[2] - delta)
+    # δ=0 时必须**逐比特**是原锚（不加这一项 == 现产）
+    same, d0, _ = anchor_with_level(anchor, PRINT_LEVEL_REFERENCE_DENSITY)
+    assert d0 == 0.0 and same == anchor
+
+
+def test_positive_level_prints_brighter():
+    """方向锁：δ>0（本帧比标称浓）必须让同一个密度点**印得更亮**。
+    方向错的话整条机制只会把逐帧亮度误差放大一倍，而统计量照样"变好"。"""
+    y = np.full((8, 8), 0.5, np.float64)          # 反解出 d = 0.301
+    base = remap_luma(y, (0.05, 0.50, 0.95), 1.0)
+    lift = remap_luma(y, (0.05, 0.45, 0.90), 1.0)  # δ=+0.05
+    assert float(lift.mean()) > float(base.mean())
+
+
+def test_two_point_anchor_gets_no_level_and_says_so():
+    """两点退化锚（`1298_G200::G200-10` 就走这条路）**不加未测过的电平项**，
+    但必须留下说明——静默跳过等于没有这回事。"""
+    out, delta, note = anchor_with_level((0.10, 0.90), 0.85)
+    assert out == (0.10, 0.90) and delta == 0.0 and note
+    assert "两点退化" in note
+
+
+def test_level_is_dropped_when_the_shifted_curve_is_illegal():
+    """平移把趾部压没时**保持原锚**，绝不让这帧从"印"退成"不印"。
+
+    条件是 `mid − lo > 0.0563·(hi − mid)`（`0.0862/(mid−lo) < 1.531/(hi−mid)`），
+    而抬电平只会压缩 `mid − lo`（`hi − mid` 不动），所以**高调帧**最容易越界：
+    `tmp_level_absolute.py` 在 `strength=0.75` 那一格就真的出现过 1 帧非法。
+    """
+    anchor = (0.30, 0.40, 0.70)                    # 本身合法：0.10 > 0.0563·0.30
+    print_curve(anchor)                            # 自检：前提成立
+    # δ = 0.25·(0.9139−0.5539) = 0.09 ⇒ mid 落到 0.31、lo 仍 0.30 ⇒ 趾部斜率超过高光段
+    out, delta, note = anchor_with_level(anchor, 0.9139)
+    with pytest.raises(ValueError):
+        print_curve((anchor[0], anchor[1] - 0.09, anchor[2] - 0.09))
+    assert out == anchor and delta == 0.0 and note
+    assert "不合法" in note and "+0.0900" in note
+
+
+def test_level_negative_control_zero_strength_is_exactly_the_old_product(monkeypatch):
+    """**负控制**：`strength=0` 必须让整条路径退回"没有这一项"——
+    否则"上线后变好"分不清是机制还是别的改动。"""
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", 0.0)
+    anchor = (0.05, 0.50, 0.95)
+    out, delta, note = anchor_with_level(anchor, 0.95)
+    assert out == anchor and delta == 0.0 and note == ""
+    assert level_shift(0.95) == 0.0
+    # 反方向（把浓的印暗）也必须真的把方向反过来：符号是从密度中位来的
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", -0.25)
+    assert level_shift(0.95) < 0.0

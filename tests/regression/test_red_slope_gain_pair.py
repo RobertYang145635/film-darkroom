@@ -180,10 +180,30 @@ def test_pair_improves_holdout_hue_on_every_frame(inputs):
     assert len(base) == 3, f"留出帧数变了（{len(base)}），本锁的逐帧判据要重估"
 
 
-def test_gain_alone_does_not_fix_hue_but_pair_pays_for_saturation(inputs):
+def test_gain_alone_does_not_fix_hue_but_pair_pays_for_saturation(inputs, monkeypatch):
     """**负控制 + 分工说明**：两个旋钮各管一条轴，别把它们混成"一个口味值"。
 
-    实测（留出三帧，`-s` 打印）：
+    ⚠ **本锁把逐帧电平项钉回 `strength=0` 再量**（B-14⑮ 上线后必须这么做，理由如下）。
+    电平 δ 把每帧工作点挪了 −0.054~+0.058 decade，而"中间带"是
+    `(0.30≤lum<0.72)` 的**内容统计量**——带里的像素换了一批，于是本锁的
+    **0.005 绝对容差是在 δ=0 的工作点上量出来的**。电平上线后当场重测
+    （`tmp_pair_tiebreak.py`，11 帧、384 量法、red 1.30 × blue 0.70）：
+
+    | gain | 有符号 Δsat95 | 有符号 Δ带宽RG | 逐帧 abs(Δ带宽RG) | 四统计距离 |
+    |---|---|---|---|---|
+    | 1.897 | −0.0848 | +0.0271 | 0.0505 | 0.0600 |
+    | 2.200 | −0.0471 | +0.0158 | 0.0522 | **0.0559** |
+    | **2.500（现产）** | **−0.0114** | **+0.0041** | 0.0548 | 0.0565 |
+
+    训练卷 1298 在 2.20 与 2.50 之间**分不开**（|RG|+|sat| 0.1597 对 0.1600，差 0.2%），
+    而**有符号**的两条轴（平均饱和、平均色相偏）都指着 2.50 离零最近
+    ⇒ 不挪已上线的常数（挪到 2.20 会把"我们比他淡"重新拉开 0.036，
+    而那正是当初引入增益要修的那个"不够像"）。逐帧 abs 更爱低增益是**散布**，
+    散布的最大贡献是 `1298::G200-7` 一帧（Δ带宽RG **+0.2439**，其余帧 ≤0.07）。
+    ⇒ 本锁继续在 δ=0 的条件下量它原本要量的东西；
+    **δ 开着时的色相账由 `test_level_absolute.py` 负责**。
+
+    实测（δ=0，留出三帧，`-s` 打印）：
     * 只动增益（1.00×2.50）色相 **0.0993**，比现产 0.0377 **更糟**
       ⇒ 增益救不了色相，它只会把已有的偏绿放大。
     * 只动斜率（1.30×1.897）色相 0.0192，与联立 0.0197 同量级
@@ -192,6 +212,7 @@ def test_gain_alone_does_not_fix_hue_but_pair_pays_for_saturation(inputs):
       ⇒ **增益的存在是为了付斜率欠下的饱和账**，这才是"一对"的真实含义。
     上一轮的错误正是只看饱和去评一个管色相的旋钮，于是把它否了。
     """
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", 0.0)
     base = _gaps(inputs, BASE_RED, BASE_GAIN)
     gain_only = _gaps(inputs, BASE_RED, 2.50)
     slope_only = _gaps(inputs, 1.30, BASE_GAIN)
@@ -247,3 +268,30 @@ def test_blue_index_is_not_dominated_at_the_shipped_pair(inputs):
     assert m055 > m070, (
         f"blue 0.55 在留出卷上更好（{m055:.4f} < {m070:.4f}）："
         "'保留 0.70' 的依据没了，重扫 blue 并改默认值，别改这条锁的阈值")
+
+
+def test_blue_index_improves_every_holdout_frame_at_the_product_point(inputs):
+    """**产品工作点上的蓝指数锁**（电平项开着）。
+
+    上面那条"每帧都变好"的旧锁在 `red 1.00 × gain 1.00` 那个**隔离角**上量，
+    B-14⑮ 的电平 δ 一上线它就红了（`1299::G200-2` 0.0141 → 0.0230）——
+    那是工作点变了，不是蓝指数错了。所以这里把蓝指数放回**它真正被使用的地方**
+    （`red 1.30 × gain 2.50`，电平开着）逐帧重钉：这才是"用户一键出片时蓝指数有没有用"。
+
+    实测（`tmp_pair_refit_after_level.py` 阶段二，red 1.30 × gain 2.20 那一格）：
+    blue 1.00 → 0.70 时留出三帧的 `Δ带宽RG` 逐帧为
+    `−0.0339 → −0.0279`、`+0.0120 → +0.0113`、`−0.0546 → −0.0452`，
+    `|ΔRG|` 均值 0.0335 → **0.0281**、`|ΔBG|` 0.0678 → **0.0413**、距离 0.0514 → **0.0477**。
+    """
+    at_100 = _gaps(inputs, 1.30, 2.50, rb=1.00)
+    at_070 = _gaps(inputs, 1.30, 2.50, rb=0.70)
+    print()
+    for fid in sorted(at_100):
+        v1 = abs(at_100[fid]["grg"]) + abs(at_100[fid]["gbg"])
+        v2 = abs(at_070[fid]["grg"]) + abs(at_070[fid]["gbg"])
+        print(f"  {fid.split('::')[-1]:<10} 向量差 blue1.00 {v1:.4f} → blue0.70 {v2:.4f}")
+    worse = [f for f in at_100
+             if abs(at_070[f]["grg"]) + abs(at_070[f]["gbg"])
+             >= abs(at_100[f]["grg"]) + abs(at_100[f]["gbg"])]
+    assert not worse, f"产品工作点上蓝指数让这些帧没变好：{worse}"
+    assert len(at_100) == 3, f"留出帧数变了（{len(at_100)}），逐帧判据要重估"

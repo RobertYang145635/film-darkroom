@@ -174,8 +174,22 @@ def test_userfit_profile_exists_with_the_measured_exponent():
     assert prof["film_type"] == "c41_color"
 
 
-def test_blue_exponent_improves_every_holdout_frame(inputs):
-    """**逐帧**都要变好：留出卷三帧，任何一帧变差都算这条锁红。"""
+def test_blue_exponent_improves_every_holdout_frame(inputs, monkeypatch):
+    """**逐帧**都要变好：留出卷三帧，任何一帧变差都算这条锁红。
+
+    ⚠ **本锁把逐帧电平项钉回 `strength=0`（B-14⑮）再量**：这条锁量的是
+    `red 1.00 × blue 1.00 vs 0.70` 这个**隔离角**上的色相向量差，
+    而它的"三帧全部变好"是在没有电平项的工作点上量出来的。
+    电平 δ 一上线（逐帧 −0.054~+0.058 decade），`1299::G200-2` 在这一角上
+    从 0.0141 变到 0.0230 —— **变的是带内像素集合，不是蓝指数**
+    （"中间带"是 `(0.30≤lum<0.72)` 的内容统计量）。
+    ⇒ 按"常数变了就重钉条件、不放宽判据"的规矩，这里把电平关掉，
+    本锁继续守它原本的条件；**蓝指数在产品工作点
+    （`red 1.30 × gain 2.50`、电平开着）上的逐帧账**由
+    `test_red_slope_gain_pair.py::test_blue_index_improves_every_holdout_frame_at_the_product_point`
+    负责，那条锁不许跟着关掉电平。
+    """
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", 0.0)
     base = _gaps(inputs, 1.0, 1.0)
     fit = _gaps(inputs, 1.0, 0.7)
     print()
