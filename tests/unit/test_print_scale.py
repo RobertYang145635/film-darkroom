@@ -494,3 +494,87 @@ def test_level_negative_control_zero_strength_is_exactly_the_old_product(monkeyp
     # 反方向（把浓的印暗）也必须真的把方向反过来：符号是从密度中位来的
     monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", -0.25)
     assert level_shift(0.95) < 0.0
+
+
+# ---------------------------------------------------------------------------
+# 色度增益的**纸级末端收回**（B-14⑲）：中间调浓、高光淡。
+# ---------------------------------------------------------------------------
+
+def test_chroma_highlight_constants_are_the_measured_values():
+    from negative_lab.print_math import (PRINT_CHROMA_HIGHLIGHT_GAIN,
+                                         PRINT_CHROMA_HIGHLIGHT_START)
+    assert PRINT_CHROMA_HIGHLIGHT_GAIN == pytest.approx(0.80)
+    assert PRINT_CHROMA_HIGHLIGHT_START == pytest.approx(0.85)
+
+
+def test_chroma_ramp_is_flat_until_the_paper_scale_end():
+    """`t0n` 归一在**纸级刻度**上：起点以下必须逐比特等于原增益。
+    第一版把它当显示亮度扫到 0.88，结果一个像素都没进斜坡（三档 k_hi 数字完全相同），
+    而 0.45 已经咬到纸级 56% = 中间调——这条锁钉住归一后的语义。"""
+    from negative_lab.print_math import PRINT_WHITE, chroma_gain_at
+    y = np.array([[0.0, 0.2 * PRINT_WHITE, 0.5 * PRINT_WHITE,
+                   0.85 * PRINT_WHITE, 0.925 * PRINT_WHITE, PRINT_WHITE]])
+    k = chroma_gain_at(y, 2.50)
+    assert np.allclose(k[:, :4], 2.50), k          # 起点之前恒等（含端点 0.85）
+    assert float(k[0, 4]) == pytest.approx(2.50 - (2.50 - 0.80) * 0.5)
+    assert float(k[0, 5]) == pytest.approx(0.80)   # 纸级顶端收到高光档
+    assert np.all(np.diff(k) <= 1e-9), "增益必须随亮度单调不增"
+
+
+def test_chroma_ramp_direction_is_exactly_the_ramp():
+    """公式不做钳位是**故意的**：`k_hi` 高于基增益时末端反而放大（负控制要用它），
+    低于时收回。这里把两个方向都钉住，防止有人"好心"加回 `min/max` 钳位
+    ——加了钳位之后反向控制会与恒等档逐比特相同（本轮实测踩过）。"""
+    from negative_lab.print_math import PRINT_WHITE, chroma_gain_at
+    y = np.linspace(0.0, PRINT_WHITE, 33).reshape(1, 33)
+    down = chroma_gain_at(y, 2.50)                 # 生产：2.50 → 0.80
+    up = chroma_gain_at(y, 0.5)                    # 反向：0.50 → 0.80（末端更放大）
+    assert float(down[0, -1]) == pytest.approx(0.80) and down.max() <= 2.50 + 1e-9
+    assert float(up[0, -1]) == pytest.approx(0.80) and up.max() >= 0.5
+    assert np.all(np.diff(up) >= -1e-9), "反向档必须单调上升，否则斜坡写反了"
+    inert = chroma_gain_at(y, 0.80)                # 高光档 == 基增益 ⇒ 整帧恒等
+    assert np.allclose(inert, 0.80)
+
+
+def test_chroma_ramp_preserves_luma_by_construction():
+    """`out = y + k_eff(x − y)` 的权重和恒为 1 ⇒ **色度这一步不碰亮度**
+    （亮度只由前面的纸级曲线决定）。随机像素上直接验恒等式。"""
+    rng = np.random.default_rng(20261012)
+    rgb = rng.random((96, 64, 3)).astype(np.float32) * 0.9
+    y = rgb @ _LUM.astype(np.float32)
+    from negative_lab.print_math import chroma_gain_at
+    out = y[..., None] + chroma_gain_at(y, 2.50)[..., None] * (rgb - y[..., None])
+    assert np.allclose(out @ _LUM, y, rtol=0, atol=2e-6)
+
+
+def test_chroma_ramp_negative_control_off_is_the_old_product(monkeypatch):
+    """**负控制**：这一项关掉之后必须逐比特等于"改之前的产品"，打开时必须不同。
+
+    "关掉"有两种等价写法，这里**互相校验**：
+    ① 把高光档钉成与总增益相同（斜坡恒等）；
+    ② 把 `chroma_gain_at` 直接换成"返回常数"的旧实现。
+    两者必须逐比特一致，且与生产默认值（0.80）**不一致**——
+    否则要么这一项根本没进产品路径，要么这条负控制是空的。
+    """
+    from negative_lab.print_math import print_remap_array
+    rgb = (np.linspace(0.05, 0.95, 200, dtype=np.float32)
+           .reshape(20, 10, 1) * np.array([[[0.9, 1.0, 0.8]]], dtype=np.float32))
+    anchor = (0.05, 0.50, 0.95)
+
+    monkeypatch.setattr("negative_lab.print_math.PRINT_CHROMA_HIGHLIGHT_GAIN", 2.50)
+    inert_const, _ = print_remap_array(rgb, anchor, 1.0, None, chroma_gain=2.50)
+
+    monkeypatch.setattr("negative_lab.print_math.PRINT_CHROMA_HIGHLIGHT_GAIN", 0.80)
+
+    def _old(y, base):     # 改之前的实现：整帧同一个标量
+        return np.full(np.asarray(y).shape, base, dtype=np.float32)
+
+    monkeypatch.setattr("negative_lab.print_math.chroma_gain_at", _old)
+    inert_patch, _ = print_remap_array(rgb, anchor, 1.0, None, chroma_gain=2.50)
+    assert np.array_equal(inert_const, inert_patch), "两种'关掉'写法不一致，其中一条是空的"
+
+    monkeypatch.undo()
+    shipped, info = print_remap_array(rgb, anchor, 1.0, None, chroma_gain=2.50)
+    assert not np.array_equal(shipped, inert_const), "生产默认值下这一项没进产品路径"
+    assert info["chroma_gain_highlight"] == pytest.approx(0.80)
+    assert info["chroma_ramp_start"] == pytest.approx(0.85)

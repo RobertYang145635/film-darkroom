@@ -403,6 +403,71 @@ def remap_luma(y_old: np.ndarray, anchor: tuple[float, float, float],
     return 1.0 - np.power(10.0, -v)
 
 
+#: 色度增益在**纸级末端**要收回来（"相纸高光染料自然脱色"）。
+#:
+#: **它补的是哪个洞**（`tmp_highlight_cast.py`，11 帧，取显示亮度最高 5% 的像素
+#: 求三通道均值，分三层量）：
+#:
+#: | 层 | `1299` 三帧最高 5% 的 R/G/B | 彩度 |
+#: |---|---|---|
+#: | 技术正片（打印前） | 0.849~0.860 / 0.908~0.918 / 0.971~0.987 | 0.122~0.128 |
+#: | 成品（打印后，本项之前） | 0.665~0.688 / 0.808~0.831 / 0.903~0.920 | **0.226~0.249** |
+#: | 用户手工参考 | 0.964~0.991 / 0.951~0.990 / 0.933~0.993 | **0.006~0.031** |
+#:
+#: ⇒ **反相出来的白本来就接近中性**（最低通道只比他差 −0.08~−0.13），
+#: 是 `LOOK_CHROMA_GAIN=2.50` 无差别放大把高光通道差翻倍、再被纸级天花板
+#: 整像素同除砍掉 R，才变成 −0.25~−0.33。**这就是用户点名的"水是一片死青"。**
+#: 而 2.50 当初是用**整帧 `sat_p95`**（一个由高光主导的量）拟合的，
+#: 等于拿高光的数去定中间调的口味，再反过来把高光放大一倍——两头都不对：
+#: 他的剖面是"中间调浓、高光淡"，我们是"中间调淡、高光浓"。
+#:
+#: **形式**：`k_eff(y) = k − (k − k_hi)·clip(y/PRINT_WHITE − t0n, 0, 1)/(1 − t0n)`，
+#: 其中 `y` 是**线性纸级亮度**（上限就是 `PRINT_WHITE`）。
+#: ⚠ `t0n` 归一在纸级刻度上是有原因的：第一版把 `t0` 当显示亮度扫到 0.88，
+#: 结果**一个像素都没进斜坡**（三档 `k_hi` 数字完全相同），
+#: 而 `t0=0.45` 其实已经咬到纸级 56% 处 = 中间调（`tmp_chroma_profile.py` 当场抓到）。
+#:
+#: **系数由四条预写判据 + 看图共同定**（`tmp_chroma_profile.py` 扫
+#: `t0n{0.70,0.85}×k_mid{2.5,3.0,3.5}×k_hi{0.8,1.3}`）：`0.85 / 0.8` 这一格
+#: 高光最低通道差 `0.1623 → 0.1176`（−28%，留出卷 `0.2935 → 0.2172`）、
+#: 高光彩度差 `0.1251 → 0.0783`（−37%）、白点缺口 `Δp95 −0.0461 → −0.0185`（闭合 60%）、
+#: 中间带色相 `|ΔRG| 0.0533 → 0.0527`。**代价照实记**：
+#: `Δsat95 −0.0204 → −0.0271`、**训练卷四统计距离 0.0597 → 0.0614（+0.0017）**、
+#: `Δ亮度 +0.0059 → +0.0120`。训练卷变差的两项来源（亮度与整帧饱和）
+#: **都不是这条机制声称要修的缺陷**——按纪律第 4 条这时由看图裁决：
+#: `outputs/ref_look_probe/highlight_desat_3way.jpg` 三列并排，
+#: `1299` 三帧与 `1298::G200-1` 的云/水**明显回到白**，
+#: 只有 `1298::G200-5`（他这一帧的高光本来就带暖彩度 0.151，我们 0.116）被抹淡一点。
+#:
+#: 抬 `k_mid` 去付饱和账是**试过并否掉的**：`k_mid=3.0, k_hi=0.8` 时
+#: `Δsat95` 变成 +0.0259（过量）、`|ΔRG|` 从 0.0527 恶化到 0.0701、两卷距离都变差。
+#: `k_hi < 1.0` 不是"往中性硬压"：他一侧也有彩度高的高光（`::G200-5` 0.151、
+#: `::G200-7` 0.146），0.8 只是"末端略微收"，保留技术正片自己的通道差。
+#: ⚠ 片基未实测的帧本来就被闸门设成 `chroma_gain=1.0`（不放大），
+#: 这一项仍会在末端把它收到 0.8——那是纸的行为，与放大无关，见 `chroma_gain_at`。
+PRINT_CHROMA_HIGHLIGHT_GAIN = 0.80
+PRINT_CHROMA_HIGHLIGHT_START = 0.85
+
+
+def chroma_gain_at(paper_luma: np.ndarray, base_gain: float) -> np.ndarray:
+    """逐像素色度增益：纸级 `PRINT_CHROMA_HIGHLIGHT_START` 之前恒等于 `base_gain`，
+    之后线性收到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（**亮度不参与运算**，权重和恒为 1）。
+
+    `base_gain == 高光档` 时整帧恒等 ⇒ 这一项可以整体关掉做对照。
+    生产里 `base_gain` 只有两种取值（已实测片基 `LOOK_CHROMA_GAIN` /
+    闸门帧 1.0），两者都 > 高光档，所以这条斜坡**只会往下收**；
+    但公式本身不做钳位——**故意不做**：负控制要靠"把末端反而放大"这一档
+    来证明这把尺有区分力（`tests/regression/test_highlight_desaturation.py`），
+    加了钳位那条控制就变成空转（本轮实测踩过：钳位版下 `k_hi=4.2` 与 2.5 逐比特相同）。
+    """
+    y = np.asarray(paper_luma, np.float32)
+    k0 = np.float32(base_gain)
+    kh = np.float32(PRINT_CHROMA_HIGHLIGHT_GAIN)
+    t0 = np.float32(PRINT_CHROMA_HIGHLIGHT_START)
+    ramp = np.clip((y / np.float32(PRINT_WHITE) - t0) / np.float32(1.0 - t0), 0.0, 1.0)
+    return (k0 - (k0 - kh) * ramp).astype(np.float32, copy=False)
+
+
 def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
                 dmax_old: float, mask_band: np.ndarray | None,
                 chroma_gain: float = LOOK_CHROMA_GAIN) -> np.ndarray:
@@ -438,8 +503,9 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # `out = y + k(x − y)` 保持亮度 y 不变（权重和为 1），所以不会推翻上一步的
     # 电平与对比。**为什么必须显式做**：扣完橙色片基仍残留抑制，实测
     # 软件饱和 p95 0.212 对用户参考 0.405（差 −0.193），是成品"不够像"的主因。
+    # k 在**纸级末端**收回到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（见那三条常量的依据）。
     y = out @ _LUM_W32
-    out = y[..., None] + np.float32(chroma_gain) * (out - y[..., None])
+    out = y[..., None] + chroma_gain_at(y, chroma_gain)[..., None] * (out - y[..., None])
     # 放大色度会把最亮通道顶过天花板，所以按**整像素统一缩放**收回：
     # 同除一个系数不改通道比例（不重演上次"逐通道钳位造成青蓝偏"的错误）。
     top2 = out.max(axis=2)
@@ -495,7 +561,9 @@ def print_remap_array(positive_linear: np.ndarray,
         out = np.concatenate([out, x[..., 3:]], axis=2)
     info = {"d_lo": round(anchor[0], 5), "d_hi": round(anchor[-1], 5),
             "points": len(anchor), "aim": PRINT_AIM, "white": PRINT_WHITE,
-            "dmax_old": round(float(dmax_old), 5), "chroma_gain": round(k, 5)}
+            "dmax_old": round(float(dmax_old), 5), "chroma_gain": round(k, 5),
+            "chroma_gain_highlight": PRINT_CHROMA_HIGHLIGHT_GAIN,
+            "chroma_ramp_start": PRINT_CHROMA_HIGHLIGHT_START}
     if len(anchor) == 3:
         info["d_mid"] = round(anchor[1], 5)
     return out, info

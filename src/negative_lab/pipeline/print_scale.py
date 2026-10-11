@@ -13,10 +13,13 @@ import numpy as np
 
 from ..print_math import (LOOK_CHROMA_GAIN, LOOK_RED_EXPONENT, MIN_SPAN, P_HIGH,
                           P_LOW, P_MID,
-                          PRINT_AIM, PRINT_LEVEL_MAX_SHIFT, PRINT_LEVEL_REFERENCE_DENSITY,
+                          PRINT_AIM, PRINT_CHROMA_HIGHLIGHT_GAIN,
+                          PRINT_CHROMA_HIGHLIGHT_START, PRINT_LEVEL_MAX_SHIFT,
+                          PRINT_LEVEL_REFERENCE_DENSITY,
                           PRINT_LEVEL_STRENGTH, PRINT_WHITE, PRINT_REGION_CENTRE_FRAC,
                           anchor_refusal_reason, anchor_with_level, centre_region,
-                          density_anchor, density_anchor_linear, level_shift,
+                          chroma_gain_at, density_anchor,
+                          density_anchor_linear, level_shift,
                           picture_density, print_curve,
                           print_remap_array, remap_luma)
 
@@ -25,7 +28,9 @@ __all__ = ["LOOK_CHROMA_GAIN", "LOOK_RED_EXPONENT", "MIN_SPAN", "P_HIGH", "P_LOW
            "PRINT_WHITE", "PRINT_REGION_CENTRE_FRAC",
            "PRINT_LEVEL_STRENGTH", "PRINT_LEVEL_REFERENCE_DENSITY",
            "PRINT_LEVEL_MAX_SHIFT",
+           "PRINT_CHROMA_HIGHLIGHT_GAIN", "PRINT_CHROMA_HIGHLIGHT_START",
            "anchor_refusal_reason", "anchor_with_level", "level_shift",
+           "chroma_gain_at",
            "centre_region", "density_anchor", "density_anchor_linear",
            "picture_density", "print_curve",
            "print_remap_array", "remap_luma", "apply_print_remap"]
