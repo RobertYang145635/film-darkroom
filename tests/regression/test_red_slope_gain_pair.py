@@ -213,6 +213,9 @@ def test_gain_alone_does_not_fix_hue_but_pair_pays_for_saturation(inputs, monkey
     上一轮的错误正是只看饱和去评一个管色相的旋钮，于是把它否了。
     """
     monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", 0.0)
+    #: ㉓ 之后电平有**两个**携带者（密度中位 + 高调面积），只钉第一个不等于回到 δ=0——
+    #: 本锁就是这样变红的（0.0216 → 0.0283 越过 0.005）。两个都钉才算关掉这一项。
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_AREA_STRENGTH", 0.0)
     base = _gaps(inputs, BASE_RED, BASE_GAIN)
     gain_only = _gaps(inputs, BASE_RED, 2.50)
     slope_only = _gaps(inputs, 1.30, BASE_GAIN)

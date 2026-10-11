@@ -190,6 +190,8 @@ def test_blue_exponent_improves_every_holdout_frame(inputs, monkeypatch):
     负责，那条锁不许跟着关掉电平。
     """
     monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_STRENGTH", 0.0)
+    #: ㉓ 之后电平有**两个**携带者（密度中位 + 高调面积），只钉第一个不等于回到 δ=0。
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_AREA_STRENGTH", 0.0)
     base = _gaps(inputs, 1.0, 1.0)
     fit = _gaps(inputs, 1.0, 0.7)
     print()

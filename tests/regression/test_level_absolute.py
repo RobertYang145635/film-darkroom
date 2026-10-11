@@ -34,7 +34,7 @@ from negative_lab.library.models import FrameRecord, GeometryRegions
 from negative_lab.library.render import RenderIntent, apply_render
 from negative_lab.pipeline.density import encode_srgb
 from negative_lab.pipeline.service import candidate_positive, process_roll
-from negative_lab.print_math import PRINT_LEVEL_MAX_SHIFT, PRINT_LEVEL_REFERENCE_DENSITY
+from negative_lab.print_math import (PRINT_LEVEL_REFERENCE_DENSITY, level_shift)
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MAX_DIM = 1200
@@ -62,9 +62,26 @@ def _stats(disp01):
             "std": float(lum.std()), "sat95": float(np.percentile(sat, 95))}
 
 
-def _delta(strength: float, density_median: float) -> float:
-    raw = strength * (density_median - PRINT_LEVEL_REFERENCE_DENSITY)
-    return float(np.clip(raw, -PRINT_LEVEL_MAX_SHIFT, PRINT_LEVEL_MAX_SHIFT))
+def _compose(pre: tuple[float, float, float], strength: float, density_median: float,
+             highlight_area: float | None) -> list[float]:
+    """在**出厂锚**上重放生产那条链：`⑳ 窗口下限 → ⑮/㉓ 电平项`，只把 κ₁ 换成 `strength`。
+
+    ⚠ 两条纪律（都是红灯换来的）：
+    ① 对照**必须走产品函数**，不能手推公式——㉓ 加上第二携带者后，手推的旧公式
+       重建出的锚与产品差到 **0.0346**，被本文件的自检当场抓住；
+    ② 次序必须与 `service.py` step 9b 一致（㉔）：下限作用在出厂锚上、电平项最后搬 `hi`，
+       反序时窄跨度帧的电平校正会被下限整笔收回。
+    """
+    import negative_lab.print_math as pm
+
+    orig = pm.PRINT_LEVEL_STRENGTH
+    pm.PRINT_LEVEL_STRENGTH = float(strength)
+    try:
+        floored = pm.white_window_floor(pre)[0]
+        out, _delta, _note = pm.anchor_with_level(floored, density_median, highlight_area)
+        return [float(v) for v in out]
+    finally:
+        pm.PRINT_LEVEL_STRENGTH = orig
 
 
 @pytest.fixture(scope="module")
@@ -149,10 +166,14 @@ def _gap(corpus, strength: float) -> dict:
     for r in corpus["rows"]:
         ps, a = r["ps"], r["it"].print_anchor
         applied = float(ps["level_shift"])
-        mid_raw, hi_raw = float(a[1]) + applied, float(a[2]) + applied   # 未平移的锚
-        d = _delta(strength, float(ps["density_median"]))
+        #: **出厂锚**：`mid` 加回 δ；`hi` 取 `window_pre_hi`（下限与电平项都没施加过的
+        #: 那一个）——出厂 `d_hi` 既被 ⑳ 抬过、又被电平项搬过，只加回 δ 反推不出来。
+        pre = (float(a[0]), float(a[1]) + applied,
+               float(ps["window_pre_hi"]) if "window_pre_hi" in ps
+               else float(a[2]) + applied)
         it = RenderIntent.from_dict(r["it"].to_dict())
-        it.print_anchor = [float(a[0]), mid_raw - d, hi_raw - d]
+        it.print_anchor = _compose(pre, strength, float(ps["density_median"]),
+                                   ps.get("highlight_area"))
         s = _stats(np.clip(encode_srgb(apply_render(r["tech"], it))[..., :3], 0, 1))
         ref = r["ref"]
         out[r["id"]] = {
@@ -186,12 +207,15 @@ def test_offline_rerender_equals_production_bit_for_bit(corpus):
 
 
 def test_level_shift_is_recorded_and_matches_the_formula(corpus):
-    """生产必须把 δ 写进 `print_scale`，且与 `density_median` 的公式自洽
-    （**来源标签**：没有这一条，后面所有对比都说不清生产到底走没走这步）。"""
+    """生产必须把 δ 写进 `print_scale`，且 δ **等于生产自己的 `level_shift`**
+    （**来源标签**：没有这一条，后面所有对比都说不清生产到底走没走这步）。
+    ⚠ 这里必须调产品函数，不许在本文件里重写公式——㉓ 加第二携带者之后
+    重写的那份立刻过期（自检抓到 drift 0.0346）。"""
     for r in corpus["rows"]:
         ps = r["ps"]
         assert float(ps["level_shift"]) == pytest.approx(
-            _delta(SHIPPED, float(ps["density_median"])), abs=1e-5), r["id"]
+            level_shift(float(ps["density_median"]), ps.get("highlight_area")),
+            abs=1e-5), r["id"]
         assert float(ps["level_reference"]) == pytest.approx(PRINT_LEVEL_REFERENCE_DENSITY)
         assert float(ps["d_lo"]) == pytest.approx(float(r["it"].print_anchor[0]), abs=1e-5)
         assert float(ps["d_mid"]) == pytest.approx(float(r["it"].print_anchor[1]), abs=1e-5)

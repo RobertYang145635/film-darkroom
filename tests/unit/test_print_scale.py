@@ -26,14 +26,17 @@ import pytest
 from negative_lab.pipeline.density import InvertResult, encode_srgb, invert
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.print_scale import (MIN_SPAN, P_HIGH, P_LOW, P_MID,
-                                               PRINT_AIM, PRINT_LEVEL_MAX_SHIFT,
+                                               PRINT_AIM, PRINT_LEVEL_AREA_STRENGTH,
+                                               PRINT_LEVEL_HIGHLIGHT_AREA_REFERENCE,
+                                               PRINT_LEVEL_HIGHLIGHT_WINDOW,
+                                               PRINT_LEVEL_MAX_SHIFT,
                                                PRINT_LEVEL_REFERENCE_DENSITY,
                                                PRINT_LEVEL_STRENGTH,
                                                PRINT_MIN_DENSITY_WINDOW, PRINT_WHITE,
                                                anchor_refusal_reason, anchor_with_level,
                                                apply_print_remap,
                                                centre_region, density_anchor,
-                                               level_shift,
+                                               highlight_area_fraction, level_shift,
                                                picture_density, print_curve,
                                                print_remap_array, remap_luma,
                                                white_window_floor)
@@ -587,7 +590,26 @@ def test_chroma_ramp_negative_control_off_is_the_old_product(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_window_constant_is_the_measured_value():
-    assert PRINT_MIN_DENSITY_WINDOW == pytest.approx(0.60)
+    """0.55 是 ㉔（次序改成"下限 → 电平"）之后重扫网格、过"留出卷三项都不许比
+    `W=0` 差"那条动手前判据的最大值；旧值 0.60 是旧次序下同一判据的产物。
+    ⚠ 0.55 落在两帧出厂跨度（0.5442 / 0.5526）之间 0.008 decade 的缝里，
+    第三卷一到必须重扫——依据全部写在常量块第四、五节。"""
+    assert PRINT_MIN_DENSITY_WINDOW == pytest.approx(0.55)
+
+
+def test_floor_and_level_do_not_commute():
+    """下限与电平项动的是**同一个 `hi`**，所以次序不是风格：
+    `先下限再电平` 与 `先电平再下限` 在 δ>0 时相差整整一个 δ。
+    生产走前者（`service.py` step 9b，㉔）；这条锁防的是"把两步合并成一个
+    `max(hi − δ, lo + W)`"——那一步合并就是旧次序，窄跨度帧的电平校正会被整笔收回。"""
+    lo, hi, delta = 0.343, 0.7086, 0.0216    # 1298::G200-5 的出厂锚（mid=0.541）与 δ
+    w = PRINT_MIN_DENSITY_WINDOW
+    assert hi < lo + w, "这帧必须是被抬的那一类，否则两种次序相等"
+    fl = max(hi, lo + w) - delta          # 下限 → 电平（生产）
+    lf = max(hi - delta, lo + w)          # 电平 → 下限（旧出厂）
+    assert fl == pytest.approx(lo + w - delta)
+    assert lf == pytest.approx(lo + w)
+    assert abs(fl - lf) == pytest.approx(delta), "两种次序没区别 ⇒ 这条锁失去区分力"
 
 
 def test_window_floor_only_raises_the_white_anchor():
@@ -622,3 +644,57 @@ def test_window_floor_refuses_to_break_the_curve():
 def test_two_point_anchor_gets_no_window_floor():
     out, raised, note = white_window_floor((0.10, 0.90))
     assert out == (0.10, 0.90) and not raised and note == ""
+
+
+# ---------------------------------------------------------------------------
+# 电平的第二个携带者：高调面积（B-14㉓，与 P_LOW 联立才通过判据）
+# ---------------------------------------------------------------------------
+
+def test_highlight_area_fraction_is_a_band_share():
+    """占比 = 落在自身 p99 之下 `window` decade 以内的像素比。
+    构造两簇：90% 在 0.1、10% 在 1.0 ⇒ p99=1.0，band=[0.8,1.0] 只有那 10%。"""
+    s = np.concatenate([np.full(9000, 0.1), np.full(1000, 1.0)])
+    assert highlight_area_fraction(s) == pytest.approx(0.1, abs=2e-3)
+    # 全平的一幅：p99 与自身同值 ⇒ 全部落在带内（占比 1.0，不是 0）
+    assert highlight_area_fraction(np.full(2048, 0.5)) == pytest.approx(1.0)
+    # 样本不足不许猜
+    assert highlight_area_fraction(np.full(200, 0.5)) is None
+    assert highlight_area_fraction(None) is None
+    assert highlight_area_fraction(np.array([0.1, np.nan, 0.9] * 300)) is not None
+
+
+def test_level_shift_adds_two_carriers_and_clamps_the_sum():
+    base = PRINT_LEVEL_REFERENCE_DENSITY
+    area_ref = PRINT_LEVEL_HIGHLIGHT_AREA_REFERENCE
+    assert level_shift(base, area_ref) == 0.0
+    # 只给中位 ⇒ 与单携带者时代逐比特相同（向后兼容，`None` 就是不加第二项）
+    assert level_shift(base + 0.2) == pytest.approx(PRINT_LEVEL_STRENGTH * 0.2)
+    assert level_shift(base + 0.2, None) == level_shift(base + 0.2)
+    # 两项同向 ⇒ 相加
+    got = level_shift(base + 0.2, area_ref + 0.2)
+    assert got == pytest.approx(PRINT_LEVEL_STRENGTH * 0.2
+                                + PRINT_LEVEL_AREA_STRENGTH * 0.2)
+    # 反向抵消到 0 就是"不加这一项"
+    k = PRINT_LEVEL_AREA_STRENGTH * 0.4 / PRINT_LEVEL_STRENGTH
+    assert level_shift(base + 0.4, area_ref - 0.4) == pytest.approx(
+        PRINT_LEVEL_STRENGTH * 0.4 - PRINT_LEVEL_AREA_STRENGTH * 0.4)
+    assert k > 0
+    # 限幅作用在**和**上
+    assert level_shift(base + 5.0, area_ref + 5.0) == pytest.approx(PRINT_LEVEL_MAX_SHIFT)
+    assert level_shift(base - 5.0, area_ref - 5.0) == pytest.approx(-PRINT_LEVEL_MAX_SHIFT)
+
+
+def test_level_constants_are_the_measured_pair():
+    assert PRINT_LEVEL_AREA_STRENGTH == pytest.approx(0.10)
+    assert PRINT_LEVEL_HIGHLIGHT_AREA_REFERENCE == pytest.approx(0.3122)
+    assert PRINT_LEVEL_HIGHLIGHT_WINDOW == pytest.approx(0.20)
+    assert P_LOW == pytest.approx(3.0), "黑锚分位改值必须同时改 ㉓ 的依据"
+
+
+def test_area_carrier_negative_control_zero_is_the_single_carrier(monkeypatch):
+    """**负控制**：κ₂=0 必须逐比特退回 ⑮ 的单携带者；
+    κ₂ 反号必须把 δ 反方向推（否则"面积大 ⇒ 印得亮"这句话没有区分力）。"""
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_AREA_STRENGTH", 0.0)
+    assert level_shift(0.70, 0.70) == level_shift(0.70, None)
+    monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_AREA_STRENGTH", -0.10)
+    assert level_shift(0.5539, 0.70) < 0.0
