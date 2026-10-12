@@ -163,10 +163,13 @@ def _rerender(corpus, p_low: float, k2: float) -> dict:
             anchor = pm.density_anchor(r["samples"])
             assert anchor is not None and len(anchor) == 3, f"{r['id']}：对照格锚点退化"
             area = highlight_area_fraction(r["samples"])
-            anchor, _raised, wnote = pm.white_window_floor(anchor)
+            anchor, _raised, wnote = pm.white_window_floor(
+                anchor, None, float(r["ps"]["density_median"]))
             anchor, delta, note = pm.anchor_with_level(anchor, float(r["ps"]["density_median"]),
                                                        area)
-            assert not note and not wnote, f"{r['id']}：{note}{wnote}"
+            #: 符号闸（㉕）拦下窄跨度但本来就印暗的帧时会给一条说明——那是**预期行为**，
+            #: 不许当成回退；真正的回退只有"会使曲线不合法"那一种。
+            assert not note and (not wnote or "符号闸" in wnote), f"{r['id']}：{note}{wnote}"
             it = RenderIntent.from_dict(r["it"].to_dict())
             it.print_anchor = [float(v) for v in anchor]
             out[r["id"]] = _stats(np.clip(

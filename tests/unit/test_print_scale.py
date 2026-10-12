@@ -33,13 +33,14 @@ from negative_lab.pipeline.print_scale import (MIN_SPAN, P_HIGH, P_LOW, P_MID,
                                                PRINT_LEVEL_REFERENCE_DENSITY,
                                                PRINT_LEVEL_STRENGTH,
                                                PRINT_MIN_DENSITY_WINDOW, PRINT_WHITE,
+                                               PRINT_WINDOW_YMED_REFERENCE,
                                                anchor_refusal_reason, anchor_with_level,
                                                apply_print_remap,
                                                centre_region, density_anchor,
                                                highlight_area_fraction, level_shift,
                                                picture_density, print_curve,
                                                print_remap_array, remap_luma,
-                                               white_window_floor)
+                                               white_window_floor, window_y_med)
 
 _LUM = np.array([0.2126, 0.7152, 0.0722])
 _BASE = (0.25, 0.25, 0.25)
@@ -590,11 +591,30 @@ def test_chroma_ramp_negative_control_off_is_the_old_product(monkeypatch):
 # ---------------------------------------------------------------------------
 
 def test_window_constant_is_the_measured_value():
-    """0.55 是 ㉔（次序改成"下限 → 电平"）之后重扫网格、过"留出卷三项都不许比
-    `W=0` 差"那条动手前判据的最大值；旧值 0.60 是旧次序下同一判据的产物。
-    ⚠ 0.55 落在两帧出厂跨度（0.5442 / 0.5526）之间 0.008 decade 的缝里，
-    第三卷一到必须重扫——依据全部写在常量块第四、五节。"""
-    assert PRINT_MIN_DENSITY_WINDOW == pytest.approx(0.55)
+    """0.60 = 工业先验值（正常曝光 135 彩色负片有用密度范围 0.6~0.9 decade），
+    ㉕ 用符号闸把 ㉔ 被迫降到的 0.55 换回来。
+    ⚠ 加闸之后**留出卷对 `W_min` 不再有否决权**（那一刀不再落到它头上），
+    所以这个值不是本语料选出来的，是钉住的——依据与绊线见
+    `PRINT_MIN_DENSITY_WINDOW` / `PRINT_WINDOW_YMED_REFERENCE` 两块与
+    `tests/regression/test_window_sign_gate.py`。"""
+    assert PRINT_MIN_DENSITY_WINDOW == pytest.approx(0.60)
+    assert PRINT_WINDOW_YMED_REFERENCE == pytest.approx(0.43)
+
+
+def test_window_y_med_is_the_curve_read_at_the_median():
+    """**手算可核对**的身份：`window_y_med` 就是出厂曲线在密度中位处的读数。
+    取 `d = mid` 必须逐比特等于 `PRINT_AIM`、`d = lo` 等于 0、`d = hi` 等于 `PRINT_WHITE`
+    （曲线本身是按这三个锚点解出来的）；没有携带者时必须返回 `None` 而不是猜一个。"""
+    a = (0.363, 0.520, 0.725)
+    assert window_y_med(a, a[1]) == pytest.approx(PRINT_AIM, abs=1e-12)
+    assert window_y_med(a, a[0]) == pytest.approx(0.0, abs=1e-12)
+    assert window_y_med(a, a[2]) == pytest.approx(PRINT_WHITE, abs=1e-9)
+    assert window_y_med(a, None) is None
+    assert window_y_med(a, float("nan")) is None
+    assert window_y_med((0.10, 0.90), 0.5) is None, "两点退化锚没有中灰控制点，闸无从判读"
+    # 单调：中位越往窗口高端走，纸级亮度只能升不能降
+    ys = [window_y_med(a, d) for d in np.linspace(a[0], a[2], 9)]
+    assert all(x <= y + 1e-12 for x, y in zip(ys, ys[1:])), "y_med 对密度中位不单调"
 
 
 def test_floor_and_level_do_not_commute():
@@ -613,21 +633,23 @@ def test_floor_and_level_do_not_commute():
 
 
 def test_window_floor_only_raises_the_white_anchor():
+    """几何锁：只抬 `hi`。用 `tau=inf` 把 ㉕ 的符号闸**摘掉**，
+    这样这一条测的是"下限改哪几个坐标"，而不是"闸放不放行"。"""
     lo, mid, hi = 0.343, 0.541, 0.726          # 1298::G200-5 的真实锚（跨度 0.383）
-    out, raised, note = white_window_floor(anchor=(lo, mid, hi))
+    out, raised, note = white_window_floor(anchor=(lo, mid, hi), tau=math.inf)
     assert raised and note == ""
     assert out[0] == lo and out[1] == mid, "黑点/中灰动了 = 会把电平项与阴影雾一起推翻"
     assert out[2] == pytest.approx(lo + PRINT_MIN_DENSITY_WINDOW)
     # 跨度本来就够的帧必须**逐比特**不变
     wide = (0.064, 0.247, 1.051)               # 1298::G200-7，跨度 0.987
-    out2, raised2, note2 = white_window_floor(anchor=wide)
+    out2, raised2, note2 = white_window_floor(anchor=wide, tau=math.inf)
     assert out2 == wide and not raised2 and note2 == ""
 
 
 def test_window_floor_negative_control_zero_is_the_old_product():
     """`w_min=0` 必须整条路径恒等，否则"上线后变好"没有对照。"""
     a = (0.343, 0.541, 0.726)
-    out, raised, _ = white_window_floor(a, w_min=0.0)
+    out, raised, _ = white_window_floor(a, w_min=0.0, tau=math.inf)
     assert out == a and not raised
 
 
@@ -636,7 +658,7 @@ def test_window_floor_refuses_to_break_the_curve():
     与电平项同一条纪律：宁可少一个窗口下限，不许从"印"退成"不印"。"""
     a = (0.50, 0.52, 0.53)                     # 抬到 1.10 后 s2=2.64 < s1=4.31
     print_curve(a)                             # 自检：原锚本身合法
-    out, raised, note = white_window_floor(a)
+    out, raised, note = white_window_floor(a, tau=math.inf)
     assert out == a and not raised and note
     assert "不合法" in note
 
@@ -644,6 +666,75 @@ def test_window_floor_refuses_to_break_the_curve():
 def test_two_point_anchor_gets_no_window_floor():
     out, raised, note = white_window_floor((0.10, 0.90))
     assert out == (0.10, 0.90) and not raised and note == ""
+
+
+# ---------------------------------------------------------------------------
+# ㉕ 符号闸：这一刀只会压暗 ⇒ 只允许落在本批语料上"会被印亮"的那一侧
+# ---------------------------------------------------------------------------
+
+def test_gate_spares_the_frame_whose_median_prints_high():
+    """**方向锁**：同一张窄跨度锚，密度中位越靠窗口高端 ⇒ `y_med` 越高 ⇒ 必须**放过**
+    并写明原因。这一刀只会压暗，而 `y_med` 高那一侧在本批语料里全是被测出
+    "已经印暗了"的帧（`1299` 三帧 `y_med` 0.475 / 0.476 / 0.665，Δmean 全负）。
+    真实帧的逐帧数字在 `tests/regression/test_window_sign_gate.py` 里，
+    本条只钉"方向"，不依赖任何我没核过的 `mid` 值。"""
+    a = (0.265, 0.520, 0.818)                  # 跨度 0.553 < 0.60：本该挨这一刀
+    assert a[2] < a[0] + PRINT_MIN_DENSITY_WINDOW, "这帧必须窄到本该挨刀，否则闸没在做事"
+    d_high = a[0] + 0.90 * (a[2] - a[0])
+    assert window_y_med(a, d_high) >= PRINT_WINDOW_YMED_REFERENCE
+    out, raised, note = white_window_floor(a, density_median=d_high)
+    assert not raised and out == a
+    assert "符号闸" in note, f"跳过原因必须写明是闸，而不是悄悄不动：{note!r}"
+
+
+def test_gate_allows_the_thin_frame_that_prints_bright():
+    """同一张锚，中位靠窗口低端（`y_med` 低 = 本批语料里"会被印亮"那一侧）⇒ 必须放行。"""
+    a = (0.363, 0.520, 0.725)                  # 1298::G200-5 那一类薄负片
+    d_low = a[0] + 0.30 * (a[2] - a[0])
+    assert window_y_med(a, d_low) < PRINT_WINDOW_YMED_REFERENCE
+    out, raised, note = white_window_floor(a, density_median=d_low)
+    assert raised and note == ""
+    assert out[2] == pytest.approx(a[0] + PRINT_MIN_DENSITY_WINDOW)
+    #: 闸的两侧必须**真的能互换**：同一张锚只挪中位，一侧抬一侧不抬
+    spared = white_window_floor(a, density_median=a[0] + 0.99 * (a[2] - a[0]))[1]
+    assert raised and not spared, "两侧同结果 ⇒ 闸没有在读这个携带者"
+
+
+def test_gate_missing_carrier_does_not_fire():
+    """没有携带者就**不施加单向钳**（说不清方向宁可少一刀），
+    与"曲线不合法就保持原锚"同一条纪律；且必须写明原因。"""
+    a = (0.363, 0.520, 0.725)
+    out, raised, note = white_window_floor(a, density_median=None)
+    assert out == a and not raised and "携带者" in note
+
+
+def test_gate_infinite_tau_reproduces_the_pre_gate_product():
+    """**恒等负控制**：`tau=inf`（闸门恒开）必须逐比特等于"没有闸"的 ㉔ 产品形状；
+    而带闸的结果只允许是"抬"或"不抬"**两种之一**，不许出现第三种数。
+    这条锁保证"加闸"这件事本身可以被干净地关掉对照——
+    反过来若有人把闸写成默认关闭，这一条会红。"""
+    cases = [(0.363, 0.520, 0.725, 0.576), (0.265, 0.520, 0.818, 0.714),
+             (0.064, 0.247, 1.051, 0.339), (0.205, 0.470, 0.750, 0.472)]
+    for lo, mid, hi, d in cases:
+        gated = white_window_floor((lo, mid, hi), density_median=d)[0]
+        open_gate = white_window_floor((lo, mid, hi), tau=math.inf)[0]
+        off = white_window_floor((lo, mid, hi), w_min=0.0)[0]
+        assert open_gate == (lo, mid, max(hi, lo + PRINT_MIN_DENSITY_WINDOW))
+        assert off == (lo, mid, hi), "w_min=0 必须恒等"
+        assert gated in (open_gate, off), (
+            f"闸只能二选一（抬 / 不抬），不许产生第三个锚：{(lo, mid, hi, d)}")
+
+
+def test_gate_threshold_sits_in_an_empty_band():
+    """**取值边界锁**：本批语料里 `y_med` 的最高"该抬"值是 **0.404**
+    （`1298::G200-9`），最低"该放"值是 **0.458**（`1298::G200-1`），
+    闸值 0.43 落在这段**没有帧**的间隔里。
+    ⚠ 这条同时说明闸值是**一侧的证据**：`y_med ≥ 0.458` 的四帧里三帧来自 1299，
+    所以"闸有效"与"闸 = 让 1299 永不开火"在两卷语料上分不开（常量块里写死了）。
+    第三卷一到必须重扫"闸值 τ × `W_min`"这一对。"""
+    assert 0.404 < PRINT_WINDOW_YMED_REFERENCE < 0.458
+    assert PRINT_WINDOW_YMED_REFERENCE - 0.404 > 0.02, "闸值贴到该抬那一侧了"
+    assert 0.458 - PRINT_WINDOW_YMED_REFERENCE > 0.02, "闸值贴到该放那一侧了"
 
 
 # ---------------------------------------------------------------------------

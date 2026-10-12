@@ -43,10 +43,10 @@ from .model_assets import deterministic_asset
 from .params import InvertParams
 from .print_scale import (LOOK_CHROMA_GAIN, PRINT_LEVEL_HIGHLIGHT_AREA_REFERENCE,
                           PRINT_LEVEL_REFERENCE_DENSITY,
-                          PRINT_MIN_DENSITY_WINDOW, anchor_refusal_reason,
-                          anchor_with_level, centre_region,
+                          PRINT_MIN_DENSITY_WINDOW, PRINT_WINDOW_YMED_REFERENCE,
+                          anchor_refusal_reason, anchor_with_level, centre_region,
                           density_anchor, density_anchor_linear, highlight_area_fraction,
-                          picture_density, print_curve, white_window_floor)
+                          picture_density, print_curve, white_window_floor, window_y_med)
 from .render import RenderIntent, apply_render
 from .roll_analysis import analyze_roll, frame_base_stats, resolve_base
 
@@ -568,21 +568,28 @@ def process_image(t_source: np.ndarray, *,
                     linear_fallback = str(exc)
                     anchor = two
         if anchor is not None:
-            #: 窄跨度负片不拉满纸级（B-14⑳，㉔ 改到电平项**之前**）：作用在**出厂锚**上，
-            #: 只抬白锚到 `lo + PRINT_MIN_DENSITY_WINDOW`，黑点与中灰一字不动。
+            #: 两个携带者先算出来：⑮/㉓ 的电平项要用它们，㉕ 的**符号闸**也要用密度中位。
+            density_median = float(np.percentile(samples, 50))
+            hi_area = highlight_area_fraction(samples)
+            #: 窄跨度负片不拉满纸级（B-14⑳，㉔ 改到电平项**之前**、㉕ 加符号闸）：
+            #: 作用在**出厂锚**上，只抬白锚到 `lo + PRINT_MIN_DENSITY_WINDOW`，
+            #: 黑点与中灰一字不动。
             #: 次序不是风格：下限和电平项动的是**同一个 `hi` 端点**，放在电平项之后
             #: 就等于让"固定窗口"收回"逐帧限幅平移"刚让出来的亮度——
             #: `1299::G200-7` δ=+0.0796 抬亮，被下限再抬回 +0.127 压暗，
             #: 而它本来就印暗了 0.0516（`tmp_window_signed.py` 的带符号表）。
             #: "负片自身可用密度窗口至少这么宽"是**底片**的属性，理应在归一化之前定；
             #: 亮度这条轴的最后话语权留给电平项。
+            #: 符号闸管另一头：这一刀只会压暗，所以只允许落在"本批语料上被实测为偏亮"
+            #: 的那一侧（`y_med < PRINT_WINDOW_YMED_REFERENCE`，B-14㉕；
+            #: 这是经验分隔不是机理，依据全部写在那条常量块里）。
             anchor_before_window = tuple(float(v) for v in anchor)
-            anchor, window_raised, window_note = white_window_floor(anchor)
+            window_y = window_y_med(anchor_before_window, density_median)
+            anchor, window_raised, window_note = white_window_floor(
+                anchor, density_median=density_median)
             #: 电平绝对项（B-14⑭/㉓）：读**与锚同一个取样总体**（`centre_region` 里的
             #: `picture_density`）的密度中位与高调面积，只抬中灰与白、黑锚不动。
             #: δ=0 时逐比特等于不加这一项。
-            density_median = float(np.percentile(samples, 50))
-            hi_area = highlight_area_fraction(samples)
             anchor, level_delta, level_note = anchor_with_level(anchor, density_median,
                                                                 hi_area)
             a = [round(float(v), 5) for v in anchor]
@@ -616,6 +623,10 @@ def process_image(t_source: np.ndarray, *,
                 "level_reference": PRINT_LEVEL_REFERENCE_DENSITY,
                 "level_area_reference": PRINT_LEVEL_HIGHLIGHT_AREA_REFERENCE,
                 "window_min": PRINT_MIN_DENSITY_WINDOW,
+                #: 符号闸（㉕）：这帧在**出厂曲线**上的中调纸级亮度与闸值。
+                #: 两个都记下来，"这一刀为什么没落"才可复算（`window_note` 只给人看）。
+                "window_y_med": (round(window_y, 5) if window_y is not None else None),
+                "window_gate": PRINT_WINDOW_YMED_REFERENCE,
                 #: **出厂**白锚（下限与电平项都没施加过的那个 `hi`）。㉔ 换了次序后
                 #: 这一项才是"下限作用在哪个数上"的原始输入，对照只能从这里重建。
                 #: 两点退化锚没有中灰控制点、白锚是最后一个，所以取 `[-1]` 而不是

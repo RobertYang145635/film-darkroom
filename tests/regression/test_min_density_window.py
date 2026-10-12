@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import json
+import math
 import pathlib
 
 import numpy as np
@@ -148,13 +149,15 @@ def corpus():
     return {"rows": rows, "mismatches": mismatches}
 
 
-def _anchor_at(r, w_min: float, order: str = "FL") -> list[float]:
-    """由 meta 重建"窗口下限 = `w_min`"时的锚，**两步都调生产函数**。
+def _anchor_at(r, w_min: float, order: str = "FL", tau: float | None = None) -> list[float]:
+    """由 meta 重建"窗口下限 = `w_min`"时的锚，**三步都调生产函数**。
 
     ㉔ 之后下限作用在**出厂锚**上、电平项在后（`order="FL"`），所以对照必须按同一条链重放：
-    `pre = (lo, mid + δ, window_pre_hi)` → `white_window_floor(pre, w)` → `anchor_with_level`。
-    `order="LF"` 重放的是**旧出厂次序**（先电平再下限），只用来在**同一量法**下
-    给"这次替换买到了什么、没买到什么"提供对照格。
+    `pre = (lo, mid + δ, window_pre_hi)` → `white_window_floor(pre, w, 中位, τ)` → `anchor_with_level`。
+    ㉕ 起下限还带**符号闸**：`τ=None` 用出厂闸值（= 产品形状），`τ=math.inf` 表示恒开
+    （用来复现 ㉔ 及更早"没有闸"的产品）。
+    `order="LF"` 重放的是**旧出厂次序**（先电平再下限、无闸），只用来在**同一量法**下
+    给"㉔ 这次替换买到了什么、没买到什么"提供对照格。
     手推公式不行：下限与电平项抢的是同一个 `hi`，次序写反就是在比一个产品里
     不存在的锚（⑯ 那条锁也是栽在手推合成上的）。
     """
@@ -166,17 +169,18 @@ def _anchor_at(r, w_min: float, order: str = "FL") -> list[float]:
     med = float(ps["density_median"])
     if order == "LF":
         lvl = pm.anchor_with_level(pre, med, area)[0]
-        out = pm.white_window_floor(lvl, float(w_min))[0]
+        out = pm.white_window_floor(lvl, float(w_min), tau=math.inf)[0]
         return [float(v) for v in out]
-    floored = pm.white_window_floor(pre, float(w_min))[0]
+    t = pm.PRINT_WINDOW_YMED_REFERENCE if tau is None else float(tau)
+    floored = pm.white_window_floor(pre, float(w_min), med, t)[0]
     out, _delta, _note = pm.anchor_with_level(floored, med, area)
     return [float(v) for v in out]
 
 
-def _rerender(corpus, w_min: float, order: str = "FL") -> dict:
+def _rerender(corpus, w_min: float, order: str = "FL", tau: float | None = None) -> dict:
     out = {}
     for r in corpus["rows"]:
-        cand = _anchor_at(r, w_min, order)
+        cand = _anchor_at(r, w_min, order, tau)
         print_curve(cand)                    # 对照本身必须是合法曲线，否则比的是废锚
         it = RenderIntent.from_dict(r["it"].to_dict())
         it.print_anchor = cand
@@ -205,30 +209,43 @@ def test_rebuilding_from_meta_reproduces_the_shipped_anchor(corpus):
 
 def test_window_is_recorded_and_only_touches_the_white_anchor(corpus):
     """来源标签 + 结构锁：被抬的帧必须满足 `d_hi == d_lo + window_min − δ`（下限作用在
-    出厂锚上、电平项最后搬），没被抬的帧出厂跨度本来就够宽；且**不能全抬或全不抬**。"""
-    raised = 0
+    出厂锚上、电平项最后搬）；**被 ㉕ 的符号闸拦下的帧必须"出厂跨度确实窄、但 `y_med` 在
+    闸值之上"**；其余帧出厂跨度本来就够宽。且**不能全抬或全不抬、也不能一帧都不拦**
+    （闸若在生产里从不拦任何东西，㉕ 就是死代码）。"""
+    raised = blocked = 0
     for r in corpus["rows"]:
         lo, mid, hi = r["anchor"]
         ps = r["ps"]
         delta = float(ps["level_shift"])
         pre_hi = float(ps["window_pre_hi"])
+        y_med = None if ps.get("window_y_med") is None else float(ps["window_y_med"])
         assert float(ps["window_min"]) == pytest.approx(PRINT_MIN_DENSITY_WINDOW)
+        assert float(ps["window_gate"]) == pytest.approx(pm.PRINT_WINDOW_YMED_REFERENCE)
         assert mid > lo and hi > mid
         assert lo == pytest.approx(_anchor_at(r, OFF)[0], abs=1e-9)
         #: `abs=1e-5` 而不是逐比特：meta 里的 `level_shift` 按 5 位小数记录，
         #: 而 `_anchor_at` 内部用**未舍入**的 δ 重放，两边最多差 5e-6。
         assert mid == pytest.approx(_anchor_at(r, OFF)[1], abs=1e-5)
+        narrow = pre_hi < lo + PRINT_MIN_DENSITY_WINDOW - 1e-6
         if ps["window_raised"]:
             raised += 1
             assert hi == pytest.approx(lo + PRINT_MIN_DENSITY_WINDOW - delta,
                                        abs=2e-5), r["id"]
-            assert pre_hi < lo + PRINT_MIN_DENSITY_WINDOW - 1e-6, "标记为抬升但出厂跨度已够宽"
+            assert narrow, "标记为抬升但出厂跨度已够宽"
+            assert y_med is not None and y_med < float(ps["window_gate"]), \
+                f"{r['id']}：抬了却没经过符号闸 ⇒ 闸没在生产路径上"
         else:
-            assert pre_hi >= lo + PRINT_MIN_DENSITY_WINDOW - 1e-4, r["id"]
+            if narrow:
+                blocked += 1
+                assert y_med is not None and y_med >= float(ps["window_gate"]), (
+                    f"{r['id']}：出厂跨度窄却被跳过，但 `y_med` 并不在闸值之上")
+            else:
+                assert y_med is None or True
             assert hi == pytest.approx(pre_hi - delta, abs=2e-5), r["id"]
-    print(f"\n  {len(corpus['rows'])} 帧里 {raised} 帧被抬白锚，"
-          f"其余 {len(corpus['rows']) - raised} 帧逐比特不变")
+    print(f"\n  {len(corpus['rows'])} 帧：{raised} 帧被抬白锚、{blocked} 帧被符号闸拦下、"
+          f"其余 {len(corpus['rows']) - raised - blocked} 帧出厂跨度本来就够宽")
     assert 1 <= raised < len(corpus["rows"]), "全抬或全不抬都说明这个闸没在区分跨度"
+    assert blocked >= 1, "符号闸在生产里一帧都没拦 ⇒ ㉕ 是死代码，方向收益无处可寻"
 
 
 def test_floor_applies_before_the_level_term_not_after(corpus):
@@ -298,20 +315,26 @@ GRID = (0.0, 0.45, 0.50, 0.55, 0.60, 0.65, 0.70)
 
 
 def test_window_grid_under_the_shipped_order_is_the_pre_registered_selection(corpus):
-    """**选值锁**（㉔）：`W_min` 必须在**本文件的量法**上重扫一遍再认账。
+    """**选值锁**（㉔ 建立、㉕ 改写）：`W_min` 的网格必须在**本文件的量法**上跑。
 
     教训：`tmp_window_order.py` 的网格是在探针几何（无手框的帧走自动框）上量的，
     与本锁（有手框用手框、没手框就**不给框**）不同总体——同一批帧上
     `1298::G200-9` 的 |亮度| 一个给 0.0231 一个给 **0.0126**（差一倍）。
-    记忆 `repo-delivery-invariants` 第 2 条："同一件事第二次量化必须用同一量法"，
-    这里就是当场补上那一遍。⚠ 两处的**留出卷**数字逐比特相同（1299 三帧都有用户手框），
-    所以决定取值的判据②本来就口径一致；差的是训练卷那侧。
+    记忆 `repo-delivery-invariants` 第 6、13 条："探针必须复现生产口径"、
+    "选值的网格必须在验收口径上跑"，这里就是当场补上那一遍。⚠ 两处的**留出卷**数字
+    逐比特相同（1299 三帧都有用户手框），所以决定取值的判据②本来就口径一致；
+    差的是训练卷那侧。
 
-    判据沿用 `tmp_window_order.py` 动手前写下的两条，不新加：
+    判据（㉔ 动手前写下，㉕ 只改第三条）：
     ① 上线格在训练卷上必须比 `W=0`（关掉）好；
     ② 上线格在留出卷的 |亮度| 与四统计距离都不许比 `W=0` 差；
-    ③ **比上线格更大的每一格都必须被 ② 否掉**——否则"0.55 是过判据的最大值"这句话
-       没有区分力，值就该往上改。
+    ③ ~~比上线格更大的每一格都必须被②否掉~~ —— **㉕ 的符号闸把这条作废**：
+       留出卷之所以能否决大 `W`，是因为那一刀会把它压暗；闸去掉这个副作用之后，
+       留出卷对 `W_min` **不再有否决权**，网格退化成训练卷单调。
+       ⇒ `W_min` 改由工业先验钉住（0.60），本锁改而成一条**绊线**：
+       只要"更大的格子仍然过②"，就断言并打印出来；哪天第三卷让某格不过②，
+       这条断言会红，提醒回到 ㉔ 的判据③重估取值。
+       真正带区分力的联立证据搬去 `tests/regression/test_window_sign_gate.py`。
     """
     rows = corpus["rows"]
     ids = [r["id"] for r in rows]
@@ -358,12 +381,19 @@ def test_window_grid_under_the_shipped_order_is_the_pre_registered_selection(cor
     assert mm(c_ship, hold, "gm", abs) <= mm(base, hold, "gm", abs) + 1e-4, (
         "判据②：上线格把留出卷亮度压暗了（这正是 ㉔ 要修的红灯）")
     assert mm(c_ship, hold, "dist") <= mm(base, hold, "dist") + 1e-4, "判据②：留出卷距离变差"
-    bigger = [w for w in GRID if w > w_ship
-              and mm(cells[w], hold, "gm", abs) <= mm(base, hold, "gm", abs) + 1e-4
-              and mm(cells[w], hold, "dist") <= mm(base, hold, "dist") + 1e-4]
-    assert not bigger, (
-        f"判据③：{bigger} 在本量法下也过留出卷判据 ⇒ 上线值该往上改，不是守住旧数")
-    print(f"  本量法下过①②的 w>0：{passing}")
+    print(f"  带闸网格过①②的 w>0：{passing}")
+    #: **判据③ 已被 ㉕ 作废，这里把它换成一条明写的绊线**：
+    #: ㉔ 的"比上线值大的每一格都必须被留出卷否掉"靠的是"留出卷会被这一刀压暗"，
+    #: 而符号闸正是去掉了那个副作用 ⇒ 留出卷从此**管不着** `W_min`，
+    #: 网格退化成"训练卷单调"（0.60→0.65→0.70 一路降而留出纹丝不动）。
+    #: 所以 `W_min` 不再由本语料选，而是钉在工业先验 0.60；这条绊线的含义是
+    #: **"留出卷对本语料的 `W_min` 没有否决权"这件事是已知的、被盯着的**——
+    #: 一旦第三卷让它有了否决权（某格开始不过②），下面这条就会红，提醒重估。
+    unvetoed = [w for w in passing if w > w_ship]
+    assert unvetoed, ("留出卷现在能否掉比上线值更大的格子 ⇒ ㉕ 的'闸门使 W 不可测'这条论断"
+                      "已过时，回到 ㉔ 的判据③（取过判据的最大值）")
+    print(f"  绊线：带闸时留出卷否不掉的更大格 = {unvetoed}"
+          f" ⇒ `W_min` 由工业先验钉住，不由本语料选")
 
     #: **旧格（`LF@0.60`）在同一量法下的对照**——"这次替换是停止伤害、不是全面变好"
     #: 这句话不许引用探针口径的数字来支撑，必须在验收口径上成立。
@@ -376,28 +406,64 @@ def test_window_grid_under_the_shipped_order_is_the_pre_registered_selection(cor
           f" 全部距离 {mm(old, ids, 'dist'):.4f}（上线 {mm(c_ship, ids, 'dist'):.4f}）")
     assert mm(old, hold, 'gm', abs) > mm(c_ship, hold, 'gm', abs) + 1e-4, (
         "旧次序在同一量法下不再把留出卷压暗 ⇒ ㉔ 换次序的理由没了，该重估这一整轮")
-    assert mm(old, train, 'gm', abs) < mm(c_ship, train, 'gm', abs), (
-        "旧次序在训练卷上不再更好 ⇒ 记在账上的'代价'不成立，重述这一轮")
+    #: ㉔ 记下的"代价"是"旧次序在训练卷上更好（0.0252 对 0.0289）"。
+    #: **㉕ 的符号闸把这笔代价整笔抹掉了**：上线点训练卷 \|亮度\| **0.0252**、
+    #: 旧次序 **0.0260** ⇒ 训练卷这一侧现在**不输**给旧次序。
+    #: 所以这条断言从"旧次序必须更好"改成"**上线点必须不更差**"——
+    #: 这不是放宽，是把判据改成刚被证明为真的那句话；
+    #: 若哪天有人改坏了闸，训练卷重新落后于旧次序，这一条就会红。
+    assert mm(old, train, 'gm', abs) >= mm(c_ship, train, 'gm', abs) - 1e-4, (
+        "上线点在训练卷上又比旧次序差 ⇒ ㉕ 的闸失效或被改坏，回到 ㉔ 的'付代价'口径")
 
 
-def test_bigger_floor_is_worse_than_the_shipped_one(corpus):
-    """**方向负控制**：窗口不是越宽越好——抬到 0.85 必须在留出卷上比上线值更差，
-    否则"0.55 是判据①②同时成立的最大值"这句话没有区分力。"""
-    big = _rerender(corpus, TOO_BIG)
+def test_bigger_floor_is_worse_only_without_the_gate(corpus):
+    """**方向控制（㉕ 改写）**：`w_min=0.85` 这一格现在测出两件事，缺一不成立：
+
+    ① **摘掉闸**（`tau=inf`）时它必须明显更差——㉔ 实测留出 \\|亮度\\| 0.0433 → **0.0722**、
+       留出距离 0.0456 → 0.0534。这条是"窗口不是越宽越好"的原始证据，
+       现在它真正的身份是：**没有符号闸时，这一刀会伤到本来就印暗的帧**。
+    ② **带着闸**（生产形状）时它必须**不再**伤留出卷，且一帧"该放"的帧都不许被抬。
+       这条是 ㉕ 的**爆炸半径锁**：闸的作用就是把"手滑调宽"的伤害限制在
+       已经被判为偏亮的那一侧；若有人把闸改坏，①②会同时红。
+
+    ⚠ ㉔ 之前这条锁写的是"更宽的窗口必须在留出卷上更差"，
+    ㉕ 之后**带闸的更宽窗口不再更差**——那是闸在起作用，不是判据可以放松。
+    所以判据换了主语（从"宽度"换到"有没有闸"），并留下 ② 作为闸的常驻证明。
+    """
     rows = corpus["rows"]
     hold = [r["id"] for r in rows if r["id"].startswith(HOLDOUT)]
     ship = {r["id"]: _gap(r["ship"], r["ref"]) for r in rows}
-    b = {r["id"]: _gap(big[r["id"]], r["ref"]) for r in rows}
 
     def mm(d, sel, key, f=lambda x: x):
         return float(np.mean([f(d[i][key]) for i in sel]))
 
+    big_off = _rerender(corpus, TOO_BIG, "FL", math.inf)
+    big_on = _rerender(corpus, TOO_BIG)
+    ungated = {r["id"]: _gap(big_off[r["id"]], r["ref"]) for r in rows}
+    gated = {r["id"]: _gap(big_on[r["id"]], r["ref"]) for r in rows}
     print(f"\n  留出卷|亮度| 上线 {mm(ship, hold, 'gm', abs):.4f} / "
-          f"w_min={TOO_BIG} {mm(b, hold, 'gm', abs):.4f}（必须更差）；"
-          f"留出距离 {mm(ship, hold, 'dist'):.4f} → {mm(b, hold, 'dist'):.4f}")
-    assert mm(b, hold, 'gm', abs) > mm(ship, hold, 'gm', abs), (
-        "更宽的窗口没变差 ⇒ 0.60 只是任意一点，重扫而不是保留")
-    assert mm(b, hold, 'dist') > mm(ship, hold, 'dist')
+          f"带闸 w={TOO_BIG} {mm(gated, hold, 'gm', abs):.4f} / "
+          f"摘闸 w={TOO_BIG} {mm(ungated, hold, 'gm', abs):.4f}（只有摘闸那一格必须更差）")
+    # ① 摘闸必须坏
+    assert mm(ungated, hold, 'gm', abs) > mm(ship, hold, 'gm', abs) + 1e-3, (
+        "摘掉闸后更宽的窗口不再伤留出卷 ⇒ ㉔ 的'单向钳会压暗'这条前提被推翻，重估两轮")
+    assert mm(ungated, hold, 'dist') > mm(ship, hold, 'dist') + 1e-3, "摘闸后留出距离没变差"
+    # ② 带闸必须不坏，且不许抬任何"该放"的帧
+    assert mm(gated, hold, 'gm', abs) <= mm(ship, hold, 'gm', abs) + 1e-4, (
+        f"带闸 w={TOO_BIG} 仍然压暗留出卷 ⇒ 符号闸没有限制住爆炸半径")
+    spared = 0
+    for r in rows:
+        lo = r["anchor"][0]
+        y = r["ps"].get("window_y_med")
+        if y is None or float(y) < float(r["ps"]["window_gate"]):
+            continue
+        if lo + TOO_BIG > float(r["ps"]["window_pre_hi"]) + 1e-9:
+            spared += 1
+            cand = _anchor_at(r, TOO_BIG)
+            assert cand[2] == pytest.approx(float(r["ps"]["window_pre_hi"])
+                                            - float(r["ps"]["level_shift"]), abs=2e-5), r["id"]
+    print(f"  带闸 w={TOO_BIG} 时'该放'却被下限盯上的帧数 {spared}（全部被闸拦住）")
+    assert spared >= 1, "没有一帧需要闸来拦 ⇒ 这条锁是空转的"
 
 
 def test_white_giveback_stays_inside_budget(corpus):

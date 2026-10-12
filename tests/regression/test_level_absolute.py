@@ -77,7 +77,7 @@ def _compose(pre: tuple[float, float, float], strength: float, density_median: f
     orig = pm.PRINT_LEVEL_STRENGTH
     pm.PRINT_LEVEL_STRENGTH = float(strength)
     try:
-        floored = pm.white_window_floor(pre)[0]
+        floored = pm.white_window_floor(pre, None, density_median)[0]
         out, _delta, _note = pm.anchor_with_level(floored, density_median, highlight_area)
         return [float(v) for v in out]
     finally:

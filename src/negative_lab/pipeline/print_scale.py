@@ -24,7 +24,8 @@ from ..print_math import (LOOK_CHROMA_GAIN, LOOK_RED_EXPONENT, MIN_SPAN, P_HIGH,
                           chroma_gain_at, density_anchor,
                           density_anchor_linear, highlight_area_fraction, level_shift,
                           picture_density, print_curve, print_remap_array,
-                          remap_luma, white_window_floor)
+                          remap_luma, white_window_floor, window_y_med,
+                          PRINT_WINDOW_YMED_REFERENCE)
 
 __all__ = ["LOOK_CHROMA_GAIN", "LOOK_RED_EXPONENT", "MIN_SPAN", "P_HIGH", "P_LOW",
            "P_MID", "PRINT_AIM",
@@ -33,7 +34,7 @@ __all__ = ["LOOK_CHROMA_GAIN", "LOOK_RED_EXPONENT", "MIN_SPAN", "P_HIGH", "P_LOW
            "PRINT_LEVEL_MAX_SHIFT", "PRINT_LEVEL_AREA_STRENGTH",
            "PRINT_LEVEL_HIGHLIGHT_AREA_REFERENCE",
            "PRINT_LEVEL_HIGHLIGHT_WINDOW", "PRINT_LEVEL_HIGHLIGHT_PERCENTILE",
-           "PRINT_MIN_DENSITY_WINDOW",
+           "PRINT_MIN_DENSITY_WINDOW", "PRINT_WINDOW_YMED_REFERENCE", "window_y_med",
            "PRINT_CHROMA_HIGHLIGHT_GAIN", "PRINT_CHROMA_HIGHLIGHT_START",
            "anchor_refusal_reason", "anchor_with_level", "level_shift",
            "chroma_gain_at", "white_window_floor", "highlight_area_fraction",
