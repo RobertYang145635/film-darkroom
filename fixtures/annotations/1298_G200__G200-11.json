@@ -1,0 +1,55 @@
+{
+  "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-11.NEF",
+  "roll": "misc",
+  "rotation_degrees": 0,
+  "coordinate_space": "source",
+  "schema_version": 3,
+  "status": "verified",
+  "needs_reconfirm": false,
+  "output_crop_roi": [
+    1530,
+    162,
+    6726,
+    5430
+  ],
+  "image_area_roi": [
+    1722,
+    420,
+    6528,
+    5148
+  ],
+  "base_sample_rois": [
+    [
+      1272,
+      1620,
+      1548,
+      2928
+    ],
+    [
+      6666,
+      1506,
+      6948,
+      2742
+    ]
+  ],
+  "base_roi": [
+    1272,
+    1620,
+    1548,
+    2928
+  ],
+  "neutral_refs": [],
+  "exclude_mask_rois": [],
+  "source_sha256": "bde827f89d6d044492c555645d649cdd25af5201e92a3ed11df6a8c3ff520a0e",
+  "reference_file": null,
+  "notes": "GUI 用户框选确认",
+  "verified": true,
+  "verified_by": "user",
+  "verified_date": "2026-10-13",
+  "fine_rotation_degrees": 0.0,
+  "mirror_horizontal": false,
+  "keep_rebate": false,
+  "base_annotation_sha": "",
+  "draft_revision": 0,
+  "frame_roi": null
+}

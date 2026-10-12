@@ -30,6 +30,7 @@ import pytest
 
 from negative_lab.library.models import GeometryRegions
 from negative_lab.pipeline.geometry import (SIDEWAYS_FRAME_ROTATION,
+                                            SIDEWAYS_MIN_ASPECT,
                                             frame_output_is_portrait,
                                             sideways_correction)
 from negative_lab.pipeline.service import process_image
@@ -68,9 +69,40 @@ def _geo(deg: int = 0, area=None) -> GeometryRegions:
     (None, 0, None),
     ((0, 0, 50, 50), 0, None),         # 退化框（高=宽）
     ((0, 0, 50, 10), 0, True),         # 极窄也照样是竖
+    # ---- ㉛：纵横证据下限两侧（数值取自两簇实测，见 SIDEWAYS_MIN_ASPECT）----
+    ((0, 0, 102, 100), 0, None),       # 1298 最"竖"的一帧是 1.0254 ⇒ 无从判定
+    ((0, 0, 101, 100), 0, None),
+    ((0, 0, 100, 101), 0, None),       # 另一侧同样不判（1298 有 0.981 的）
+    ((0, 0, 110, 100), 0, None),       # 正好压线：`<` 才算"以内" ⇒ 仍不判
+    ((0, 0, 111, 100), 0, True),       # 过线一格 ⇒ 判竖幅
+    ((0, 0, 122, 100), 0, True),       # 1299 最"不竖"的一帧是 1.2201 ⇒ 必须判
+    ((0, 0, 100, 122), 90, True),      # 同一框被转到竖幅输出 ⇒ 照判
+    ((0, 0, 100, 122), 0, False),      # 横幅证据（0.82）仍然给 False，不是 None
 ])
 def test_portrait_predicate_is_about_the_frame_not_the_canvas(area, deg, expected):
     assert frame_output_is_portrait(area, deg) is expected
+
+
+def test_near_square_crop_is_not_evidence_of_a_sideways_strip():
+    """㉛ 的根因锁：**离正方 10% 以内的画框不携带任何方向证据**。
+
+    用户把 `1298_G200` 整卷裁成正方（当场量的 `h/w` 0.981~1.0254），
+    而这条规则当初是为 `1299_G200` 建的（他框出的片带横躺 `h/w` 1.2201~1.2403）。
+    旧判据 `h > w` 零余量 ⇒ 1298 十一帧里 8 帧被判"横躺"、`rot=0` 的 4 帧
+    被静默补转 270°（`outputs/ref_look_probe/sat_tax_6.jpg` 第 4 行肉眼可见）。
+    物理侧：35mm 单格 36×24 = **1.50**，一条横躺的片带怎么裁都远不止 1.10。
+    """
+    assert SIDEWAYS_MIN_ASPECT == 1.10
+    # 两簇各自的方向：正方簇一律 None，横躺簇一律 True
+    for h, w in ((4776, 4740), (4848, 4728), (4806, 4728), (4734, 4734),
+                 (4704, 4746), (4656, 4746), (4788, 4710), (4788, 4734),
+                 (4800, 4746), (4794, 4722), (4788, 4722)):
+        assert frame_output_is_portrait((0, 0, h, w), 0) is None, f"{h}×{w} 不该有证据"
+    for h, w in ((5958, 4818), (5988, 4836), (5886, 4824), (5940, 4800),
+                 (6012, 4848), (6012, 4854), (5976, 4818), (5970, 4836),
+                 (5946, 4818), (5940, 4824)):
+        assert sideways_correction((0, 0, h, w), 0) == SIDEWAYS_FRAME_ROTATION, \
+            f"{h}×{w} 是真横躺，必须补转"
 
 
 def test_correction_only_when_the_frame_would_come_out_portrait():

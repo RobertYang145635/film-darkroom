@@ -55,6 +55,37 @@ def _stats(path: pathlib.Path, m: dict) -> dict:
     }
 
 
+def test_acceptance_stats_are_rotation_blind_so_they_cannot_certify_orientation(tmp_path):
+    """㉛：**这套验收量法对 90° 旋转恒等**——把它钉成事实，防止有人拿"全绿"当"图没问题"。
+
+    ㉛ 修掉"35mm 竖幅规则把用户正方裁切静默转 90°"之后，
+    `outputs/signed31.txt` 与 `outputs/signed30b.txt` 的 11 帧四轴数值**逐位相同**
+    （四帧的输出旋转确实从 270° 变回 0°）。原因在量法：
+    方形 `resize(384,384)` + 方形中心窗 + `mean/percentile/std` 全是**与像素次序无关**的量
+    ⇒ 转置画面一个数都不动。
+
+    所以这条锁**不是**在验收方向，而是在**登记验收器的盲区**：
+    方向与取景只能靠看图，或靠 `test_output_aspect_is_on_his_side_of_the_wall`
+    那一类"看得见的口径"（纵横比）来抓。
+    """
+    m = _doc()["method"]
+    rng = np.random.default_rng(20261013)
+    grad = np.linspace(20, 200, 420, dtype=np.float64)[:, None]
+    a = np.dstack([np.repeat(grad, 260, axis=1),
+                   np.repeat(grad * 0.72, 260, axis=1),
+                   np.repeat(grad * 0.45, 260, axis=1)])
+    a[30:120, 150:250] = 250.0
+    a = np.clip(a + rng.integers(0, 12, a.shape), 0, 255).astype(np.uint8)
+    p1, p2 = tmp_path / "as_is.png", tmp_path / "transposed.png"
+    Image.fromarray(a).save(p1)
+    Image.fromarray(np.ascontiguousarray(a.transpose(1, 0, 2))).save(p2)
+    assert Image.open(p1).size != Image.open(p2).size, "两张图的纵横必须真的不同"
+    s1, s2 = _stats(p1, m), _stats(p2, m)
+    assert s1.keys() == s2.keys()
+    for k in s1:
+        assert abs(s1[k] - s2[k]) < 1e-3, f"{k} 随 90° 旋转变了：{s1[k]} vs {s2[k]}"
+
+
 def test_mapping_shape_is_self_consistent():
     """入库那份**不依赖大图**：形状、唯一性、方法参数齐不齐，任何机器都能查。"""
     doc = _doc()

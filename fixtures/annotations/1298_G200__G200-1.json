@@ -1,25 +1,55 @@
 {
   "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-1.NEF",
-  "roll": "1298_G200",
+  "roll": "misc",
   "rotation_degrees": 180,
   "coordinate_space": "source",
-  "frame_roi": [
-    966,
-    376,
-    6541,
-    5166
+  "schema_version": 3,
+  "status": "verified",
+  "needs_reconfirm": false,
+  "output_crop_roi": [
+    1518,
+    138,
+    6732,
+    5436
+  ],
+  "image_area_roi": [
+    1758,
+    408,
+    6534,
+    5148
+  ],
+  "base_sample_rois": [
+    [
+      1272,
+      3036,
+      1536,
+      4032
+    ],
+    [
+      6792,
+      2274,
+      7080,
+      3714
+    ]
   ],
   "base_roi": [
-    6721,
-    66,
-    7370,
-    5522
+    1272,
+    3036,
+    1536,
+    4032
   ],
-  "neutral_rois": [],
-  "mask_rois": [],
-  "reference_file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-1.jpg",
-  "notes": "整改前失败基线：倒置、含片边、偏青蓝、冲淡。天空在场景上方=负片下缘高密度。",
+  "neutral_refs": [],
+  "exclude_mask_rois": [],
+  "source_sha256": "ca06e6cdf84dd62b0c29f242442ba92290fd07afa10fc3cc651108612ba839a2",
+  "reference_file": null,
+  "notes": "GUI 用户框选确认",
   "verified": true,
-  "verified_by": "agent-inspected",
-  "verified_date": "2026-08-31"
+  "verified_by": "user",
+  "verified_date": "2026-10-13",
+  "fine_rotation_degrees": 0.0,
+  "mirror_horizontal": false,
+  "keep_rebate": false,
+  "base_annotation_sha": "",
+  "draft_revision": 0,
+  "frame_roi": null
 }

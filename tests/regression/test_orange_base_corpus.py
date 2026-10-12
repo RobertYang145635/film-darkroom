@@ -8,6 +8,14 @@
   用户点名的"水是一片死青"就是这个数。
 - `1299_G200::G200-7`：用户亲手画了片基框（conf 1.00）。**他的框是绝对真值**，
   新机制只允许在"没有框、也没有可用片边"时介入。
+
+**㉚b（2026-10-13）口径变更**：用户这天把 `1298_G200` 整卷也框了，上面那条
+"没有可用片边"的语料前提不再自然成立——两条坏帧锁改成用 `_record(mode=...)`
+**构造**该前提（`no_geometry` = 写锁时该帧的自然状态），断言阈值一字未放宽。
+新增的另一头：有手框时 `1298::G200-7` 走 `frame+roll`（红通道 0.2404），
+而画面内橙色估计在同一帧读到手框**之外**的亮区（0.4188，差 0.18 decade）——
+这两个来源差这么多是 B-14㉚ 记下的新事实，也是 task #10（二维 flat-field）
+存在的理由：**绝不许让橙色估计推翻手框**。
 """
 from __future__ import annotations
 
@@ -32,25 +40,32 @@ from build_visual_contact_sheet import _downscale_geometry  # noqa: E402
 MAN = json.loads((ROOT / "fixtures/acceptance/manifest.json").read_text(encoding="utf-8"))
 
 
-def _record(fr: dict, max_dim: int = 1200):
+def _record(fr: dict, max_dim: int = 1200, mode: str = "box"):
+    """`mode`：**box**=手框原样（生产路径）/ **nobase**=只摘掉片基框 /
+    **no_geometry**=什么几何都不给（= 这条锁写下来时该帧在语料里的自然状态）。
+
+    ㉚b 起这三个口径都是**构造**出来的：2026-10-13 用户给 `1298::G200-7` 画了
+    片基取样框，"没有片边的坏帧"这个语料前提消失了。把前提写进构造函数而不是
+    去语料里找一个恰好没框的帧，这条锁才不会再随标注状态漂移。
+    """
     loaded = load_linear_rgb(ROOT / fr["file"])
     arr = loaded.rgb
     step = max(1, int(np.ceil(max(arr.shape[:2]) / float(max_dim))))
     img = arr[::step, ::step, :].copy()
     ann = load_annotation(fr["file"])
-    if ann is not None and (ann.image_area_roi or ann.base_sample_rois):
+    if ann is None or mode == "no_geometry":
+        geo = GeometryRegions(rotation_degrees=(ann.rotation_degrees if ann else 0))
+        area = (0, 0, img.shape[0], img.shape[1])
+    else:
         geo = GeometryRegions(
             rotation_degrees=ann.rotation_degrees,
             output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
             image_area_roi=ann.image_area_roi or ann.output_crop_roi,
-            base_sample_rois=list(ann.base_sample_rois or []))
+            base_sample_rois=[] if mode == "nobase" else list(ann.base_sample_rois or []))
         # **必须和生产/探针同一条缩放规则**：ROI 是源图坐标，直接拿去切缩小图
         # 会整块落到画面外，于是"用户手框"在测试里悄悄消失，测出来的就不是产品。
         geo = _downscale_geometry(geo, arr.shape[:2], img.shape[:2])
         area = geo.image_area_roi or (0, 0, img.shape[0], img.shape[1])
-    else:
-        geo = GeometryRegions(rotation_degrees=0)
-        area = (0, 0, img.shape[0], img.shape[1])
     rec = FrameRecord(source_path=fr["file"], source_sha256=fr["source_sha256"],
                       input_facts=dict(loaded.meta),
                       capture_fingerprint=capture_fingerprint(
@@ -69,16 +84,39 @@ def _frame(fr_id: str) -> dict:
 
 
 def test_没有片边的坏帧不再吃通用先验():
-    """**正锁**：`1298::G200-7` 必须从 `generic_prior` 变成画面内实测。"""
+    """**正锁**：`1298::G200-7` 不许退到 `generic_prior`——两条路径分别钉住。
+
+    **㉚b 换过口径**（数字全部来自 `outputs/repin30.txt`，2026-10-13 当场打印，
+    1200px、生产整卷路径）：原判据要求 `base_source == "content_orange"`，
+    而用户这天给这一帧画了片基取样框，生产路径实得 **`frame+roll`**
+    （conf 1.00，红通道片基 0.2404）——那是**比画面内估计更强的证据**，
+    不是回归。"没有片边的坏帧"这个前提从语料里消失了，于是改成**构造**：
+
+    - `no_geometry`（什么框都不给 = 这条锁写下来时该帧的自然状态）
+      ⇒ 必须仍走画面内橙色实测 `content_orange`（conf 0.60，红通道 **0.4188**），
+      且比先验的 0.216 亮出一个量级——**这一条一个字没放宽**；
+    - `box`（生产现在真实走的路）⇒ 必须是实测来源，不许是 `generic_prior`。
+
+    两种情形都还要求"不是通用先验"，因为先验的红通道电平比真片基暗 0.18~0.34 decade，
+    后果就是用户点名的"水是一片死青"（APD(R−G) −1.034 对同卷 +0.147~+0.342）。
+    """
     fr = _frame("1298_G200::G200-7")
-    rec, img, area, _geo = _record(fr)
-    _, results = process_roll([(rec, img)])
-    pr = results[0]
+    rec_ng, img, _area, _geo = _record(fr, mode="no_geometry")
+    _, res = process_roll([(rec_ng, img)])
+    pr = res[0]
     assert pr.base_source == "content_orange", (
-        f"这帧应当由画面内橙色亮区实测片基，实际 {pr.base_source}")
+        f"构造的无取样口径下应当由画面内橙色亮区实测片基，实际 {pr.base_source}")
     dmin = np.asarray(pr.report.params.dmin, np.float64)
-    # 先验给的是 R≈0.216；真片基必须更亮（否则 55% 像素比片基还亮这个矛盾不会消失）
+    # 先验给的是 R≈0.216；真片基必须更亮（否则大面积"比片基还亮"的矛盾不会消失）
     assert dmin[0] > 0.26, f"红通道片基应被抬到 0.26 以上，实得 {dmin.tolist()}"
+
+    rec_box, _img, _a, geo = _record(fr, mode="box")
+    assert geo.base_sample_rois, "前提：这一帧现在有用户手画的片基框"
+    _, res2 = process_roll([(rec_box, _img)])
+    pr2 = res2[0]
+    assert pr2.base_source != "generic_prior", (
+        f"有手框的帧不许吃通用先验：{pr2.base_source}")
+    assert pr2.base_source in ("frame", "frame+roll", "content_orange")
 
 
 def test_抬片基后高于片基的像素比例必须塌下去():
@@ -87,21 +125,43 @@ def test_抬片基后高于片基的像素比例必须塌下去():
     取样必须用 `pr.valid_mask`（生产实际看到的那块画面区）。用整幅源图会被
     黑衬底稀释，量出来的数就不是产品读到的数——这类"探针窗口 ≠ 生产窗口"
     的坑本轮已经踩过两次。
+
+    **㉚b 换过口径，两条阈值都没放宽**：原判据的 `before > 0.30` 量在
+    "该帧恰好没有框、于是统计窗 = 自动检测区"的语料状态上；用户 2026-10-13
+    给这一帧画框之后，同一个先验在**他的手框窗**内只被 0.177 的红通道像素越过
+    （`outputs/repin30.txt`）——因为自动检测把大片亮片边算进了窗。
+    所以"先验造成大面积物理不可能"这一演示改在 `mode="no_geometry"`
+    （**构造**出原来的口径）上做，`before > 0.30` / `after < 0.10` 原样保留
+    （当场实得 **0.564** / **0.001**）；对手框路径只要求
+    "采用的片基之下越界比例 < 0.10"（实得 **0.020**），不再要求 `before` 过线——
+    那一位是"窗里有多少亮片边"的函数，不是这条机制的函数。
     """
     fr = _frame("1298_G200::G200-7")
-    rec, img, area, _geo = _record(fr)
+    prior = np.array([0.21637, 0.09737, 0.02596])       # 本轮实测的通用先验取值
+
+    def _above(pr, base):
+        inner = pr.t[..., :3].reshape(-1, 3).astype(np.float64)
+        m = pr.valid_mask
+        if m is not None and m.shape == pr.t.shape[:2]:
+            inner = pr.t[..., :3][m].reshape(-1, 3).astype(np.float64)
+        return float((inner[:, 0] > base).mean())
+
+    rec, img, area, _geo = _record(fr, mode="no_geometry")
     _, results = process_roll([(rec, img)])
     pr = results[0]
-    inner = pr.t[..., :3].reshape(-1, 3).astype(np.float64)
-    m = pr.valid_mask
-    if m is not None and m.shape == pr.t.shape[:2]:
-        inner = pr.t[..., :3][m].reshape(-1, 3).astype(np.float64)
-    prior = np.array([0.21637, 0.09737, 0.02596])       # 本轮实测的通用先验取值
-    adopted = np.asarray(pr.report.params.dmin, np.float64)
-    before = float((inner[:, 0] > prior[0]).mean())
-    after = float((inner[:, 0] > adopted[0]).mean())
+    before = _above(pr, prior[0])
+    after = _above(pr, np.asarray(pr.report.params.dmin, np.float64)[0])
     assert before > 0.30, f"这条锁的前提是先验下红通道大面积越界，实得 {before:.3f}"
     assert after < 0.10, f"实测片基后红通道越界比例应塌到 10% 以下，实得 {after:.3f}"
+
+    rec2, img2, _a, _g = _record(fr, mode="box")
+    _, res2 = process_roll([(rec2, img2)])
+    pr2 = res2[0]
+    after_box = _above(pr2, np.asarray(pr2.report.params.dmin, np.float64)[0])
+    print(f"[㉚b] 手框窗（生产真实路径）：先验位越界 {_above(pr2, prior[0]):.3f}"
+          f"（窗变小，只报不判）/ 采用片基位越界 {after_box:.3f}")
+    assert after_box < 0.10, (
+        f"用户手框实测片基下红通道越界比例应 <0.10，实得 {after_box:.3f}")
 
 
 def test_用户亲手画的片基框永远优先():

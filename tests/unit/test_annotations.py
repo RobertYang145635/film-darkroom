@@ -468,16 +468,61 @@ def test_load_missing_returns_none(ann_dir):
     assert load_annotation("nope/x.NEF") is None
 
 
-def test_real_fixture_still_loads_as_needs_reconfirm_draft():
-    """真实 1298 标注（旧 schema + agent-inspected）必须仍能加载。只读。"""
+#: `fixtures/annotations/1298_G200__G200-1.json` 被用户覆盖**之前**的原文
+#: （`git show HEAD:fixtures/annotations/1298_G200__G200-1.json` 当场取出，逐字抄录）。
+#: ㉚b 起这条锁读的是这份**构造输入**而不是语料文件——见下面的 docstring。
+LEGACY_1298_G200_1 = {
+    "file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-1.NEF",
+    "roll": "1298_G200",
+    "rotation_degrees": 180,
+    "coordinate_space": "source",
+    "frame_roi": [966, 376, 6541, 5166],
+    "base_roi": [6721, 66, 7370, 5522],
+    "neutral_rois": [],
+    "mask_rois": [],
+    "reference_file": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-1.jpg",
+    "notes": "整改前失败基线：倒置、含片边、偏青蓝、冲淡。天空在场景上方=负片下缘高密度。",
+    "verified": True,
+    "verified_by": "agent-inspected",
+    "verified_date": "2026-08-31",
+}
+
+
+def test_legacy_schema_annotation_still_loads_as_needs_reconfirm_draft():
+    """legacy schema（无 `schema_version`、`verified_by=agent-inspected`）
+    必须仍然加载成 **draft + needs_reconfirm**——机器签的字不算人签的。
+
+    **㉚b 换过口径**：这条原先直接读 `fixtures/annotations/1298_G200__G200-1.json`，
+    而用户 2026-10-13 在 GUI 里把这一帧重画并签了字（schema 3 / `verified_by=user` /
+    新 ROI / `frame_roi` 置 null）⇒ **旧 schema 这个前提从语料里消失了**，
+    锁红的不是代码，是文件被合法覆盖。
+    改法是把被覆盖前的原文**抄进测试**当构造输入，断言一字未改。
+    下一节那条锁负责记录"这份语料现在是什么状态"，两条互不顶替。
+    """
+    got = Annotation.from_dict(LEGACY_1298_G200_1)
+    assert got.status == "draft"
+    assert got.needs_reconfirm is True
+    assert got.image_area_roi == (966, 376, 6541, 5166)
+    assert got.frame_roi == (966, 376, 6541, 5166)
+    assert not got.validate(), got.validate()
+
+
+def test_that_same_frame_is_now_signed_by_the_user():
+    """**新增（㉚b）**：同一帧现在必须是**他亲手签字**的 schema 3 记录。
+
+    这条把"前提变了"写成一个可失败的断言，而不是留一条会红的旧锁或干脆删掉：
+    哪天这份标注被回退成 draft、或 `verified_by` 不再是 `user`，
+    所有依赖"用户框是真值"的锁（`film-corpus-traps` 第 2 条）就都失去地基，
+    这里会先红。
+    """
     real = Path(inspect.getfile(A)).resolve().parents[3] / "fixtures" / "annotations"
     f = real / "1298_G200__G200-1.json"
     if not f.exists():
         pytest.skip("fixtures/annotations 不存在")
     doc = json.loads(f.read_text(encoding="utf-8"))
     got = Annotation.from_dict(doc)
-    assert got.status == "draft"
-    assert got.needs_reconfirm is True
-    assert got.image_area_roi == (966, 376, 6541, 5166)
-    assert got.frame_roi == (966, 376, 6541, 5166)
-    assert not got.validate(), got.validate()
+    assert doc.get("schema_version") == 3, "这份标注不再是 schema 3"
+    assert got.status == "verified" and got.needs_reconfirm is False
+    assert got.image_area_roi == (1758, 408, 6534, 5148), got.image_area_roi
+    assert got.base_sample_rois, "他画的片基取样条不在了"
+    assert not got.validate(), got.validate()     # `validate()` 返回**问题清单**，空=通过

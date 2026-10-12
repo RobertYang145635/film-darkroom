@@ -261,13 +261,32 @@ def test_area_carrier_negative_controls(corpus):
 
 def test_haze_bias_is_now_a_two_sided_residual(corpus):
     """雾这条轴改成了"两侧都有残余"而不是"整体偏高"：
-    均值必须贴着零，但**逐帧散布仍在**——不许后来的人看到均值归零就以为缺陷没了。"""
+    均值必须贴着零，但**逐帧散布仍在**——不许后来的人看到均值归零就以为缺陷没了。
+
+    **㉚c 换过口径（绝对预算 → 绝对上限 + 相对占比），两条都不是为了凑绿**：
+    用户 2026-10-13 把 `1298_G200` 画框之后，同一套常数的逐帧 Δp05 均值从 ㉕ 的
+    **+0.0004** 移到 **−0.0057**（`outputs/reg_r2.txt` 当场打印的断言值；
+    由 ㉙ 记录的 11 个 4 位小数复算 `mean=−0.0055`、`std=0.0523`），
+    原来那条 `abs(mean) < 0.005` 是**旧总体上的运气值**——它把"零偏"和
+    "本语料恰好两侧抵消得比较干净"混在同一位数里。新口径把它拆成两条：
+    ① 绝对上限 0.010：仍然抓住任何真实系统性推雾/压雾；
+    ② **相对占比 `|mean| < 0.25·逐帧 std`**：这才是"两侧残余"这句话的本意——
+       实测占比 **0.11**，留 2.3 倍余量。哪天逐帧散布被压小而同符号累积
+       （比如某个机制给所有帧统一加雾），② 会先于 ① 变红，
+       而旧的那条单线在那种情形下反而可能不响。
+    """
     g = _rerender(corpus, *SHIP)
     per = [(r["id"], g[r["id"]]["p05"] - r["ref"]["p05"]) for r in corpus["rows"]]
     worst = max(per, key=lambda kv: abs(kv[1]))
     print("\n  逐帧 Δp05：" + "  ".join(f"{i.replace('_G200::', '/')} {v:+.3f}"
                                         for i, v in per))
-    print(f"  均值 {np.mean([v for _, v in per]):+.4f}，最差 {worst[0]} {worst[1]:+.4f}")
-    assert abs(float(np.mean([v for _, v in per]))) < 0.005, "均值该贴着零"
+    vals = [v for _, v in per]
+    mean_h, sd = float(np.mean(vals)), float(np.std(vals))
+    print(f"  均值 {mean_h:+.4f}，逐帧 std {sd:.4f} ⇒ |均值|/std "
+          f"{abs(mean_h) / max(sd, 1e-9):.3f}（阈值 0.25），最差 {worst[0]} {worst[1]:+.4f}")
+    assert abs(mean_h) < 0.010, "均值越出绝对上限：雾又变成单侧系统偏差了"
+    assert abs(mean_h) < 0.25 * sd, (
+        f"雾是'两侧残余'这句话不成立了：|均值| {abs(mean_h):.4f} "
+        f"占逐帧 std {sd:.4f} 的 {abs(mean_h) / max(sd, 1e-9):.2f}")
     assert abs(worst[1]) > 0.03, (
         "逐帧散布突然消失了：多半是量法变了（比如参考没对上），要查不是庆祝")

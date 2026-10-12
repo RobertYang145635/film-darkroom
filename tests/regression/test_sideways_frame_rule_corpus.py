@@ -9,13 +9,16 @@
 锁三件事：
 1. 用他的框跑生产路径 ⇒ 输出**宽>高**，来源写清是几何规则补的转，并留下复核提示；
 2. 输出的纵横与**他参考图的纵横同侧**（横对横）——这是看得见的口径，不是统计量；
-3. **两条负控制**，都是当场量的真值，不是编的（`tmp_canvas_truth_table.py`）：
+3. **三条负控制**，都是当场量的真值，不是编的（`tmp_canvas_truth_table.py`）：
    - `1298_G200::G200-1` 标注里是 legacy `frame_roi` = (966,376,6541,5166) =
      5575 高 × 4790 宽，**也是竖的**，但他按过 `rot=180` ⇒ 规则必须只说不转；
-   - `1298_G200::G200-2` 只有 `rot=180`，**一个框都没有** ⇒ 纵横无从判定，
-     既不转也不报存疑（规则不许对没有依据的帧猜方向）。
-   这两条放在一起是因为：规则若只是"看见竖的就转"，它会顺手改掉他亲手管着的帧；
-   而它若要覆盖没有框的帧，就得依赖自动检测框——那个框在本语料上是坏的。
+   - `1298_G200::G200-2` **构造**出的空几何（㉚b 起不再依赖"这帧恰好没框"）
+     ⇒ 既不转也不报存疑（规则不许对没有依据的帧猜方向）；
+   - `1298_G200::G200-2` 他 2026-10-13 的真实手框 = **4734×4734 正方**
+     ⇒ 有框但框不提供方向证据，同样必须沉默。
+   这三条放在一起是因为：规则若只是"看见竖的就转"，它会顺手改掉他亲手管着的帧；
+   而它若要覆盖没有框的帧，就得依赖自动检测框——那个框在本语料上是坏的
+   （`test_reference_quality::AUTO_CROP_GAP`，22 帧里 19 帧 IoU<0.95）。
 """
 
 from __future__ import annotations
@@ -31,6 +34,10 @@ from PIL import Image
 from negative_lab.calibration.annotations import load_annotation
 from negative_lab.io.images import load_linear_rgb
 from negative_lab.library.models import GeometryRegions
+from negative_lab.pipeline.geometry import (SIDEWAYS_FRAME_ROTATION,
+                                            SIDEWAYS_MIN_ASPECT,
+                                            frame_output_is_portrait,
+                                            sideways_correction)
 from negative_lab.pipeline.service import process_image
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -51,7 +58,7 @@ def _manifest_frame(fid: str) -> dict:
     return next(f for f in man["frames"] if f["id"] == fid)
 
 
-def _run(fid: str):
+def _run(fid: str, *, strip_boxes: bool = False, override_area_source=None):
     fr = _manifest_frame(fid)
     path = ROOT / fr["file"]
     if not path.exists():
@@ -62,11 +69,22 @@ def _run(fid: str):
     img = arr[::step, ::step, :].copy()
     ann = load_annotation(fr["file"])
     assert ann is not None, f"{fid} 的标注不见了，这条控制失去意义"
-    geo = GeometryRegions(rotation_degrees=ann.rotation_degrees,
-                          output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
-                          image_area_roi=ann.image_area_roi or ann.output_crop_roi,
-                          base_sample_rois=list(ann.base_sample_rois or []))
-    geo = kit._downscale_geometry(geo, arr.shape[:2], img.shape[:2])
+    if strip_boxes:
+        #: ㉚b：**构造**出来的"根本没有框"，不再靠语料恰好没框。
+        geo = GeometryRegions(rotation_degrees=ann.rotation_degrees)
+    else:
+        geo = GeometryRegions(rotation_degrees=ann.rotation_degrees,
+                              output_crop_roi=ann.output_crop_roi or ann.image_area_roi,
+                              image_area_roi=ann.image_area_roi or ann.output_crop_roi,
+                              base_sample_rois=list(ann.base_sample_rois or []))
+        if override_area_source is not None:
+            #: ㉛：把画框换成**构造**的形状（源图坐标），用来造出"真竖幅框"。
+            #: 同时清掉片基取样条——构造框多半不包住它们，那会让这一帧的
+            #: 失败原因从"方向规则"变成"片基取样"，混进别的账。
+            geo.image_area_roi = tuple(override_area_source)
+            geo.output_crop_roi = tuple(override_area_source)
+            geo.base_sample_rois = []
+        geo = kit._downscale_geometry(geo, arr.shape[:2], img.shape[:2])
     pr = process_image(img, geometry=geo, ann=None, make_candidates=False,
                        orientation_decided=True, frame_id=fr["file"])
     return fr, ann, geo, pr
@@ -117,18 +135,31 @@ def test_output_aspect_is_on_his_side_of_the_wall():
     assert w > h, f"我们输出 {h}×{w} 与他 {rh}×{rw} 纵横不同侧"
 
 
-def test_negative_control_his_180_on_a_portrait_box_is_warned_not_overruled():
-    """**负控制①**：`1298_G200::G200-1` 的标注框 5575 高 × 4790 宽也是竖的，
-    但他给这一帧按过 `rot=180` ⇒ 规则看得见矛盾，也不许动像素，只许说出来。
+#: ㉛ 构造用的"真竖幅"画框（源图坐标，画布 8280 高 × 5520 宽之内）：
+#: 5600 高 × 3100 宽 ⇒ `h/w = 1.806`，远在 `SIDEWAYS_MIN_ASPECT = 1.10` 之上。
+#: 35mm 单格是 36×24 = 1.50，所以"横躺的片带"无论怎么裁都不止 1.10；
+#: 反过来，他给 1298 画的框 `h/w` 只有 0.981~1.0254（正方裁切），
+#: 那种框**不携带方向证据**——旧判据 `h > w` 零余量，把它判成了横躺并静默转掉 90°。
+PORTRAIT_PROBE_ROI = (1200, 300, 6800, 3400)
 
-    选它不是随手挑的：这条恰好证明规则不是"看见竖的就转"。方向他说过自己管（B-12），
-    而 1298 的参考图他裁成正方（5309×5309），纵横帮不了判断，更没有证据支持软件代转。
+
+def test_negative_control_his_180_on_a_portrait_box_is_warned_not_overruled():
+    """**负控制①**：框**真的**是竖幅（片带横躺）而方向他按过 `rot=180`
+    ⇒ 规则看得见矛盾，也不许动像素，只许说出来。
+
+    **㉛ 换过口径**：原先这条直接用 `1298_G200::G200-1` 的天然框
+    （4776 高 × 4740 宽，`h/w=1.0076`）当"竖框"样本。纵横证据下限上线之后
+    那种框**不再携带证据**（既不转也不报存疑——这正是 ㉛ 要修的东西），
+    于是"看得见但不推翻"这一支在本语料里**没有自然样本**了。
+    改法是把框换成**构造**的 `PORTRAIT_PROBE_ROI`（`h/w=1.806`），
+    帧、旋转、`orientation_decided` 全部沿用他这一帧的真实状态。
+    选它不是随手挑的：这条恰好证明规则不是"看见竖的就转"。
     """
-    _fr, ann, geo, pr = _run(DECIDED_ID)
+    _fr, ann, geo, pr = _run(DECIDED_ID, override_area_source=PORTRAIT_PROBE_ROI)
     assert ann.rotation_degrees == 180, f"标注方向变了：{ann.rotation_degrees}"
     area = geo.image_area_roi
-    assert area is not None and (area[2] - area[0]) > (area[3] - area[1]), (
-        f"这帧的标注框应当是竖的才构成'看得见但不转'的对照，实测 {area}")
+    assert area is not None and (area[2] - area[0]) > (area[3] - area[1]) * 1.5, (
+        f"构造的框应当是**明显**竖幅才构成'看得见但不转'的对照，实测 {area}")
     assert pr.geometry.rotation_degrees == 180, (
         f"他定过的方向被规则改了：{pr.geometry.rotation_degrees}")
     assert pr.roi_provenance["orientation"] == "decided"
@@ -140,16 +171,88 @@ def test_negative_control_his_180_on_a_portrait_box_is_warned_not_overruled():
 
 
 def test_negative_control_no_box_at_all_is_neither_rotated_nor_warned():
-    """**负控制②**：`1298_G200::G200-2` 他按过 `rot=180` 而标注里根本没有画面框
-    （legacy `frame_roi` 也是 None）⇒ 纵横无从判定，既不转也不报存疑。
+    """**负控制②**：没有可信画框 ⇒ 纵横无从判定，既不转也不报存疑。
 
     这条钉的是"规则必须有依据"：没有可信画框时它的输出与改动前逐比特相同，
     不会有人某天发现软件开始对没框的帧猜方向。
+
+    **㉚b 换过口径**：原先这条直接拿 `1298_G200::G200-2` 天然的"一个框都没有"
+    当无框样本，2026-10-13 用户把这一帧框了（见下一条），前提从语料里消失。
+    断言本身一个字没动，改的是**样本来源**：现在用 `strip_boxes=True` **构造**
+    无框几何。这样这条锁不再依赖任何一帧的标注状态——标注被改、被删、
+    被新增都不会让它悄悄变成正控制或空对照。
     """
-    _fr, ann, geo, pr = _run(NOBOX_ID)
+    _fr, ann, geo, pr = _run(NOBOX_ID, strip_boxes=True)
     assert ann.rotation_degrees == 180
-    assert geo.image_area_roi is None, f"这帧现在有框了，样本要换一个：{geo.image_area_roi}"
+    assert geo.image_area_roi is None and geo.base_sample_rois == [], \
+        "这条控制的前提：构造出的几何必须真的什么框都没有"
     assert pr.geometry.rotation_degrees == 180
     assert pr.roi_provenance["orientation"] == "decided"
     assert not [r for r in pr.gate.review_reasons if "画面方向存疑" in r
                 or "35mm 画框几何补转" in r], pr.gate.review_reasons
+
+
+def test_negative_control_his_square_box_gives_the_rule_nothing_to_do():
+    """**负控制②′**（㉚b 新增）：有框但框是**正方** ⇒ 纵横不构成矛盾 ⇒ 一样沉默。
+
+    `1298_G200::G200-2` 他 2026-10-13 画的画面框源图坐标
+    `(1890, 372, 6624, 5106)` = **4734 高 × 4734 宽**，逐比特正方。
+    缩放后允许差 1 像素（四舍五入），所以这里只断言"不是竖的"。
+    与 ①（框是竖的、但方向他定过 ⇒ 只说不转）和 ②（没有框 ⇒ 沉默）合起来，
+    三种证据状态各有锁：**竖框+已定方向 → 说；正方框 → 沉默；无框 → 沉默**。
+    """
+    _fr, ann, geo, pr = _run(NOBOX_ID)
+    assert ann.rotation_degrees == 180
+    area = geo.image_area_roi
+    assert area is not None, f"这帧现在有框了（用户 2026-10-13 画的），前提变了"
+    h, w = area[2] - area[0], area[3] - area[1]
+    print(f"\n  1298::G200-2 缩放后画面框 {h}×{w}（源图 4734×4734 正方，"
+          f"允许 ±1px 取整）")
+    assert h <= w + 1, f"他这一帧的框应当不是竖的（源图 4734×4734 正方），实测 {h}×{w}"
+    assert pr.geometry.rotation_degrees == 180, (
+        f"正方框被当成方向依据改了像素：{pr.geometry.rotation_degrees}")
+    assert pr.roi_provenance["orientation"] == "decided"
+    assert not [r for r in pr.gate.review_reasons if "画面方向存疑" in r
+                or "35mm 画框几何补转" in r], pr.gate.review_reasons
+
+
+def test_aspect_evidence_separates_the_two_rolls_on_the_real_annotations():
+    """**㉛ 的语料锁（不读像素，只读标注）**：正方裁切一帧都不许转，
+    真横躺一帧都不许漏。这条就是当初能抓住那个缺陷的锁。
+
+    当场量的两簇（`fixtures/annotations/*.json`，源图坐标）：
+    `1298_G200` 他裁成**正方** ⇒ `h/w` 0.981~1.0254，全部落在
+    `SIDEWAYS_MIN_ASPECT = 1.10` 的证据带**之内**（⇒ `None`，规则沉默）；
+    `1299_G200` 是**片带真的横躺** ⇒ `h/w` 1.2201~1.2403，全部在带**之外**
+    （⇒ 必须补转 `SIDEWAYS_FRAME_ROTATION`）。
+    旧判据 `h > w` 零余量 ⇒ 1298 十一帧里 8 帧被判横躺、`rot=0` 的 4 帧
+    （`G200-6/-7/-10/-11`）被静默转掉 90°，看图才发现（`sat_tax_6.jpg` 第 4 行）。
+    ⚠ 这条**不许**因为"某帧他重新框过就删条目"：真要是哪天两簇靠到 1.10 附近，
+    说明证据带该重定，那是一次**改口径**并写进 B-12/B-14，不是把锁删掉。
+    """
+    def _boxes(roll: str):
+        out = []
+        for p in sorted((ROOT / "fixtures" / "annotations").glob(f"{roll}__*.json")):
+            d = json.loads(p.read_text(encoding="utf-8"))
+            a = d.get("image_area_roi") or d.get("frame_roi")
+            if a:
+                out.append((p.stem.split("__", 1)[1], int(d.get("rotation_degrees", 0)),
+                            tuple(a)))
+        return out
+
+    sq, lying = _boxes("1298_G200"), _boxes("1299_G200")
+    assert len(sq) >= 10 and len(lying) >= 10, (
+        f"这条锁要两卷各自的框都还在：1298 {len(sq)} 帧 / 1299 {len(lying)} 帧")
+    ratios_sq = [(a[2] - a[0]) / (a[3] - a[1]) for _n, _r, a in sq]
+    ratios_ly = [(a[2] - a[0]) / (a[3] - a[1]) for _n, _r, a in lying]
+    print(f"\n  证据带 {1 / SIDEWAYS_MIN_ASPECT:.3f}~{SIDEWAYS_MIN_ASPECT:.3f}；"
+          f"1298 正方簇 h/w {min(ratios_sq):.4f}~{max(ratios_sq):.4f}（{len(sq)} 帧）；"
+          f"1299 横躺簇 h/w {min(ratios_ly):.4f}~{max(ratios_ly):.4f}（{len(lying)} 帧）")
+    for name, rot, a in sq:
+        assert frame_output_is_portrait(a, rot) is None, (
+            f"1298::{name} 的框 h/w={(a[2] - a[0]) / (a[3] - a[1]):.4f} 被当成方向证据"
+            f"（实得 {frame_output_is_portrait(a, rot)}）⇒ 会被补转，这是 ㉛ 修的缺陷")
+    for name, rot, a in lying:
+        assert sideways_correction(a, rot) == SIDEWAYS_FRAME_ROTATION, (
+            f"1299::{name} 的框 h/w={(a[2] - a[0]) / (a[3] - a[1]):.4f} 是真横躺，"
+            f"规则漏了 ⇒ 证据带被放宽过头")
