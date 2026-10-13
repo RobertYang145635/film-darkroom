@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "spec": "负片裁切与去色罩_AI执行规格_v5.md §10.1",
-  "generated_utc": "2026-09-02T08:34:30Z",
+  "generated_utc": "2026-10-13T00:11:31Z",
   "notes": [
     "required=true 的帧必须全部出现在逐卷联系表中，不得只挑好看的。",
     "parity_required=true 且缺少同源 NLP 参考的帧不得进入正式对标集。",
@@ -20,7 +20,7 @@
     },
     "parity_required": 132,
     "robustness_only": 37,
-    "rois_user_confirmed": 0,
+    "rois_user_confirmed": 22,
     "processes": [
       "C-41",
       "ECN-2",
@@ -60,27 +60,33 @@
       },
       "rois": {
         "output_crop_roi": [
-          966,
-          376,
-          6541,
-          5166
+          1518,
+          138,
+          6732,
+          5436
         ],
         "image_area_roi": [
-          966,
-          376,
-          6541,
-          5166
+          1758,
+          408,
+          6534,
+          5148
         ],
         "base_sample_rois": [
           [
-            6721,
-            66,
-            7370,
-            5522
+            1272,
+            3036,
+            1536,
+            4032
+          ],
+          [
+            6792,
+            2274,
+            7080,
+            3714
           ]
         ],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
         "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-1.jpg",
@@ -133,12 +139,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1530,
+          126,
+          6906,
+          5430
+        ],
+        "image_area_roi": [
+          1740,
+          402,
+          6588,
+          5130
+        ],
+        "base_sample_rois": [
+          [
+            1332,
+            1788,
+            1572,
+            3144
+          ],
+          [
+            6780,
+            1626,
+            7026,
+            2706
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-10.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -190,12 +219,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1530,
+          162,
+          6726,
+          5430
+        ],
+        "image_area_roi": [
+          1722,
+          420,
+          6528,
+          5148
+        ],
+        "base_sample_rois": [
+          [
+            1272,
+            1620,
+            1548,
+            2928
+          ],
+          [
+            6666,
+            1506,
+            6948,
+            2742
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-11.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -304,11 +356,34 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
+        "output_crop_roi": [
+          1710,
+          114,
+          6816,
+          5430
+        ],
+        "image_area_roi": [
+          1890,
+          372,
+          6624,
+          5106
+        ],
+        "base_sample_rois": [
+          [
+            6840,
+            1866,
+            7080,
+            2784
+          ],
+          [
+            1410,
+            2040,
+            1680,
+            3030
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
         "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-2.jpg",
@@ -361,12 +436,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1548,
+          126,
+          6564,
+          5412
+        ],
+        "image_area_roi": [
+          1728,
+          366,
+          6432,
+          5112
+        ],
+        "base_sample_rois": [
+          [
+            1206,
+            570,
+            1470,
+            1626
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-3.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -418,12 +510,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1866,
+          120,
+          6786,
+          5406
+        ],
+        "image_area_roi": [
+          1950,
+          360,
+          6606,
+          5106
+        ],
+        "base_sample_rois": [
+          [
+            6768,
+            582,
+            7002,
+            1542
+          ],
+          [
+            6768,
+            2928,
+            7026,
+            4422
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-4.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -475,11 +590,34 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
+        "output_crop_roi": [
+          1626,
+          102,
+          6786,
+          5400
+        ],
+        "image_area_roi": [
+          1764,
+          360,
+          6552,
+          5070
+        ],
+        "base_sample_rois": [
+          [
+            1362,
+            1212,
+            1584,
+            2280
+          ],
+          [
+            6768,
+            1104,
+            6966,
+            2226
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
         "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-5.jpg",
@@ -532,12 +670,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1548,
+          126,
+          6810,
+          5412
+        ],
+        "image_area_roi": [
+          1740,
+          366,
+          6528,
+          5100
+        ],
+        "base_sample_rois": [
+          [
+            1260,
+            720,
+            1488,
+            1770
+          ],
+          [
+            6690,
+            786,
+            6930,
+            1728
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-6.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -589,12 +750,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1566,
+          126,
+          6804,
+          5406
+        ],
+        "image_area_roi": [
+          1722,
+          366,
+          6522,
+          5112
+        ],
+        "base_sample_rois": [
+          [
+            1362,
+            888,
+            1584,
+            1728
+          ],
+          [
+            6672,
+            744,
+            6942,
+            1488
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-7.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -646,12 +830,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1548,
+          150,
+          6720,
+          5418
+        ],
+        "image_area_roi": [
+          1776,
+          408,
+          6570,
+          5130
+        ],
+        "base_sample_rois": [
+          [
+            6756,
+            3918,
+            7020,
+            4638
+          ],
+          [
+            1380,
+            3654,
+            1614,
+            4308
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-8.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -703,12 +910,35 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1488,
+          150,
+          6732,
+          5430
+        ],
+        "image_area_roi": [
+          1752,
+          414,
+          6540,
+          5136
+        ],
+        "base_sample_rois": [
+          [
+            6732,
+            3450,
+            6954,
+            4170
+          ],
+          [
+            1296,
+            3534,
+            1578,
+            4308
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-9.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -760,11 +990,28 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
+        "output_crop_roi": [
+          984,
+          162,
+          7326,
+          5442
+        ],
+        "image_area_roi": [
+          1152,
+          342,
+          7110,
+          5160
+        ],
+        "base_sample_rois": [
+          [
+            7188,
+            2268,
+            7284,
+            3282
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
         "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-1.jpg",
@@ -817,12 +1064,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1008,
+          90,
+          7290,
+          5424
+        ],
+        "image_area_roi": [
+          1152,
+          312,
+          7140,
+          5148
+        ],
+        "base_sample_rois": [
+          [
+            1212,
+            5208,
+            1566,
+            5346
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-10.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -874,12 +1138,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          960,
+          120,
+          7332,
+          5400
+        ],
+        "image_area_roi": [
+          1146,
+          300,
+          7032,
+          5124
+        ],
+        "base_sample_rois": [
+          [
+            4398,
+            5172,
+            5148,
+            5340
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-11.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -931,12 +1212,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          972,
+          120,
+          7188,
+          5406
+        ],
+        "image_area_roi": [
+          1146,
+          324,
+          7086,
+          5124
+        ],
+        "base_sample_rois": [
+          [
+            2286,
+            5208,
+            3030,
+            5334
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-2.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -988,12 +1286,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1092,
+          120,
+          7224,
+          5400
+        ],
+        "image_area_roi": [
+          1164,
+          324,
+          7176,
+          5172
+        ],
+        "base_sample_rois": [
+          [
+            3306,
+            5232,
+            3864,
+            5352
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-3.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -1045,12 +1360,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1008,
+          102,
+          7284,
+          5406
+        ],
+        "image_area_roi": [
+          1134,
+          288,
+          7146,
+          5142
+        ],
+        "base_sample_rois": [
+          [
+            1530,
+            5202,
+            2304,
+            5346
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-4.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -1102,11 +1434,28 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
+        "output_crop_roi": [
+          1008,
+          102,
+          7284,
+          5406
+        ],
+        "image_area_roi": [
+          1134,
+          288,
+          7146,
+          5142
+        ],
+        "base_sample_rois": [
+          [
+            1530,
+            5202,
+            2304,
+            5346
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
         "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-5.jpg",
@@ -1159,12 +1508,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1026,
+          126,
+          7266,
+          5430
+        ],
+        "image_area_roi": [
+          1170,
+          342,
+          7146,
+          5160
+        ],
+        "base_sample_rois": [
+          [
+            2640,
+            5244,
+            3342,
+            5352
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-6.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -1216,12 +1582,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1044,
+          126,
+          7224,
+          5466
+        ],
+        "image_area_roi": [
+          1170,
+          330,
+          7140,
+          5166
+        ],
+        "base_sample_rois": [
+          [
+            2460,
+            5244,
+            3342,
+            5370
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-7.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -1273,12 +1656,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1086,
+          132,
+          7224,
+          5406
+        ],
+        "image_area_roi": [
+          1164,
+          324,
+          7110,
+          5142
+        ],
+        "base_sample_rois": [
+          [
+            3240,
+            5226,
+            3930,
+            5346
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-8.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -1330,12 +1730,29 @@
         }
       },
       "rois": {
-        "output_crop_roi": null,
-        "image_area_roi": null,
-        "base_sample_rois": [],
-        "confirmed_by_user": false,
-        "needs_reconfirm": true,
-        "source": "none"
+        "output_crop_roi": [
+          1008,
+          126,
+          7260,
+          5406
+        ],
+        "image_area_roi": [
+          1206,
+          324,
+          7146,
+          5148
+        ],
+        "base_sample_rois": [
+          [
+            3042,
+            5220,
+            3990,
+            5346
+          ]
+        ],
+        "confirmed_by_user": true,
+        "needs_reconfirm": false,
+        "source": "annotation"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-9.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -3216,7 +3633,7 @@
         "base_sample_rois": [],
         "confirmed_by_user": false,
         "needs_reconfirm": true,
-        "source": "annotation"
+        "source": "none"
       },
       "nlp_reference": "20260709_SAMPLE-ID(1)/1300_CN400/翻拍/NLP/CN400-5.jpg",
       "nlp_reference_notes": "Negative Lab Pro 默认/零编辑导出，仅作竞品对照基线；未经用户许可不作为训练目标或复制对象（v5 §9.2）",
@@ -3501,7 +3918,7 @@
         "base_sample_rois": [],
         "confirmed_by_user": false,
         "needs_reconfirm": true,
-        "source": "annotation"
+        "source": "none"
       },
       "nlp_reference": null,
       "nlp_reference_notes": null,
@@ -3729,7 +4146,7 @@
         "base_sample_rois": [],
         "confirmed_by_user": false,
         "needs_reconfirm": true,
-        "source": "annotation"
+        "source": "none"
       },
       "nlp_reference": null,
       "nlp_reference_notes": null,
