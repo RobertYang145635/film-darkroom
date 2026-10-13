@@ -188,9 +188,25 @@ def test_highlight_ramp_is_recorded_on_every_frame(corpus):
           f"@ 纸级 {PRINT_CHROMA_HIGHLIGHT_START}")
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="㉝ 之后**这一项被吸收，不再承重**：把高光斜坡关掉（钉成与总增益相同）之后，"
+           "11 帧 |Δ高光最低通道| 从 0.06438 变到 0.06444（差 6e-5，逐帧表里"
+           "关掉/上线两列几乎一格不差：1299 三帧 0.860/0.860、0.869/0.869、0.807/0.807）。"
+           "原因不是斜坡变坏了，而是 ㉝ 把彩度天花板的收回从'整像素拖暗'改成"
+           "'等亮度只收色度'——**逐像素自适应地收色度**正是斜坡用一条全局折线想做的事，"
+           "于是斜坡的边际作用被吃掉。⇒ 登记 ㉞：要么删掉 ⑲（连带这条锁与"
+           "`test_highlight_ramp_is_recorded_on_every_frame` 的常量断言一起重定），"
+           "要么把斜坡重定到'天花板管不到的纸级区间'上。"
+           "strict=True：一旦有人把它调回承重、这条会 XPASS 报错，必须回来删标记。")
 def test_ramp_closes_highlight_cast_more_than_without_it(corpus):
     """**主锁（对通道敏感的尺）**：关掉这一项（高光档钉成与总增益相同）后，
-    最高 5% 像素的"最低通道差"与"彩度差"都必须**变差**，留出卷尤其必须变差。"""
+    最高 5% 像素的"最低通道差"与"彩度差"都必须**变差**，留出卷尤其必须变差。
+
+    ⚠ **当前 xfail**（理由见装饰器）：㉝ 之后这一项的边际作用实测为 6e-5。
+    它要保护的量（高光偏青）现在由**天花板裁剪**守住，
+    那条机制的锁在 `tests/unit/test_print_scale.py::test_chroma_boost_spends_saturation_not_luma_when_it_hits_the_ceiling`。
+    """
     off = _rerender(corpus, 2.50)          # 与 LOOK_CHROMA_GAIN 相同 ⇒ 斜坡恒等
     ids = [r["id"] for r in corpus["rows"]]
     hold = [i for i in ids if i.startswith(HOLDOUT)]

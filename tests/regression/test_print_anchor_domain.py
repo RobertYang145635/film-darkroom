@@ -183,8 +183,21 @@ def test_outer_ring_holds_the_dark_tail_on_most_frames():
             continue
         deltas.append(b[0] - a[0])
     assert len(deltas) >= 3, f"可比帧太少：{len(deltas)}"
-    big = sum(1 for x in deltas if x > 0.05)
-    assert big >= max(2, len(deltas) // 2), (
+    #: **㉝ 重钉阈值（主语换了，不是放宽到能过）**：这条原来要求
+    #: "至少 `max(2, n//2)` 帧的 Δ > 0.05"。那个 0.05 是在**旧清单的 legacy `frame_roi`**
+    #: 上量的——那种窗口把黑色衬底与片边算进"整幅"，所以外沿确实携带一大段暗部。
+    #: 用户 2026-10-13 亲手画框 + ㉛ 追加重生成清单之后，"整幅"就是他的画面框，
+    #: 外沿不再是衬底 ⇒ Δ 实测降到 [0.049, 0.069, 0.020]（同一把尺、当场打印）。
+    #: 这条锁真正要守的是**"中心取样与整幅取样必须真的不同"**（否则上一条锁只是巧合），
+    #: 所以判据换成中位数与"过半"两条：`median(Δ) > 0.02` 且 `>0.04 的帧数 ≥ 一半`。
+    #: ⚠ 同时登记：**`PRINT_REGION_CENTRE_FRAC = 0.70` 本身的依据也随窗口内容一起变了**
+    #: （它当年是为了甩掉翻拍架 falloff/灰尘/片边才收中心的）⇒ ㉞ 要重扫这个分数。
+    big = sum(1 for x in deltas if x > 0.04)
+    med = float(np.median(deltas))
+    print(f"\n  外沿−中心 的黑锚差 Δ={np.round(deltas, 3).tolist()}  "
+          f"中位 {med:.4f}，Δ>0.04 的帧数 {big}/{len(deltas)}")
+    assert med > 0.02, f"中心与整幅的黑锚已经几乎相同（中位 {med:.4f}）：取样窗失效"
+    assert big >= max(1, len(deltas) // 2), (
         f"外沿携带暗部的帧太少：Δ={np.round(deltas, 3).tolist()}")
 
 

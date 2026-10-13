@@ -764,7 +764,11 @@ def chroma_gain_at(paper_luma: np.ndarray, base_gain: float) -> np.ndarray:
 def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
                 dmax_old: float, mask_band: np.ndarray | None,
                 chroma_gain: float = LOOK_CHROMA_GAIN) -> np.ndarray:
-    """若干行的保色度重映射。
+    """若干行的保色度重映射，返回 `(数组, 该块的裁剪统计)`。
+
+    统计是 `{"n", "n_clip", "k_sum"}`：`n_clip` 个像素的色度被纸白天花板收过，
+    收回系数的和是 `k_sum`（`print_remap_array` 汇总进 sidecar）。
+    分块与整帧必须同值，所以这里只交整数与和，不交比例。
 
     `chroma_gain` 是**逐帧可换**的：片基没实测的帧不该拿 1.897 去放大一片
     不知道错在哪的颜色（见 `print_remap_array` 与 `service` 第 9b 步）。
@@ -798,15 +802,32 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # 软件饱和 p95 0.212 对用户参考 0.405（差 −0.193），是成品"不够像"的主因。
     # k 在**纸级末端**收回到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（见那三条常量的依据）。
     y = out @ _LUM_W32
-    out = y[..., None] + chroma_gain_at(y, chroma_gain)[..., None] * (out - y[..., None])
-    # 放大色度会把最亮通道顶过天花板，所以按**整像素统一缩放**收回：
-    # 同除一个系数不改通道比例（不重演上次"逐通道钳位造成青蓝偏"的错误）。
-    top2 = out.max(axis=2)
-    over = top2 > np.float32(PRINT_WHITE)
-    shrink = np.where(over, np.float32(PRINT_WHITE) / np.maximum(top2, np.float32(1e-6)),
-                      np.float32(1.0)).astype(np.float32)
-    out = out * shrink[..., None]
-    return np.clip(out, 0.0, 1.0, dtype=np.float32)
+    db = chroma_gain_at(y, chroma_gain)[..., None] * (out - y[..., None])
+    # ---- 顶破纸白天花板时**只收色度、不收电平**（㉝）。
+    # 旧写法是"整像素同除一个系数"：它保通道比例，但把**亮度一起拖下去**。
+    # 分层量出来的代价（`tmp_layer_blame.py`，11 帧、验收同一把尺，
+    # Δ(B→A) = 彩度这一级吃掉多少 luma）：
+    #   1299 三帧  p50 **−0.065**  p75 **−0.059**  p95 **−0.037**
+    #   1298 八帧  p50 −0.007  p75 −0.015  p95 −0.008
+    # ⇒ 它专挑"又亮又饱和"的像素下手，后果正是 1299 那三帧
+    # **云不发光、像蒙了层灰纱**（`outputs/ref_look_probe/look11_part2.jpg`）。
+    # 新写法解"最大的 `k′ ≤ 1` 使 `max(y + k′·db) ≤ 纸白`"：结果仍是 `y + k′·db` 的形式，
+    # 而 `db` 在 luma 权重下均值为 0 ⇒ **亮度逐比特不动**，牺牲的是那一像素的饱和度。
+    # 物理上也更对：他那些云是**又白又亮**，不是**灰而亮**——该保的是 y。
+    # ⚠ 边界：若曲线本身已让 `y ≥ 纸白`（只在 gain ≤ 1 且原图顶得过亮时出现），
+    # `slack=0` ⇒ 这一像素被收成**等亮度灰**，旧写法是拖暗；两者都越界，
+    # 新写法把"过曝"如实呈现成白而不是暗。
+    slack = np.maximum(np.float32(PRINT_WHITE) - y, np.float32(0.0))
+    room = np.where(db > np.float32(1e-7),
+                    slack[..., None] / np.maximum(db, np.float32(1e-7)),
+                    np.float32(np.inf)).astype(np.float32)
+    k2 = np.minimum(np.float32(1.0), room.min(axis=2))
+    clipped = k2 < np.float32(1.0)
+    out = y[..., None] + k2[..., None] * db
+    n_clip = int(np.count_nonzero(clipped))
+    stats = {"n": int(clipped.size), "n_clip": n_clip,
+             "k_sum": float(k2[clipped].sum()) if n_clip else 0.0}
+    return np.clip(out, 0.0, 1.0, dtype=np.float32), stats
 
 
 def print_remap_array(positive_linear: np.ndarray,
@@ -841,22 +862,35 @@ def print_remap_array(positive_linear: np.ndarray,
     h = x.shape[0]
     row_px = max(1, x.shape[1] * 3)
     rows = max(1, int(max_chunk_pixels) // row_px)
+    px = 0
+    n_clip = 0
+    k_sum = 0.0
     if h <= rows:
-        out = _remap_band(rgb, anchor, float(dmax_old),
-                          None if m is None else m, k)
+        out, st = _remap_band(rgb, anchor, float(dmax_old),
+                              None if m is None else m, k)
+        px += st["n"]
+        n_clip += st["n_clip"]
+        k_sum += st["k_sum"]
     else:
         out = np.empty(rgb.shape, dtype=np.float32)
         for y0 in range(0, h, rows):
             y1 = min(y0 + rows, h)
-            out[y0:y1] = _remap_band(rgb[y0:y1], anchor, float(dmax_old),
-                                     None if m is None else m[y0:y1], k)
+            band, st = _remap_band(rgb[y0:y1], anchor, float(dmax_old),
+                                   None if m is None else m[y0:y1], k)
+            out[y0:y1] = band
+            px += st["n"]
+            n_clip += st["n_clip"]
+            k_sum += st["k_sum"]
     if x.shape[-1] > 3:
         out = np.concatenate([out, x[..., 3:]], axis=2)
     info = {"d_lo": round(anchor[0], 5), "d_hi": round(anchor[-1], 5),
             "points": len(anchor), "aim": PRINT_AIM, "white": PRINT_WHITE,
             "dmax_old": round(float(dmax_old), 5), "chroma_gain": round(k, 5),
             "chroma_gain_highlight": PRINT_CHROMA_HIGHLIGHT_GAIN,
-            "chroma_ramp_start": PRINT_CHROMA_HIGHLIGHT_START}
+            "chroma_ramp_start": PRINT_CHROMA_HIGHLIGHT_START,
+            # ㉝：彩度顶破纸白时**收色度**的那一级要可观察——不许静默改像素。
+            "chroma_clip_frac": round(float(n_clip) / float(max(px, 1)), 5),
+            "chroma_clip_k": round(k_sum / float(n_clip), 5) if n_clip else 1.0}
     if len(anchor) == 3:
         info["d_mid"] = round(anchor[1], 5)
     return out, info

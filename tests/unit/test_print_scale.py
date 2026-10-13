@@ -789,3 +789,43 @@ def test_area_carrier_negative_control_zero_is_the_single_carrier(monkeypatch):
     assert level_shift(0.70, 0.70) == level_shift(0.70, None)
     monkeypatch.setattr("negative_lab.print_math.PRINT_LEVEL_AREA_STRENGTH", -0.10)
     assert level_shift(0.5539, 0.70) < 0.0
+
+
+#: 一片"又亮又饱和"的合成天（8 列 × 6 行，线性正片）。
+#: 挑这些值是当场试出来的：`chroma_gain=1.0` 时裁剪**一帧都不触发**，
+#: 换成生产增益 2.50 时 **75% 的像素顶破纸白** ⇒ 裁剪这一级在这里真的有事做。
+_BRIGHT_SATURATED = np.ascontiguousarray(np.tile(np.array(
+    [[0.62, 0.86, 0.75], [0.55, 0.90, 0.42], [0.88, 0.52, 0.63], [0.44, 0.86, 0.80],
+     [0.70, 0.72, 0.35], [0.35, 0.62, 0.90], [0.80, 0.80, 0.80], [0.20, 0.30, 0.75]],
+    np.float32)[None, :, :], (6, 1, 1)))
+
+
+def test_chroma_boost_spends_saturation_not_luma_when_it_hits_the_ceiling():
+    """㉝：彩度放大顶破纸白时**只许收色度、不许收电平**。
+
+    旧写法是"整像素同除一个系数"——保通道比例，但把亮度一起拖下去。
+    分层量出来的代价（`tmp_layer_blame.py`，11 帧、验收同一把尺，
+    Δ(B→A) = 彩度这一级吃掉多少 luma）：1299 三帧 p50 **−0.065** / p75 **−0.059** /
+    p95 **−0.037**，而 1298 八帧只有 −0.007/−0.015/−0.008
+    ⇒ 它专打"又亮又饱和"的像素，后果就是用户说的"云不发光、像蒙了层灰纱"
+    （`outputs/ref_look_probe/look11_part2.jpg` 1299 三帧）。
+    新写法解"最大的 k′≤1 使 max(y+k′·db) ≤ 纸白"，仍是 `y + k′·db` 的形式
+    ⇒ 亮度逐比特不动（实测最大变化 2.2e-08），牺牲的是那一像素的饱和度。
+    """
+    anchor = (0.30, 0.60, 0.88)
+    ref, info_ref = print_remap_array(_BRIGHT_SATURATED, anchor, 2.0, chroma_gain=1.0)
+    got, info = print_remap_array(_BRIGHT_SATURATED, anchor, 2.0)
+    assert info["chroma_clip_frac"] > 0.5, (
+        f"非空对照：这个输入必须真的触发裁剪，实得 {info['chroma_clip_frac']}")
+    assert info_ref["chroma_clip_frac"] == 0.0, (
+        "**负控制**：不放大彩度就不该有像素被天花板收——否则这条锁练的不是裁剪")
+    w = np.array([0.2126, 0.7152, 0.0722], np.float32)
+    l_ref, l_got = ref @ w, got @ w
+    assert float(np.abs(l_got - l_ref).max()) < 1e-6, (
+        f"彩度放大把高光拖暗了（旧缺陷）：逐像素 luma 最大变化 "
+        f"{float(np.abs(l_got - l_ref).max()):.3e}")
+    assert float(got.max()) <= PRINT_WHITE + 1e-6, "纸白天花板必须仍然守住"
+    sat_ref = float((ref.max(2) - ref.min(2)).mean())
+    sat_got = float((got.max(2) - got.min(2)).mean())
+    assert sat_got > sat_ref, (
+        f"收色度之后增益仍然要真的买到饱和：{sat_ref:.4f} → {sat_got:.4f}")
