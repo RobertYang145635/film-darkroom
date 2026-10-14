@@ -336,7 +336,7 @@ def _export_geometry(rec):
         if (getattr(ann, "source_sha256", "") and rec.source_sha256
                 and ann.source_sha256 != rec.source_sha256):
             return geo                       # 源图已换，标定不再适用
-        return _geometry_from_annotation(ann)
+        return geometry_from_annotation(ann)
     try:
         from ..calibration.annotations import load_annotation
         from ..calibration.state import is_confirmed
@@ -348,10 +348,10 @@ def _export_geometry(rec):
     if (getattr(ann, "source_sha256", "") and rec.source_sha256
             and ann.source_sha256 != rec.source_sha256):
         return geo                           # 源图已换，标定不再适用
-    return _geometry_from_annotation(ann)
+    return geometry_from_annotation(ann)
 
 
-def _geometry_from_annotation(ann):
+def geometry_from_annotation(ann):
     from ..library.models import GeometryRegions
     return GeometryRegions(
         rotation_degrees=ann.rotation_degrees,

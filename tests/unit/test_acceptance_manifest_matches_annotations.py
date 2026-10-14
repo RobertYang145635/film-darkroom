@@ -62,7 +62,6 @@ def test_manifest_rois_equal_the_live_annotations():
     """三类 ROI + 两个确认位逐字段等于当前标注——**这条才是"派生数据过期"的探针**。"""
     cases = _checked_frames()
     assert len(cases) >= 20, f"这条锁要有对象可练（现在只有 {len(cases)} 帧）"
-    doc = json.loads(MAN.read_text(encoding="utf-8"))
     bad = []
     for f in cases:
         ann = load_annotation(f["file"])

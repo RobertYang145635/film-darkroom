@@ -82,7 +82,7 @@
       "frame_id": "1299_G200::G200-2",
       "source_nef": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-2.NEF",
       "variant_of": null,
-      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-2.jpg",
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-2.jpg",
       "stats": {
         "luma_mean": 0.6544,
         "luma_p05": 0.2089,
@@ -143,7 +143,7 @@
       "frame_id": "1299_G200::G200-6",
       "source_nef": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-6.NEF",
       "variant_of": null,
-      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-6.jpg",
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-6.jpg",
       "stats": {
         "luma_mean": 0.7016,
         "luma_p05": 0.2507,
@@ -164,7 +164,7 @@
       "frame_id": "1299_G200::G200-7",
       "source_nef": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-7.NEF",
       "variant_of": null,
-      "nlp_reference": "20260709_SAMPLE-ID(1)/1298_G200/翻拍/NLP/G200-7.jpg",
+      "nlp_reference": "20260709_SAMPLE-ID(1)/1299_G200/翻拍/NLP/G200-7.jpg",
       "stats": {
         "luma_mean": 0.7111,
         "luma_p05": 0.3179,

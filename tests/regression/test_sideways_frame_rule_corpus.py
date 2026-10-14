@@ -204,7 +204,7 @@ def test_negative_control_his_square_box_gives_the_rule_nothing_to_do():
     _fr, ann, geo, pr = _run(NOBOX_ID)
     assert ann.rotation_degrees == 180
     area = geo.image_area_roi
-    assert area is not None, f"这帧现在有框了（用户 2026-10-13 画的），前提变了"
+    assert area is not None, "这帧现在有框了（用户 2026-10-13 画的），前提变了"
     h, w = area[2] - area[0], area[3] - area[1]
     print(f"\n  1298::G200-2 缩放后画面框 {h}×{w}（源图 4734×4734 正方，"
           f"允许 ±1px 取整）")

@@ -152,10 +152,20 @@ class BatchJob:
                 Path(__file__).resolve().parents[3]).as_posix())
         except (ValueError, OSError):
             pass
+        # 确认过的标注必须生效，包括 `rotation_degrees` 与 `mirror_horizontal`。
+        # 以前这里只在 `self.geometry` 非空时才有几何，而 CLI 只有 `--rotation` 给了才构造
+        # geometry ⇒ 用户在裁切页设的"水平镜像"对 batch 完全无效（㉛ 追加同一类事故：
+        # 改了标注但产品没生效）。整卷导出走的是同一个出口，两条路不再各说各话。
+        geo = self.geometry
+        if (geo is None or not geo.is_complete()) and ann is not None:
+            from ..calibration.state import is_confirmed
+            from .roll_export import geometry_from_annotation
+            if is_confirmed(ann):
+                geo = geometry_from_annotation(ann)
         fp = capture_fingerprint(loaded.meta, source_path=str(src),
                                  batch_assumption=self.batch_assumption)
         pr = process_image(
-            loaded.rgb, geometry=self.geometry, ann=ann,
+            loaded.rgb, geometry=geo, ann=ann,
             keep_rebate=self.keep_rebate,
             prior=self.prior.to_initial_params() if self.prior else None,
             roll_analysis=self.roll_analysis,
