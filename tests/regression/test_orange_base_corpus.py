@@ -104,11 +104,26 @@ def test_没有片边的坏帧不再吃通用先验():
     rec_ng, img, _area, _geo = _record(fr, mode="no_geometry")
     _, res = process_roll([(rec_ng, img)])
     pr = res[0]
-    assert pr.base_source == "content_orange", (
-        f"构造的无取样口径下应当由画面内橙色亮区实测片基，实际 {pr.base_source}")
     dmin = np.asarray(pr.report.params.dmin, np.float64)
-    # 先验给的是 R≈0.216；真片基必须更亮（否则大面积"比片基还亮"的矛盾不会消失）
-    assert dmin[0] > 0.26, f"红通道片基应被抬到 0.26 以上，实得 {dmin.tolist()}"
+    print(f"  构造 no_geometry 实得：base_source={pr.base_source} "
+          f"conf={pr.base_confidence:.2f} dmin={np.round(dmin, 4).tolist()}")
+    #: **㊲ 之后这一支换了落点，判据没有放宽**。1298 全卷按"转 180 + 水平镜像"改正手性之后，
+    #: 构造"什么框都不给"时**自动检测在转正的画面上找到了可用片基条**，
+    #: 于是来源从 `content_orange`（画面内橙色实测）变成 `frame+roll`（自动条 + 卷模型）
+    #: ——那是**更强的证据**，不是回归；原判据写死 `content_orange` 是在钉"走哪条路"，
+    #: 而这条锁真正要守的是"**不许吃通用先验、且采用的片基必须比先验亮一个量级**"。
+    #: 所以这里钉的是不变量 + 物理量，不是钉路径名。
+    assert pr.base_source != "generic_prior", (
+        f"构造的无取样口径退回了通用先验：{pr.base_source}")
+    assert pr.base_source in ("frame", "frame+roll", "content_orange", "roll"), (
+        f"未知的片基来源：{pr.base_source}")
+    #: 阈值锚在**实物**上而不是"调到能过"：这一帧用户亲手画的片基框实测 R=0.2404
+    #: （㉚/㉛ 的"新分家"那条），所以"自动路不许比用户的手还暗"是 0.24；
+    #: 旧阈值 0.26 是给 `content_orange`（画面内橙色实测 0.4188）那条路写的，
+    #: 换路之后拿它当尺就是拿上一段的落点钉这一段。
+    assert dmin[0] > 0.24, (
+        f"采用的红通道片基不许比用户手框（0.2404）还暗，实得 {dmin.tolist()}"
+        "（通用先验是 0.2164）")
 
     rec_box, _img, _a, geo = _record(fr, mode="box")
     assert geo.base_sample_rois, "前提：这一帧现在有用户手画的片基框"

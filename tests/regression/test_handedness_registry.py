@@ -73,24 +73,51 @@ def _triple(fid: str) -> tuple[int, int, int, bool]:
     return user, int(add), (user + add) % 360, bool(ann.mirror_horizontal)
 
 
-def test_1299_is_still_delivered_mirrored_against_the_users_samples():
-    """登记表：1299 每一帧的镜像位必须仍是 False（= 缺陷仍在）。"""
-    rows, live = [], []
-    for fid in sorted(DELIVERY):
-        if not fid.startswith(MIRRORED_ROLL):
+#: 每卷"与用户样片同手性"所需的 (生效旋转, 镜像位)。两条都是**看图 + 读实物文字**定的：
+#: 1298 源图既倒置又镜像 ⇒ 转 180 + 水平镜像；1299 片带竖躺（35mm 规则补 270）+ 水平镜像。
+#: 旁证：`1298::G200-5` 用户 2026-10-13 就自己设过 `mirror_horizontal=true`，正是这条规则的一半。
+EXPECTED_GEOMETRY = {"1298_G200": (180, True), "1299_G200": (270, True)}
+
+
+def test_every_roll_delivers_the_same_handedness_as_the_users_samples():
+    """登记表：两卷每一帧**确认过的**标注，其生效几何必须等于 `EXPECTED_GEOMETRY`。
+
+    2026-10-15 这条锁先按"缺陷仍在"写（1299 缺镜像、车牌反字），当天用户说
+    "方向你不能改吗"⇒ 已按卷把 rot/镜像统一改到位，并按锁自己的指示把断言翻过来
+    （**没有删锁**）。现在它守的是另一半：别有人改回去、别只改一半帧、
+    别把两卷改成同一个数（两卷的胶片朝向不同，规则也不同）。
+    """
+    seen = {r: 0 for r in EXPECTED_GEOMETRY}
+    bad, skipped = [], []
+    for path in sorted((ROOT / "fixtures" / "annotations").glob("*.json")):
+        roll = path.stem.split("__")[0]
+        if roll not in EXPECTED_GEOMETRY:
             continue
-        user, add, eff, mir = _triple(fid)
-        rows.append(f"  {fid}: 用户 rot={user} 规则补 {add} ⇒ 生效 rot={eff} 镜像={mir}")
-        if not mir:
-            live.append(fid)
-    print("\n1299 手性登记（镜像=False 即与用户样片相反）：")
-    print("\n".join(rows))
-    assert live, (
-        f"登记表说 {MIRRORED_ROLL} 仍缺水平镜像（车牌反字），但 {len(live)} 帧如此。"
-        "若这条变红是因为**已经**给这些帧设了镜像：那是修好了，"
-        "请把本锁改成断言 `mirror_horizontal is True` 并在 docs/blockers.md ㊲ 记一笔，"
-        "不要删锁——它守的是'给他看的图与他的样片同手性'这件事。")
-    assert len(live) == len(rows), "1299 各帧镜像位不一致：一半镜像一半不镜像不是合法状态"
+        d = json.loads(path.read_text(encoding="utf-8"))
+        if d.get("status") != "verified" or d.get("verified_by") != "user":
+            skipped.append(path.stem)      # 未确认的标注不进产品，也不进本锁
+            continue
+        user = int(d.get("rotation_degrees") or 0)
+        add = sideways_correction(d.get("image_area_roi") or d.get("frame_roi"), user)
+        got = ((user + add) % 360, bool(d.get("mirror_horizontal")))
+        seen[roll] += 1
+        if got != EXPECTED_GEOMETRY[roll]:
+            bad.append(f"{path.stem}: 生效 {got} ≠ 登记 {EXPECTED_GEOMETRY[roll]}"
+                       f"（用户 rot={user} 规则补 {add}）")
+    print()
+    print("手性登记（生效角, 镜像位）：")
+    for roll, want in EXPECTED_GEOMETRY.items():
+        sk = [s for s in skipped if s.startswith(roll)]
+        print(f"  {roll}: 期望 {want}  已确认 {seen[roll]} 份  跳过未确认 {sk or '无'}")
+    for line in bad:
+        print("  ✗", line)
+    assert all(v >= 11 for v in seen.values()), f"登记的标注份数变了，逐卷判据要重估：{seen}"
+    assert not bad, "有帧的手性与登记表不一致（照片会左右反）：" + "; ".join(bad)
+
+    # 反空对照（只在内存里）：镜像位若被改掉，同一段判定必须抓到，否则这条锁空转
+    user = 0
+    got = ((user + sideways_correction([1170, 342, 7146, 5160], user)) % 360, False)
+    assert got != EXPECTED_GEOMETRY["1299_G200"], "反空对照失效：镜像位没参与判定"
 
 
 def test_pipeline_never_mirrors_on_its_own():
