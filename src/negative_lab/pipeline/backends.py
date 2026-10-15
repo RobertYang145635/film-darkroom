@@ -46,7 +46,14 @@ def _slopes(params: InvertParams) -> np.ndarray:
 
 def _accumulate_diag(diag: dict | None, paper: np.ndarray, mask,
                      t: np.ndarray, b: np.ndarray) -> None:
-    """clamp 前逐通道越界统计（v5 §8.2）+ t>b 与负密度诊断（§6.1.3）。"""
+    """clamp 前逐通道越界统计（v5 §8.2）+ t>b 与负密度诊断（§6.1.3）。
+
+    mask 与 `paper`/`t>b` 形状不符时**抛错**，不许退化成"整块不套 mask"：
+    ㊴ 之前这里是 `paper[m] if paper.shape[:2] == m.shape else paper`，
+    调用方传错一个切片就静默把片边/越界像素计进画面统计，而 v5 §8.2 的口径
+    宣称"只覆盖 image_area"（`test_rebate_independence` 的负控制
+    `test_rebate_leak_would_be_visible` 量到这种泄漏值 3.8e-02 ≈ 5836×容差）。
+    """
     if diag is None:
         return
     if mask is None:
@@ -54,8 +61,16 @@ def _accumulate_diag(diag: dict | None, paper: np.ndarray, mask,
         above = t > b                       # 透射率超过片基（超基/漏光）
     else:
         m = np.asarray(mask, bool)
-        px = paper[m] if paper.shape[:2] == m.shape else paper
-        above = (t > b)[m] if (t > b).shape[:2] == m.shape else (t > b)
+        if paper.shape[:2] != m.shape:
+            raise ValueError(
+                f"preclip 统计 mask 形状 {m.shape} 与反相输出 "
+                f"{paper.shape[:2]} 不符（分块调用须传同一行切片）")
+        px = paper[m]
+        tb = t > b
+        if tb.shape[:2] != m.shape:
+            raise ValueError(
+                f"above_base 统计 mask 形状 {m.shape} 与 t>b {tb.shape[:2]} 不符")
+        above = tb[m]
         if px.ndim == 3:
             px = px.reshape(-1, 3)
     if px.ndim == 3:

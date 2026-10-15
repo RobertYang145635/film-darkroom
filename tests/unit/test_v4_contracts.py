@@ -10,7 +10,8 @@ import tifffile
 
 from negative_lab.calibration.rollcalib import RollCalibration
 from negative_lab.pipeline import service as svc
-from negative_lab.pipeline.density import invert, invert_chunked
+from negative_lab.pipeline.density import (invert, invert_chunked,
+                                           preclip_ratios)
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.pipeline.render import RenderIntent, apply_render
 from negative_lab.pipeline.service import candidate_positive, process_image
@@ -68,6 +69,31 @@ class TestBackendWiring:
                            invert(odd, pa).positive_linear, atol=1e-6)
         assert np.allclose(invert_chunked(t, p, max_chunk_pixels=12345).positive_linear,
                            invert(t, pa).positive_linear, atol=1e-6)
+
+    def test_preclip_mask_shape_mismatch_raises_not_silent_unmasked(self, xt):
+        """㊴：preclip 统计的 mask 形状不符必须**抛错**。
+
+        以前这里是 `paper[m] if paper.shape[:2] == m.shape else paper` ——
+        形状不匹配就静默改成"整块不套 mask"，于是分块调用少切一行、
+        或调用方传错一个切片，v5 §8.2 的口径（"统计只覆盖 image_area"）
+        会在没人看见的情况下变成"覆盖整幅含片边"。
+        `test_rebate_leak_would_be_visible` 量过这类泄漏的分量：
+        3.8e-02 ≈ 5836× 那条锁的容差。
+        """
+        _, t = xt
+        p = InvertParams(dmin=(0.62, 0.45, 0.30), dmax=2.0)
+        h, w = t.shape[:2]
+        half = np.zeros((h, w), bool)
+        half[:, : w // 2] = True
+        #: 非空对照：mask 真的在起作用（统计样本数只有半幅）
+        assert preclip_ratios(invert(t, p, mask=half).diagnostics)["n"] \
+            == h * (w // 2)
+        #: 分块路径的行切片必须与整帧一致（生产口径，也不许触发上面那个抛错）
+        chunked = invert_chunked(t, p, max_chunk_pixels=12345, mask=half)
+        assert preclip_ratios(chunked.diagnostics)["n"] == h * (w // 2)
+        #: 反例：图与 mask 差一行 ⇒ 静默退化曾经把 h*w 当样本数
+        with pytest.raises(ValueError, match="mask 形状"):
+            invert(t[:-1, :, :], p, mask=half)
 
     def test_sensitivity_table(self, xt):
         """§3.1.4：每个保留技术参数都必须真实改变技术正片；

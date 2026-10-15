@@ -156,7 +156,11 @@ def test_shipped_defaults_are_the_measured_pair():
     from negative_lab.pipeline.model_assets import deterministic_asset
 
     assert LOOK_RED_EXPONENT == pytest.approx(1.30)
-    assert LOOK_BLUE_EXPONENT == pytest.approx(0.70)
+    assert LOOK_BLUE_EXPONENT == pytest.approx(0.85), (
+        "㊳/㊴ 上线的值是 0.85（三方尺上两卷同向的中间调缺蓝：训 −0.1076→−0.0228、"
+        "留 −0.0861→−0.0068）。换值必须同时重钉 "
+        "`test_blue_index_is_not_dominated_at_the_shipped_pair` 与 "
+        "`test_highlight_desaturation.py` 的两条 ⑲ 锁——它们的主语是这个工作点。")
     assert LOOK_CHROMA_GAIN == pytest.approx(2.50)
     p = deterministic_asset().payload
     assert p["red_ratio"] == pytest.approx(LOOK_RED_EXPONENT), (
@@ -251,42 +255,57 @@ def test_negative_control_pushing_red_the_other_way_is_worse(inputs):
 
 
 def test_blue_index_is_not_dominated_at_the_shipped_pair(inputs):
-    """**蓝指数留在 0.70 是有条件的**：红斜率抬到 1.30 之后重 check 过一次。
+    """**蓝指数不被低值支配**（㊴ 换主语：从"留在 0.70"改成"钉住当前上线值"）。
 
-    `tmp_blue_resweep.py`（red 固定 1.30，扫 blue × gain）：
-    * **标定卷 `1298`（8 帧）**上 blue 0.55 的中间带向量差中位 **0.0366** 比 0.70 的
-      0.0425 **好** —— 只看标定卷会把蓝指数改成 0.55；
-    * **留出卷 `1299`（3 帧）**上 0.55 是 **0.0276**，比 0.70 的 0.0180 **差**，
-      且 0.85 在标定卷上最差（0.0571）。
-    ⇒ 0.70 是唯一一个**没有被别的值在两个 split 上同时打败**的取值，所以不动它。
-    这条锁钉的就是这个"不被支配"关系：0.55 必须在留出侧更差，
-    否则"保留 0.70"就没有依据。
+    旧版本钉的是 0.70，依据是 `tmp_blue_resweep.py`（red 固定 1.30 扫 blue × gain）：
+    标定卷 0.55 更好（0.0366 对 0.0425）、留出卷 0.55 更差（0.0276 对 0.0180）
+    ⇒ 0.70 当时是"没有被别的值在两个 split 上同时打败"的取值。
+
+    ㊳ 用**三方尺**（我方 / NLP / 他的样片，11 帧）重扫之后换成 0.85，
+    这把尺（留出卷逐帧 `abs(Δ带宽RG)+abs(Δ带宽BG)` 均值）当场打印：
+    0.55 **0.1246** / 0.70 **0.0645** / 0.85 **0.0327**
+    ⇒ 0.55 现在在**两个 split 上都被打败**，"不被支配"这个关系仍然成立而且更硬。
+    断言把比较锚在**常量本身**上：谁把常量挪到低值，这一条就红。
     """
-    at_070 = _gaps(inputs, 1.30, 2.50, rb=0.70)
+    from negative_lab.print_math import LOOK_BLUE_EXPONENT
+
+    at_ship = _gaps(inputs, 1.30, 2.50, rb=float(LOOK_BLUE_EXPONENT))
     at_055 = _gaps(inputs, 1.30, 2.50, rb=0.55)
-    m070 = float(np.mean([abs(v["grg"]) + abs(v["gbg"]) for v in at_070.values()]))
-    m055 = float(np.mean([abs(v["grg"]) + abs(v["gbg"]) for v in at_055.values()]))
-    print(f"\n  留出卷 blue 0.70 的 abs(ΔRG)+abs(ΔBG) 均值 {m070:.4f}，"
-          f"blue 0.55 → {m055:.4f}")
-    assert m055 > m070, (
-        f"blue 0.55 在留出卷上更好（{m055:.4f} < {m070:.4f}）："
-        "'保留 0.70' 的依据没了，重扫 blue 并改默认值，别改这条锁的阈值")
+    at_070 = _gaps(inputs, 1.30, 2.50, rb=0.70)
+    m = lambda d: float(np.mean([abs(v["grg"]) + abs(v["gbg"]) for v in d.values()]))  # noqa: E731
+    m_ship, m055, m070 = m(at_ship), m(at_055), m(at_070)
+    print(f"\n  留出卷 abs(ΔRG)+abs(ΔBG) 均值：blue {float(LOOK_BLUE_EXPONENT):.2f} "
+          f"（现产）{m_ship:.4f} / 0.70（它替换掉的值）{m070:.4f} / 0.55 {m055:.4f}")
+    assert m055 > m_ship, (
+        f"blue 0.55 在留出卷上更好（{m055:.4f} < {m_ship:.4f}）："
+        f"'保留 {float(LOOK_BLUE_EXPONENT):.2f}' 的依据没了，重扫 blue 并改默认值，"
+        "别改这条锁的阈值")
+    #: ㊳ 的选值账：新默认必须打赢**它替换掉的那个值**（0.1246/0.0645/0.0327 三档里
+    #: 0.85 最低）。若有人把常量挪回 0.70 或更高，这一条会红——那是要求他重新拿证据，
+    #: 不是豁免。
+    assert m_ship < m070, (
+        f"现产 blue {float(LOOK_BLUE_EXPONENT):.2f} 没有打赢它替换掉的 0.70"
+        f"（{m_ship:.4f} vs {m070:.4f}）⇒ 换值的依据没了")
 
 
 @pytest.mark.xfail(
     strict=True,
-    reason="㉝ 之后**不承重**：产品工作点上 blue 0.70 让留出三帧里两帧的色相向量差变大"
-           "（G200-2 0.0663→0.1188、G200-7 0.0022→0.0524，只有 G200-6 0.0566→0.0222 变好；"
-           "留出合计 0.1251→0.1934 整体更差）。根因是 ㉝ 把彩度级从'整像素拖暗'改成"
-           "'等亮度收色度'⇒ 天花板裁剪绑定的像素集合变了，而 blue/red/gain 这一对是在旧"
-           "工作点上**联立**定的（规矩第 9、11 条）。⇒ 登记 ㉞：重扫 red×gain×blue 三元组"
-           "再定 `LOOK_BLUE_EXPONENT`。strict=True：重扫到每帧都变好时这条会 XPASS 报错，"
-           "必须回来删掉这个标记，不许留着当豁免。")
+    reason="㉝ 之后**不承重**、㊳/㊴ 换成 0.85 之后**理由换了**（下面这组数 2026-10-16 当场重印）："
+           "留出三帧逐帧 `abs(Δ带宽RG)+abs(Δ带宽BG)`，blue 0.55/0.70/0.85 = "
+           "G200-2 0.2008/0.1188/0.0667、G200-6 0.0742/0.0222/0.0082、"
+           "G200-7 0.0988/0.0524/0.0232（均值 0.1246/0.0645/**0.0327**）"
+           "⇒ 相对 0.70，0.85 让**三帧全部**朝参考走。但'每帧都比**完全不做蓝校正**更好'"
+           "仍然做不到：对照 blue=1.00 时 G200-2 0.0663 → 0.85 的 0.0667（差 4e-4，原地不动）、"
+           "G200-6 0.0566 → **0.0082**（大幅变好）、G200-7 0.0022 → **0.0232**（变差）——"
+           "`G200-7` 不做校正时本来就几乎正好，任何全局蓝增益都只能把它推离。"
+           "⇒ '一个全局常数服务所有帧'在本语料上是假的（**第五次**确认，㉗/㉚/㉛/㊳ 之后）。"
+           "strict=True：哪天真做到每帧都变好，这条会 XPASS 报错，必须回来删标记，"
+           "不许留着当豁免。")
 def test_blue_index_improves_every_holdout_frame_at_the_product_point(inputs):
     """**产品工作点上的蓝指数锁**（电平项开着）。
 
-    ⚠ **当前 xfail**（理由见装饰器）：㉝ 改了彩度天花板的收回方式之后，
-    blue 0.70 在留出卷上不再逐帧变好，聚合也更差 ⇒ 这个常数的依据已随工作点移动。
+    ⚠ **当前 xfail**（理由见装饰器）：0.85 让留出三帧全部比 0.70 更接近参考，
+    但仍然做不到"比完全不校正更好"——`G200-7` 那一帧是全局常数的结构性受害者。
 
     上面那条"每帧都变好"的旧锁在 `red 1.00 × gain 1.00` 那个**隔离角**上量，
     B-14⑮ 的电平 δ 一上线它就红了（`1299::G200-2` 0.0141 → 0.0230）——
@@ -298,15 +317,18 @@ def test_blue_index_improves_every_holdout_frame_at_the_product_point(inputs):
     `−0.0339 → −0.0279`、`+0.0120 → +0.0113`、`−0.0546 → −0.0452`，
     `|ΔRG|` 均值 0.0335 → **0.0281**、`|ΔBG|` 0.0678 → **0.0413**、距离 0.0514 → **0.0477**。
     """
+    from negative_lab.print_math import LOOK_BLUE_EXPONENT
+
     at_100 = _gaps(inputs, 1.30, 2.50, rb=1.00)
-    at_070 = _gaps(inputs, 1.30, 2.50, rb=0.70)
+    at_ship = _gaps(inputs, 1.30, 2.50, rb=float(LOOK_BLUE_EXPONENT))
     print()
     for fid in sorted(at_100):
         v1 = abs(at_100[fid]["grg"]) + abs(at_100[fid]["gbg"])
-        v2 = abs(at_070[fid]["grg"]) + abs(at_070[fid]["gbg"])
-        print(f"  {fid.split('::')[-1]:<10} 向量差 blue1.00 {v1:.4f} → blue0.70 {v2:.4f}")
+        v2 = abs(at_ship[fid]["grg"]) + abs(at_ship[fid]["gbg"])
+        print(f"  {fid.split('::')[-1]:<10} 向量差 blue1.00 {v1:.4f} → "
+              f"blue{float(LOOK_BLUE_EXPONENT):.2f} {v2:.4f}")
     worse = [f for f in at_100
-             if abs(at_070[f]["grg"]) + abs(at_070[f]["gbg"])
+             if abs(at_ship[f]["grg"]) + abs(at_ship[f]["gbg"])
              >= abs(at_100[f]["grg"]) + abs(at_100[f]["gbg"])]
     assert not worse, f"产品工作点上蓝指数让这些帧没变好：{worse}"
     assert len(at_100) == 3, f"留出帧数变了（{len(at_100)}），逐帧判据要重估"

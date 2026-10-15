@@ -61,14 +61,25 @@ def _load(rel: str) -> np.ndarray:
 
 
 @lru_cache(maxsize=8)
-def _run(rel: str):
-    ann = load_annotation(rel)
-    t = _load(rel)
-    prior = None
+def _prior(rel: str):
+    """卷级先验：**两条臂必须拿同一份**（㊴）。
+
+    以前只有 `_run` 的裁切臂带 prior，保留片边臂不带 —— `dmax` 从此不同
+    （1298::G200-4 实测 1.3630 vs 0.8062），蓝通道在一臂里削顶 1.5% 而另一臂 0%。
+    那被登记成"片边泄漏进门禁统计"（B-15），实际是测试自己换了两个变量。
+    """
     pf = ROOT / "fixtures" / "priors" / "KodakGold200-Z8-led.profile.json"
     if "G200" in rel and pf.exists():
         from negative_lab.profiles.profile import load_profile
-        prior = load_profile(pf).to_initial_params()
+        return load_profile(pf).to_initial_params()
+    return None
+
+
+@lru_cache(maxsize=8)
+def _run(rel: str):
+    ann = load_annotation(rel)
+    t = _load(rel)
+    prior = _prior(rel)
     step = max(1, int(np.ceil(max(t.shape[:2]) / 1600)))
     small = t[::step, ::step, :].copy()
     # 标注 ROI 是 SOURCE 全分辨率坐标：工作分辨率下必须同步缩放，
@@ -231,8 +242,10 @@ def test_not_washed_out(e, ann):
 def test_rebate_independence(e, ann):
     """v5 §11.1：输出保留片边时，质量统计 mask 仍只覆盖 image_area。
 
-    两次运行用**同一套**三类区域（只差 output_crop 是否保留全幅），
-    因此若统计随输出裁切变化，就是污染实锤。
+    两次运行用**同一套**三类区域**和同一份先验**（只差 output_crop 是否保留全幅），
+    因此若统计随输出裁切变化，就是污染实锤。少对齐任何一个其它入参，
+    这条锁量的就不再是裁切 —— ㊴ 之前它把 `prior` 漏在第二臂外面，
+    于是把"随先验变化"读成了"片边泄漏"，登记成 B-15。
     """
     t, ann, pr, step = _run(e["file"])
     h, w = t.shape[:2]
@@ -255,19 +268,29 @@ def test_rebate_independence(e, ann):
         output_crop_roi=(0, 0, sh, sw),
         base_sample_rois=[r for r in base_rois if r])
     full = process_image(t[::step, ::step, :], geometry=geo_keep,
-                         keep_rebate=True, )
+                         prior=_prior(e["file"]), keep_rebate=True)
     #: **容差的依据是机制，不是"调到能过为止"**。两次运行的统计 mask 都应只覆盖
     #: image_area，但 mask 是在**各自的输出坐标**里用整数减法得到的
     #: （`ay0 = area_o[0] - cy0`），保留片边与否会让 `cy0/cx0` 差一个偏移，
-    #: 于是边界上可能差 1 像素（`1299_G200::G200-9` 实测 B 通道
-    #: `preclip_high` 差 3.769e-06 ≈ 1/265000 像素）。
-    #: 真泄漏整条片边是 **3% 量级**（源图片边约 276/8280 宽），比这里的容差大四个数量级，
-    #: 所以这条断言仍然抓得住它要抓的东西。
+    #: 于是边界上可能差 1 像素。
+    #: 真把片边算进统计区是多大一件事，由 `test_rebate_leak_would_be_visible`
+    #: 当场量（2026-10-16，blue=0.85）：统计区 613816→1269600 像素（片边占 51.7%）
+    #: 时 `preclip[high]` 动 3.803e-02 = **5836×容差**；1299::G200-1 是 37.2% / 4626×。
+    #: 也就是说这条断言量的东西比它的容差大三个半数量级，不是空锁。
+    #:
+    #: **㊴ 更正**：2026-10-15 把这一支登记成 B-15"门禁统计在保留片边时不套 mask"，
+    #: 并在当天写成"同一份代码两次运行坏的帧不一样"。两条都不成立：
+    #: ① 它是确定的 —— `tmp_b15_arms.py` 两遍都是同样 3 帧（1298::G200-4/-5/-7）；
+    #: ② 病根不在管线，在本测试的第二臂**漏传 `prior`** —— 裁切臂 `dmax=1.3630`、
+    #: 保留片边臂 `dmax=0.8062`，蓝通道在前者削顶 0.0%、后者 1.481e-02，
+    #: 于是"随输出裁切变化"其实是"随先验变化"。补齐 prior 后 22 帧的
+    #: `preclip`/`output_clip` 逐通道偏差**实测 0.000e+00**（不是"小于容差"）。
     n_pr = int(np.count_nonzero(pr.valid_mask))
     n_full = int(np.count_nonzero(full.valid_mask))
     assert abs(n_pr - n_full) <= 4, (
         f"保留片边后统计区像素数变了 {n_pr} → {n_full}，mask 不再只覆盖 image_area")
     tol = 4.0 / max(min(n_pr, n_full), 1)
+
     def _close(x, y):
         a = np.atleast_1d(np.asarray(x, np.float64)).ravel()
         b = np.atleast_1d(np.asarray(y, np.float64)).ravel()
@@ -285,6 +308,66 @@ def test_rebate_independence(e, ann):
             f"容差 {tol:.2e}（=4 像素）")
     assert full.geometry.output_size[1] > pr.geometry.output_size[1], \
         "输出必须真的保留了片边"
+
+
+#: 可见性对照（锁的负控制）：**同一张图、同一套参数**，只把统计区从
+#: `valid_mask` 换成"整幅含片边"（`mask=None`），量这把尺子看不看得见泄漏。
+#: 看不见的话上面那条断言就是空锁。
+#:
+#: 为什么不用"把 `image_area_roi` 改成全幅"来做这个对照：那会同时改掉
+#: ①`_upright_rotation` 看到的画框纵横（1299 的标注框高>宽、规则补 270°，
+#: 全幅框宽>高 ⇒ 不补，画面直接转歪）和 ②`frame_base_stats` 里片基条与画面的
+#: 包含关系（片基条本就长在片边上）。两个混淆一起进来，量到的就不是泄漏。
+LEAK_CANDIDATES = ["20260709_SAMPLE-ID(1)/1298_G200/翻拍/G200-4.NEF",
+                   "20260709_SAMPLE-ID(1)/1299_G200/翻拍/G200-1.NEF"]
+
+
+@pytest.mark.parametrize("rel", LEAK_CANDIDATES)
+def test_rebate_leak_would_be_visible(rel):
+    """把片边算进统计区，preclip 必须**大幅**变化（远大于 4 像素容差）。"""
+    t, ann, _, step = _run(rel)
+    h, w = t.shape[:2]
+    small = t[::step, ::step, :]
+    sh, sw = small.shape[:2]
+
+    def sc(roi):
+        if not roi:
+            return None
+        return (int(round(roi[0] * sh / h)), int(round(roi[1] * sw / w)),
+                int(round(roi[2] * sh / h)), int(round(roi[3] * sw / w)))
+
+    from negative_lab.library.models import GeometryRegions
+    from negative_lab.pipeline.density import invert, preclip_ratios
+    base = [r for r in (sc(x) for x in (ann.base_sample_rois or []
+            or ([ann.base_roi] if ann.base_roi else []))) if r]
+    leak_geo = GeometryRegions(rotation_degrees=ann.rotation_degrees,
+                               image_area_roi=sc(ann.image_area_roi or ann.frame_roi),
+                               output_crop_roi=(0, 0, sh, sw), base_sample_rois=base)
+    good = process_image(small, geometry=leak_geo, prior=_prior(rel),
+                         keep_rebate=True)
+    #: `good.t` 就是这一帧保留片边时的反相输入（画面 + 一圈片边）。
+    #: mask=None ⇒ 统计区覆盖包括片边在内的每一个像素 = 泄漏的样子。
+    leaked = preclip_ratios(invert(good.t, good.report.params,
+                                   mask=None).diagnostics)
+    n_ok = int(np.count_nonzero(good.valid_mask))
+    n_leak = int(good.t.shape[0] * good.t.shape[1])
+    tol = 4.0 / max(n_ok, 1)
+
+    def _gap(key):
+        a = np.atleast_1d(np.asarray(leaked[key], np.float64))
+        b = np.atleast_1d(np.asarray(good.gate.technical_preclip[key], np.float64))
+        return float(np.abs(a - b).max()) if a.shape == b.shape else float("inf")
+
+    hi, lo = _gap("high"), _gap("low")
+    print(f"\n  {rel.split('/')[1]}/{rel.split('/')[-1]}：统计区 {n_ok} → {n_leak} 像素"
+          f"（片边占 {(n_leak - n_ok) / max(n_leak, 1):.1%}），"
+          f"preclip high 差 {hi:.3e} = {hi / tol:.0f}×容差，"
+          f"low 差 {lo:.3e} = {lo / tol:.0f}×容差")
+    assert n_leak > n_ok, "对照没有真的把片边算进统计区"
+    assert max(hi, lo) > 100 * tol, (
+        f"这把尺子看不见 {(n_leak - n_ok) / max(n_leak, 1):.1%} 的片边泄漏"
+        f"（high {hi:.3e} / low {lo:.3e}，容差 {tol:.2e}）——"
+        "test_rebate_independence 成了空锁，容差或统计口径要重定")
 
 
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
