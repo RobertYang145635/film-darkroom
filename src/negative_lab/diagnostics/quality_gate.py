@@ -17,6 +17,10 @@ v5 §8.1 明确删除的产品逻辑（不得再出现）：
 技术正片低端或高端剪裁 >0.1% warn，>1.0% fail；输入端已发生的剪裁属于
 采集事实，只 warn 并建议重扫；RenderIntent 造成的剪裁单独提示，
 **不得反过来改写技术门禁**。
+⚠ **B-6（2026-10-16 用户决定）**：上面两句在同一批像素上会打架，
+高端的 ">1% fail" 因此**只看软件新引入的那一份**（`clip_attribution.high_introduced`），
+纯继承的剪裁降级为警告并照旧写明"采集端就已丢失，重拍才能补"；
+低端没有归因口径，仍按总量判。归因与统计量口径对不上时**不降级**（照旧 fail）。
 """
 
 from __future__ import annotations
@@ -121,26 +125,49 @@ class QualityGate:
                     ("low", "暗部", "请检查片基取样区或降低 Dmax"),
                     ("high", "高光", "请检查片基取样区或调整曝光起点")):
                 for ch, frac in _iter(g.technical_preclip, side):
-                    if frac > clip_fail_frac or frac > clip_warn_frac:
-                        attr = (g.clip_attribution.get(ch) or {})
-                        tail = ""
-                        if side == "high" and attr.get("high_total") is not None:
-                            inh = float(attr["high_inherited"])
-                            intro = float(attr["high_introduced"])
-                            if frac > 0 and inh / max(frac, 1e-12) >= 0.8:
-                                tail = (f"；其中 {inh:.2%} 在输入端已是死数据"
-                                        f"（软件新引入 {intro:.2%}）"
-                                        "—— 采集端就已丢失，重扫/重拍才能根治，"
-                                        "调算法补不回来")
-                            elif intro > clip_warn_frac:
-                                tail = (f"；其中软件新引入 {intro:.2%}"
-                                        f"（输入端死数据 {inh:.2%}）"
-                                        "—— 这部分才是本软件能改的")
-                    if frac > clip_fail_frac:
+                    if frac <= clip_warn_frac:
+                        continue
+                    attr = (g.clip_attribution.get(ch) or {})
+                    tail = ""
+                    if side == "high" and attr.get("high_total") is not None:
+                        inh = float(attr["high_inherited"])
+                        intro = float(attr["high_introduced"])
+                        if frac > 0 and inh / max(frac, 1e-12) >= 0.8:
+                            tail = (f"；其中 {inh:.2%} 在输入端已是死数据"
+                                    f"（软件新引入 {intro:.2%}）"
+                                    "—— 采集端就已丢失，重扫/重拍才能根治，"
+                                    "调算法补不回来")
+                        elif intro > clip_warn_frac:
+                            tail = (f"；其中软件新引入 {intro:.2%}"
+                                    f"（输入端死数据 {inh:.2%}）"
+                                    "—— 这部分才是本软件能改的")
+                    #: **挡不挡，只看软件自己推出去的那一份**（B-6，2026-10-16 用户决定）。
+                    #: §8.2 同一节里写着两句话："高端剪裁 >1% fail" 与
+                    #: "输入端已发生的剪裁属于采集事实，只 warn 并建议重扫"。
+                    #: ㊴ 又量出这两句在本模型下**说的其实是同一批像素**
+                    #: （`black=0` 时高端越界唯一可能的来源是输入端 t=0 的像素，
+                    #: 见 docs/blockers.md B-6 追加的结构推导），
+                    #: 所以"两句冲突"只能靠人来定：他看了标红的图，说"这种就是完全过曝的，很正常"
+                    #: ⇒ 高端按 `high_introduced` 判，低端没有归因口径（`low=None`），照旧按总量判。
+                    #: 归因**说不清就不降级**：没有输入证据、或归因看到的贴顶像素比统计量还少
+                    #: （两边口径对不上）时，`intro` 退回 `frac`，判定与改动前逐比特相同。
+                    #: 比较留 1e-6：`_clip_attribution` 把比例 `round(x, 6)`，
+                    #: 真实相等也会被看成"少了 2.6e-7"（`1298::G200-7` 实测踩过）。
+                    intro = frac
+                    if (side == "high" and attr.get("high_total") is not None
+                            and float(attr["high_total"]) + 1e-6 >= frac):
+                        intro = float(attr["high_introduced"])
+                    if intro > clip_fail_frac:
                         g.failures.append(
                             f"技术正片{label}剪裁超限(FAIL)：通道 {ch} {frac:.2%} > "
                             f"{clip_fail_frac:.1%}（{advice}）{tail}")
-                    elif frac > clip_warn_frac:
+                    elif frac > clip_fail_frac:
+                        g.warnings.append(
+                            f"技术正片{label}剪裁：通道 {ch} {frac:.2%} > "
+                            f"{clip_fail_frac:.1%}（{advice}）{tail}"
+                            f"；软件新引入 {intro:.2%} 未超限 ⇒ **不挡导出**"
+                            "（B-6：源头就丢了的部分只警告，重拍才能补）")
+                    else:
                         g.warnings.append(
                             f"技术正片{label}剪裁：通道 {ch} {frac:.2%} > "
                             f"{clip_warn_frac:.1%}（{advice}）{tail}")

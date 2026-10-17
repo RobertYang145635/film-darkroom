@@ -205,12 +205,37 @@ def test_auto_crop_gap_table_is_not_stale():
 @pytest.mark.parametrize("e,ann", CASES, ids=[c[0]["file"].split("/")[-1]
                                               for c in CASES])
 def test_output_clipping_and_export_allowed(e, ann):
-    """v5 §8.2：技术正片 clamp 前剪裁 <=1%；needs_review 允许导出。"""
+    """v5 §8.2：技术正片 clamp 前剪裁 <=1%；needs_review 允许导出。
+
+    ⚠ **B-6（2026-10-16 用户决定）之后"超限"分两种**：**软件新引入**的那一份超线必须挡；
+    **全部继承自输入端**（翻拍当场就是死数据）的降级为警告并放行。
+    所以这一支判的是"该挡的有没有挡、不该挡的有没有乱挡"，两边都钉。
+    """
     _, _, pr, _ = _run(e["file"])
     assert pr.gate.status != "fail" or not pr.gate.blocks_export
-    if max(pr.gate.technical_preclip.get("low", [0]) + [0]) > 0.01 \
-            or max(pr.gate.technical_preclip.get("high", [0]) + [0]) > 0.01:
-        assert pr.gate.blocks_export, "超限必须 fail"
+    pre = pr.gate.technical_preclip or {}
+    attr = pr.gate.clip_attribution or {}
+    over = []
+    for side in ("low", "high"):
+        for ch, frac in zip(("R", "G", "B"), pre.get(side, [0.0] * 3)):
+            if float(frac) > 0.01:
+                over.append((side, ch, float(frac)))
+    for side, ch, frac in over:
+        #: 与门禁同一个口径：低端没有归因（`low=None`）⇒ 按总量判；
+        #: 高端只有"归因数到的贴顶像素不少于统计量"时才采信拆分。
+        a = attr.get(ch) or {}
+        intro = frac
+        if side == "high" and a.get("high_total") is not None \
+                and float(a["high_total"]) >= frac - 1e-9:
+            intro = float(a["high_introduced"])
+        if intro > 0.01:
+            assert pr.gate.blocks_export, (
+                f"{ch} {side} 软件新引入 {intro:.2%} >1% 却没挡 ⇒ 门禁被归因放过了")
+        else:
+            assert not pr.gate.blocks_export, (
+                f"{ch} {side} 总量 {frac:.2%}、软件新引入只有 {intro:.2%}"
+                f"（其余是采集端死数据）却被挡 ⇒ B-6 的降级没生效："
+                f"{pr.gate.failures}")
     assert pr.gate.blocks_export is False, pr.gate.failures
     assert pr.gate.nonfinite_output == 0
     assert pr.rendered_positive_linear is not None
@@ -388,3 +413,88 @@ def test_no_calibration_blocking_anywhere():
         if pr.gate.status == "fail":
             assert all("剪裁" in f or "NaN" in f for f in pr.gate.failures), \
                 pr.gate.failures
+
+
+ROLL_GATE = "1298_G200"
+MOTIVATING = "1298_G200::G200-7"
+
+
+@lru_cache(maxsize=1)
+def _roll_path():
+    """**整卷生产路径**跑一遍 1298（与联系表 / 批处理同一个 `process_roll` 入口）。
+
+    为什么必须有这一支：`_run` 走的是单帧 + 卷级先验 `prior`，
+    而交付路径是整卷、不带 profile 先验 —— ㊴ 实测同一帧两口径
+    `dmax` 1.3630 对 0.7391、蓝通道高端剪裁 **0.0% 对 1.4884%**。
+    只在单帧口径上绿，等于**没测过那 10 帧被挡的帧**（本轮就是这样差点放过一个
+    "归因 round 到 6 位、与统计量差 2.6e-7 就不降级"的错）。
+    """
+    from negative_lab.library.fingerprint import capture_fingerprint
+    from negative_lab.library.models import FrameRecord, GeometryRegions
+    from negative_lab.pipeline.roll_export import geometry_from_annotation
+    from negative_lab.pipeline.service import process_roll
+
+    man = json.loads((ROOT / "fixtures" / "acceptance" / "manifest.json")
+                     .read_text(encoding="utf-8"))
+    frs = [f for f in man["frames"]
+           if f.get("required") and f["roll"] == ROLL_GATE
+           and (ROOT / f["file"]).exists()]
+    assert len(frs) >= 8, f"验收清单里 {ROLL_GATE} 只剩 {len(frs)} 帧，锁本身失效"
+    recs, imgs, ids = [], [], []
+    for fr in frs:
+        loaded = load_linear_rgb(ROOT / fr["file"])
+        arr = loaded.rgb
+        step = max(1, int(np.ceil(max(arr.shape[:2]) / 1200.0)))
+        small = arr[::step, ::step, :].copy()
+        ann = load_annotation(fr["file"])
+        geo = GeometryRegions()
+        if ann is not None and (ann.image_area_roi or ann.base_sample_rois):
+            g = geometry_from_annotation(ann)      # 与批处理/整卷导出同一个出口
+            sy, sx = small.shape[0] / arr.shape[0], small.shape[1] / arr.shape[1]
+
+            def sc(roi, _sy=sy, _sx=sx):
+                if not roi:
+                    return None
+                o = (int(round(roi[0] * _sy)), int(round(roi[1] * _sx)),
+                     int(round(roi[2] * _sy)), int(round(roi[3] * _sx)))
+                return o if (o[2] - o[0] >= 4 and o[3] - o[1] >= 4) else None
+
+            geo = GeometryRegions(
+                rotation_degrees=g.rotation_degrees,
+                fine_rotation_degrees=g.fine_rotation_degrees,
+                mirror_horizontal=g.mirror_horizontal,
+                output_crop_roi=sc(g.output_crop_roi),
+                image_area_roi=sc(g.image_area_roi),
+                base_sample_rois=[q for q in (sc(x) for x in g.base_sample_rois) if q])
+        recs.append(FrameRecord(
+            source_path=fr["file"], source_sha256=fr["source_sha256"],
+            input_facts=dict(loaded.meta),
+            capture_fingerprint=capture_fingerprint(
+                loaded.meta, source_path=fr["file"]).value,
+            geometry=geo, orientation_decided=ann is not None))
+        imgs.append(small)
+        ids.append(fr["id"])
+        del arr, loaded
+    _, results = process_roll(list(zip(recs, imgs)))
+    assert len(results) == len(ids), "整卷返回的帧数与送进去的不符"
+    return dict(zip(ids, results))
+
+
+def test_roll_path_releases_purely_inherited_clipping():
+    """B-6（2026-10-16 用户决定）在**交付路径**上的证据：超限但纯继承 ⇒ 放行并留痕。"""
+    out = _roll_path()
+    over = sorted(i for i, pr in out.items() if pr.gate.clip_exceeded)
+    blocked = sorted(i for i, pr in out.items() if pr.gate.blocks_export)
+    for i in over:
+        a = (out[i].gate.clip_attribution or {}).get("B") or {}
+        print(f"  {i} 超线：B 引入 {float(a.get('high_introduced', 0.0)):.4%} / "
+              f"继承 {float(a.get('high_inherited', 0.0)):.4%}")
+    print(f"  整卷 {len(out)} 帧，超 1% 线 {len(over)} 帧 {over}；被挡 {blocked}")
+    assert over, (
+        f"{ROLL_GATE} 整卷没有任何超限帧 ⇒ 这条锁空转："
+        "语料或口径变了，回来重钉（别删）")
+    assert not blocked, f"纯继承的超限帧仍被挡：{blocked} ⇒ B-6 的降级没生效"
+    pr = out[MOTIVATING]
+    assert pr.gate.clip_exceeded, "降级不等于抹掉事实：`clip_exceeded` 必须还立着"
+    assert any("不挡导出" in w for w in pr.gate.warnings), pr.gate.warnings
+    assert any("采集端就已丢失" in w for w in pr.gate.warnings), pr.gate.warnings

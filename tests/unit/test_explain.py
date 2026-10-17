@@ -59,8 +59,12 @@ def test_clip_note_matches_the_gate_failure_wording():
         technical_preclip={"low": [0, 0, 0], "high": [0, 0, 0.30], "n": 3600})
     note = clip_note(g)
     assert "B 30.00%" in note and "采集端就已丢失" in note
-    failure = " ".join(g.failures)
-    assert "B" in failure and "采集端就已丢失" in failure
+    #: **B-6（2026-10-16）之后**这一格的结论落在 `warnings` 而不是 `failures`
+    #: （纯继承 ⇒ 不挡导出）。锁的主语没变——还是"文案与门禁结论必须同调"，
+    #: 只是那条结论现在写在警告里；顺手把降级本身也钉住，防止"文案降级了但还在挡"。
+    verdict = " ".join(g.failures + g.warnings)
+    assert "B" in verdict and "采集端就已丢失" in verdict
+    assert g.blocks_export is False, "纯继承 30% 仍挡导出 ⇒ B-6 的降级没生效"
     assert clip_note(g.to_dict()) == note, "实例与 to_dict 两种读法必须同文"
 
 
