@@ -484,6 +484,53 @@ def detect_rebate_strips(t_rgb: np.ndarray, *, band_frac: float = 0.012,
             [(s[1], round(s[3], 2), round(s[4], 3)) for s in keep])
 
 
+#: **单帧平铺扫描**的判据：检出的画框占整幅 ≥ 此比例，说明扫描仪已经把扫描
+#: 裁到胶片画框本身——此后任何内缩都必须有**物理片基证据**才允许。
+#: 实测（`tmp_ecn2_frame_gate.py`，2026-10-20）：ECN-2 两卷 0.939~1.001，
+#: G200 条带扫描 0.760~0.764 ⇒ 阈值 0.85 两侧各留 ≥0.09 余量。
+FRAME_FLUSH_FRAC = 0.85
+
+
+def image_area_from_rebate(frame: tuple[int, int, int, int],
+                           rebate: tuple[list, list]) -> tuple[tuple, dict]:
+    """平铺单帧扫描的画面上边界：**四条边各自只在"该边有合格片基条带"时才内缩**。
+
+    为什么需要它（2026-10-20 看图 + 实测，`outputs/ref_look_probe/
+    ecn2_frame_boxes_*.png`）：`detect_image_area` 的结构模型是为**条带扫描**写的
+    （`[帧边暗隙][片基亮带][暗印边带][画面]`），单帧平铺扫描里没有这套结构，它会在
+    **画面内部**找到一条"亮带"并把带外全裁掉：5207-6 的 `image_area` 只剩整幅的
+    35.8%（把 LAWSON 招牌整个切在框外），5219 四帧 52~57%。
+    与他的正片做尺度×位移互相关（`tmp_ecn2_rebate_frame.py`，8 帧两卷）：
+      不裁（整幅） s=1.05，|r|=0.90~0.98 **八帧全中**；
+      现 `image_area` s=0.60~1.05，|r|=0.63~0.98。
+    ⇒ 取景权交给物理证据：`detect_rebate_strips` 的三道闸（亮度、R/B、
+    `above_base≤1%`）在该边接受了条带，才从条带内缘往里裁；没有证据的边一律不动。
+
+    ⚠ 与 v6.1 整改 P0-C（"检测失败时不得静默用整帧冒充画面"）**不冲突**：
+    这里不是"检测失败后的兜底"，而是**平铺扫描的正判**——帧已铺满扫描这一条本身就是
+    边界证据；结果写进 `prov["image_area"]="auto-rebate-bounded"` 与逐边内缩量，
+    且置信度低时 `needs_crop_review` 照旧上报，不静默。
+    返回 `(roi, {边名: 内缩比例})`。
+    """
+    fy0, fx0, fy1, fx1 = frame
+    y0, x0, y1, x1 = fy0, fx0, fy1, fx1
+    fh, fw = max(1, fy1 - fy0), max(1, fx1 - fx0)
+    inset = {"上": 0.0, "下": 0.0, "左": 0.0, "右": 0.0}
+    rois, info = rebate or ([], [])
+    for roi, (side, _rb, _m) in zip(rois, info):
+        ry0, rx0, ry1, rx1 = roi
+        if side == "上" and ry1 > y0:
+            y0, inset["上"] = min(ry1, y1), (min(ry1, y1) - fy0) / fh
+        elif side == "下" and ry0 < y1:
+            y1, inset["下"] = max(ry0, y0), (fy1 - max(ry0, y0)) / fh
+        elif side == "左" and rx1 > x0:
+            x0, inset["左"] = min(rx1, x1), (min(rx1, x1) - fx0) / fw
+        elif side == "右" and rx0 < x1:
+            x1, inset["右"] = max(rx0, x0), (fx1 - max(rx0, x0)) / fw
+    return (int(y0), int(x0), int(y1), int(x1)), inset
+
+
+
 def detect_regions(t_rgb: np.ndarray, max_dim: int = 800) -> dict:
     """全图 -> 帧、片基与画面区域 ROI（原图坐标）。
 

@@ -179,11 +179,30 @@ def _auto_fill_rois(oriented: np.ndarray, geo: GeometryRegions,
     prov["auto_confidence"] = round(conf, 3)
     prov["auto_warnings"] = list(det.get("warnings", []))
     src_h, src_w = tr.source_size
+    oh, ow = oriented.shape[:2]
 
     def to_src(o_roi):
         return tr.bbox_oriented_to_source(tuple(o_roi))
 
-    if geo.image_area_roi is None and det.get("image_area"):
+    #: 片基证据**一次算、两处用**（取景 + 片基取样）。顺序不能倒回来：
+    #: `image_area` 现在要问"这条边有没有片基"（㊶）。
+    from ..calibration.border import (FRAME_FLUSH_FRAC, detect_rebate_strips,
+                                      image_area_from_rebate, refine_base_roi)
+    strips, rebate_info = detect_rebate_strips(oriented)
+    fr = det.get("frame")
+    flush_frac = (0.0 if not fr else
+                  float((fr[2] - fr[0]) * (fr[3] - fr[1])) / float(max(1, oh * ow)))
+    if geo.image_area_roi is None and flush_frac >= FRAME_FLUSH_FRAC:
+        #: **单帧平铺扫描**：扫描仪已把扫描裁到画框，而 `detect_image_area` 的条带结构
+        #: 模型在这类扫描上会在画面内部找到一条"亮带"并把带外全裁掉（5207-6 只剩整幅的
+        #: 35.8%，LAWSON 招牌被切在框外）。裁哪条边交给物理证据：该边有合格片基条带才内缩。
+        box, inset = image_area_from_rebate(fr or (0, 0, oh, ow), (strips, rebate_info))
+        geo.image_area_roi = to_src(box)
+        geo.image_area_auto = True
+        prov["image_area"] = "auto-rebate-bounded"
+        prov["image_area_flush_frac"] = round(flush_frac, 4)
+        prov["image_area_inset"] = {k: round(v, 4) for k, v in inset.items()}
+    elif geo.image_area_roi is None and det.get("image_area"):
         geo.image_area_roi = to_src(det["image_area"])
         geo.image_area_auto = True
         prov["image_area"] = "auto"
@@ -192,8 +211,6 @@ def _auto_fill_rois(oriented: np.ndarray, geo: GeometryRegions,
         #: 而 `detect_regions` 只在检出的画框内部找最亮边带 ⇒ 18/37 帧退到
         #: "画面内橙色实测"，片基暗 0.17~0.49 decade，彩度整体被带偏）。
         #: 找不到合格片基条时**照旧**走原来的自动检测，不静默退回通用先验。
-        from ..calibration.border import detect_rebate_strips, refine_base_roi
-        strips, rebate_info = detect_rebate_strips(oriented)
         if strips:
             geo.base_sample_rois = [to_src(r) for r in strips]
             prov["base"] = "auto-rebate-strip"
