@@ -187,14 +187,24 @@ def _auto_fill_rois(oriented: np.ndarray, geo: GeometryRegions,
         geo.image_area_roi = to_src(det["image_area"])
         geo.image_area_auto = True
         prov["image_area"] = "auto"
-    if geo.base_sample_rois == [] and det.get("base"):
-        from ..calibration.border import refine_base_roi
-        raw = tuple(det["base"])
-        refined = refine_base_roi(oriented, raw)
-        geo.base_sample_rois = [to_src(refined or raw)]
-        prov["base"] = "auto-refined" if refined else "auto"
-        if refined:
-            prov["base_refined_from"] = to_src(raw)
+    if geo.base_sample_rois == []:
+        #: 先试**扫描贴在四边的未曝光片基**（㊵：ECN-2 的片基在画框外面，
+        #: 而 `detect_regions` 只在检出的画框内部找最亮边带 ⇒ 18/37 帧退到
+        #: "画面内橙色实测"，片基暗 0.17~0.49 decade，彩度整体被带偏）。
+        #: 找不到合格片基条时**照旧**走原来的自动检测，不静默退回通用先验。
+        from ..calibration.border import detect_rebate_strips, refine_base_roi
+        strips, rebate_info = detect_rebate_strips(oriented)
+        if strips:
+            geo.base_sample_rois = [to_src(r) for r in strips]
+            prov["base"] = "auto-rebate-strip"
+            prov["base_rebate"] = rebate_info
+        elif det.get("base"):
+            raw = tuple(det["base"])
+            refined = refine_base_roi(oriented, raw)
+            geo.base_sample_rois = [to_src(refined or raw)]
+            prov["base"] = "auto-refined" if refined else "auto"
+            if refined:
+                prov["base_refined_from"] = to_src(raw)
     if geo.output_crop_roi is None:
         if keep_rebate:
             geo.output_crop_roi = (0, 0, src_h, src_w)

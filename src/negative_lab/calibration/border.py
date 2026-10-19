@@ -426,6 +426,64 @@ def iou(a: tuple, b: tuple) -> float:
     return inter / union if union > 0 else 0.0
 
 
+REBATE_MIN_MEAN = 0.25          # 比这更暗的是黑边框，不是片基
+REBATE_RB_RANGE = (1.25, 2.8)   # 橙罩区间；白边 R/B<1、黑边无定义
+REBATE_PEGGED = 0.995           # 任一通道贴顶 ⇒ 扫描仪白边/过曝，不是胶片
+REBATE_MAX_ABOVE_BASE = 0.01    # 用它归一后画面"比片基还亮"的比例上限（物理：应 ≈0）
+
+
+def detect_rebate_strips(t_rgb: np.ndarray, *, band_frac: float = 0.012,
+                         max_dim: int = 1600) -> tuple[list, list]:
+    """扫描输入里贴在图像四边的**未曝光片基 (rebate)** → 片基取样条。
+
+    为什么需要它（2026-10-19 实测，ECN-2 两卷 70 帧）：现有 `detect_base_strip`
+    只在**检出的画框内部**找最亮边带，而扫描文件的片基在画框**外面**的边上；
+    于是 ECN-2 有 18/37 帧退到"画面内橙色实测"，采用的片基比真实片基暗
+    **R 0.17 / G 0.34 / B 0.49 decade**，把彩度整体带偏（喂真片基后
+    `Cab` 误差 12.27 → 5.43）。
+
+    三道闸缺一不可（每一道都是被一次真实误判逼出来的）：
+    ① 亮度均值 ≥ 0.25：5219 的四条边实测 t≈0.0003，是**黑边框**，不是片基；
+    ② R/B ∈ [1.25, 2.8] 且任一通道未贴顶：5207 的**右边**测出 [0.86, 0.94, 1.00]，
+       那是扫描仪白边——第一版没有这道闸就把它当片基用了；
+    ③ 用它归一后画面中心 `above_base ≤ 1%`：负片内不可能有比未曝光片基更亮的像素。
+       5207 上/下/左三条边实测 0.02~0.06%，5219 全边 98% ⇒ 这道闸直接把没有片边的卷拒掉。
+
+    返回 `(roi 列表, 每条的 (边名, R/B, 均值))`；没有合格条带时返回 `([], [])`，
+    调用方必须回退到原有检测，**不许**因为"找不到"就退回通用先验。
+    """
+    h, w = t_rgb.shape[:2]
+    step = max(1, int(np.ceil(max(h, w) / float(max_dim))))
+    a = t_rgb[::step, ::step, :].astype(np.float64)
+    ah, aw = a.shape[:2]
+    bh, bw = max(4, int(ah * band_frac)), max(4, int(aw * band_frac))
+    x0, x1 = int(aw * 0.15), int(aw * 0.85)      # 避开齿孔与四角印字
+    y0, y1 = int(ah * 0.15), int(ah * 0.85)
+    cands = {"上": (0, bh, x0, x1), "下": (ah - bh, ah, x0, x1),
+             "左": (y0, y1, 0, bw), "右": (y0, y1, aw - bw, aw)}
+    cen = a[y0:y1, x0:x1].reshape(-1, 3)
+    scored = []
+    for name, (ry0, ry1, rx0, rx1) in cands.items():
+        band = a[ry0:ry1, rx0:rx1].reshape(-1, 3)
+        lum = band.mean(axis=1)
+        sel = band[lum >= np.quantile(lum, 0.90)]        # 带内最亮的一档
+        m = sel.mean(axis=0)
+        rb = float(m[0] / max(m[2], 1e-4))
+        if (float(m.mean()) < REBATE_MIN_MEAN or not
+                (REBATE_RB_RANGE[0] <= rb <= REBATE_RB_RANGE[1]) or float(m.max()) >= REBATE_PEGGED):
+            continue
+        if float((cen > m[None, :]).mean()) > REBATE_MAX_ABOVE_BASE:
+            continue
+        spread = float(np.std(sel.mean(axis=1)) / max(np.mean(sel.mean(axis=1)), 1e-3))
+        scored.append(((float(m.mean()) * min(rb, 3.0)) / (1.0 + 3.0 * spread),
+                       name, (ry0 * step, rx0 * step, ry1 * step, rx1 * step),
+                       rb, float(m.mean())))
+    scored.sort(key=lambda x: -x[0])
+    keep = [s for s in scored[:2] if s[0] >= 0.35 * scored[0][0]]
+    return ([s[2] for s in keep],
+            [(s[1], round(s[3], 2), round(s[4], 3)) for s in keep])
+
+
 def detect_regions(t_rgb: np.ndarray, max_dim: int = 800) -> dict:
     """全图 -> 帧、片基与画面区域 ROI（原图坐标）。
 
