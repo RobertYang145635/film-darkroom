@@ -37,6 +37,12 @@ class ExportCoordinatorMixin:
             return
         rid = self.library.current_roll
         frames = self._frames_of(rid or "")
+        # ㊶ 追加⑪：卷级片种声明在进管线之前落到帧上（帧级已声明的优先）。
+        # 放在这里而不是管线里：`process_roll` 只拿 FrameRecord 列表，
+        # 整卷导出与单帧重算共用同一条路，声明必须在入口处合一处。
+        _roll = self.session.roll(rid or "") if self.session else None
+        if _roll is not None:
+            _roll.apply_film_type(frames)
         if not frames:
             QMessageBox.information(self, "整卷导出", "当前卷没有帧")
             return

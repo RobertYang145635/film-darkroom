@@ -502,6 +502,10 @@ class RollGroup:
     shared_candidate: CandidateSet | None = None
     shared_render_intent: dict | None = None
     conflicting_frames: list = field(default_factory=list)
+    #: ㊶ 追加⑪：这一卷的**用户声明片种**（`pipeline/film_types.py` 的 key，空=未声明）。
+    #: 放在卷级而不是帧级，是因为"一卷一种胶片"是事实，而逐帧声明会让人误以为
+    #: 同一卷里可以混着换片。帧级字段仍然有效并且**优先于卷级**。
+    film_type: str = ""
 
     def validate(self) -> list[str]:
         errs: list[str] = []
@@ -509,6 +513,11 @@ class RollGroup:
             errs.append("roll requires id")
         if not self.display_name:
             errs.append("roll requires display_name")
+        if self.film_type:
+            from .film_types import known_keys
+            if self.film_type not in known_keys():
+                errs.append(f"roll {self.id!r} 声明了未知片种 {self.film_type!r}"
+                            f"（已知：{known_keys()}）——未知键一律不接受")
         dup = {f for f in self.frame_ids if self.frame_ids.count(f) > 1}
         if dup:
             errs.append(f"duplicate frame ids: {sorted(dup)}")
@@ -526,7 +535,19 @@ class RollGroup:
             if self.shared_candidate else None,
             "shared_render_intent": self.shared_render_intent,
             "conflicting_frames": list(self.conflicting_frames),
+            "film_type": str(self.film_type),            # ㊶ 追加⑪ 卷级片种声明
         })
+
+    def apply_film_type(self, frames: list) -> list:
+        """把卷级片种声明落到帧上（**帧级已声明的优先**——他可能手工改过某一帧）。
+
+        为什么不在管线里读 `RollGroup`：`process_roll` 只拿 `FrameRecord` 列表
+        （整卷导出与单帧重算共用同一条路），所以声明必须在进管线之前落到位。
+        """
+        for f in frames:
+            if self.film_type and not getattr(f, "film_type", ""):
+                f.film_type = self.film_type
+        return frames
 
     @classmethod
     def from_dict(cls, d: dict) -> "RollGroup":
@@ -539,7 +560,9 @@ class RollGroup:
             roll_analysis=RollAnalysis.from_dict(ra) if ra else None,
             shared_candidate=CandidateSet.from_dict(sc) if sc else None,
             shared_render_intent=d.get("shared_render_intent"),
-            conflicting_frames=list(d.get("conflicting_frames") or []))
+            conflicting_frames=list(d.get("conflicting_frames") or []),
+            film_type=(d.get("film_type") or "").strip() if isinstance(
+                d.get("film_type", ""), str) else "")
 
 
 # ----------------------------------------------------------------- 导入会话

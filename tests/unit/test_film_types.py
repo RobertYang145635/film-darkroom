@@ -15,6 +15,7 @@ from negative_lab.pipeline.model_assets import ModelAsset
 from negative_lab.pipeline.params import InvertParams
 from negative_lab.print_math import LOOK_BLUE_EXPONENT, LOOK_RED_EXPONENT
 from negative_lab.pipeline.service import process_roll
+from negative_lab.library.models import RollGroup as RollGroupBack
 from negative_lab.pipeline.film_types import (FILM_TYPES, FilmType, asset_for,
                                               known_keys, resolve, resolve_keys)
 
@@ -48,17 +49,18 @@ def test_undeclared_is_not_a_film_type():
 
 def test_table_entries_must_carry_provenance_and_frames():
     with pytest.raises(ValueError, match="出处"):
-        FilmType(key="k", label="L", red_ratio=1.3, blue_ratio=0.9,
+        FilmType(key="k", label="L", roll="probe_roll", red_ratio=1.3, blue_ratio=0.9,
                  provenance="   ", frames=35)
     with pytest.raises(ValueError, match="帧数"):
-        FilmType(key="k", label="L", red_ratio=1.3, blue_ratio=0.9,
+        FilmType(key="k", label="L", roll="probe_roll", red_ratio=1.3, blue_ratio=0.9,
                  provenance="实测", frames=0)
     for k, ft in FILM_TYPES.items():
         assert ft.provenance.strip() and ft.frames > 0 and k == ft.key
 
 
 def test_asset_sets_both_slopes_and_touches_nothing_else():
-    ft = FilmType(key="probe", label="探针片种", red_ratio=1.42, blue_ratio=0.63,
+    ft = FilmType(key="probe", label="探针片种", roll="probe_roll",
+                  red_ratio=1.42, blue_ratio=0.63,
                   provenance="本测试的合成输入", frames=1)
     a = asset_for(ft)
     assert isinstance(a, ModelAsset) and a.enabled
@@ -74,7 +76,7 @@ def test_asset_sets_both_slopes_and_touches_nothing_else():
 def test_declaring_production_slopes_is_bit_identical_to_declaring_nothing(monkeypatch):
     """退化控制：表里放一个"等于现产默认"的片种 ⇒ 像素必须逐比特相同。"""
     base = _roll("")
-    ft = FilmType(key="probe-same", label="与现产同值",
+    ft = FilmType(key="probe-same", label="与现产同值", roll="probe_roll",
                   red_ratio=LOOK_RED_EXPONENT, blue_ratio=LOOK_BLUE_EXPONENT,
                   provenance="本测试：证明声明通道本身不引入差异", frames=1)
     monkeypatch.setitem(FILM_TYPES, "probe-same", ft)
@@ -87,7 +89,7 @@ def test_declaring_production_slopes_is_bit_identical_to_declaring_nothing(monke
 def test_declaring_a_different_slope_actually_reaches_the_backend(monkeypatch):
     """非空控制：换一个蓝斜率，解析后的参数与像素都必须变（否则声明又是死的）。"""
     base = _roll("")
-    ft = FilmType(key="probe-blue", label="探针蓝斜率",
+    ft = FilmType(key="probe-blue", label="探针蓝斜率", roll="probe_roll",
                   red_ratio=LOOK_RED_EXPONENT, blue_ratio=0.55,
                   provenance="本测试：追加⑩ 三臂实测的最小复现", frames=1)
     monkeypatch.setitem(FILM_TYPES, "probe-blue", ft)
@@ -99,3 +101,52 @@ def test_declaring_a_different_slope_actually_reaches_the_backend(monkeypatch):
 
 def test_known_keys_are_sorted_and_match_the_table():
     assert known_keys() == sorted(FILM_TYPES)
+
+
+# ---------------------------------------------------------------- 卷级声明（㊶ 追加⑪）
+
+def _roll_group(film_type: str):
+    from negative_lab.library.models import RollGroup
+    return RollGroup(id="r1", display_name="探针卷", frame_ids=["a", "b"],
+                     film_type=film_type)
+
+
+def test_roll_group_roundtrip_keeps_the_declaration():
+    g = _roll_group("probe")
+    assert RollGroupBack.from_dict(g.to_dict()).film_type == "probe"
+    # 旧会话文件里没有这个键 ⇒ 未声明，不是"未知片种"
+    d = g.to_dict()
+    d.pop("film_type")
+    assert RollGroupBack.from_dict(d).film_type == ""
+    assert RollGroupBack.from_dict(g.to_dict() | {"film_type": 42}).film_type == ""
+
+
+def test_frame_level_declaration_wins_over_roll_level():
+    from negative_lab.library.models import FrameRecord, GeometryRegions
+    g = _roll_group("probe")
+    frames = [FrameRecord(source_path="a", geometry=GeometryRegions()),
+              FrameRecord(source_path="b", geometry=GeometryRegions(), film_type="other")]
+    g.apply_film_type(frames)
+    assert [f.film_type for f in frames] == ["probe", "other"]
+
+
+def test_unknown_roll_declaration_is_rejected_not_silently_dropped():
+    assert any("未知片种" in e for e in _roll_group("no-such-stock").validate())
+    assert _roll_group("").validate() == []          # 未声明是合法状态
+
+
+def test_roll_level_declaration_reaches_the_backend(monkeypatch):
+    """整条链：卷声明 → 落到帧 → process_roll 解析成资产 → 后端参数变。"""
+    from negative_lab.library.models import FrameRecord, GeometryRegions
+    ft = FilmType(key="probe-roll", label="卷级探针", roll="probe_roll",
+                  red_ratio=LOOK_RED_EXPONENT, blue_ratio=0.62,
+                  provenance="本测试：卷级声明端到端", frames=1)
+    monkeypatch.setitem(FILM_TYPES, "probe-roll", ft)
+    g = _roll_group("probe-roll")
+    img = _neg()
+    recs = [FrameRecord(source_path="a", source_sha256="0" * 64,
+                        geometry=GeometryRegions(), orientation_decided=True)]
+    g.apply_film_type(recs)
+    _, results = process_roll([(recs[0], img)])
+    assert results[0].report.params.blue_ratio == pytest.approx(0.62)
+    assert str(results[0].model_asset.get("asset_version")) == "film-type-probe-roll-v1"
