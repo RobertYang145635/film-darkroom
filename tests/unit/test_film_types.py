@@ -174,3 +174,22 @@ def test_declare_film_type_is_the_single_entry(tmp_path, monkeypatch):
     assert back.roll("r1").film_type == "probe-sess"
     sess.declare_film_type("r1", "")                       # 空键 = 取消声明
     assert sess.roll("r1").film_type == ""
+
+
+def test_roll_caption_shows_declared_stock(monkeypatch):
+    """左栏卷名必须带上已声明的片种（声明了却看不见 = 用户下一轮只能猜）。
+
+    只调静态方法，不建 widget、不建 QApplication —— 这条锁要能在无头环境跑，
+    不能把 B-8 那类 GUI 崩溃引进单测全量门。
+    """
+    from types import SimpleNamespace
+    from negative_lab.ui.library_panel import LibraryPanel
+    monkeypatch.setitem(FILM_TYPES, "probe-cap", FilmType(
+        key="probe-cap", label="探针卷", roll="probe_roll",
+        red_ratio=LOOK_RED_EXPONENT, blue_ratio=LOOK_BLUE_EXPONENT,
+        provenance="本测试：卷名可见性", frames=1))
+    cap = LibraryPanel._roll_caption
+    assert cap(SimpleNamespace(display_name="5207", film_type="probe-cap")) == "5207｜探针卷"
+    # 未声明 / 键被从表里删掉：都只显示卷名，不显示空壳分隔符
+    assert cap(SimpleNamespace(display_name="5207", film_type="")) == "5207"
+    assert cap(SimpleNamespace(display_name="5207", film_type="gone")) == "5207"

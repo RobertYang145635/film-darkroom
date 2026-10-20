@@ -95,7 +95,8 @@ class LibraryPanel(QWidget):
         self.btn_new_roll = QPushButton("新建卷")
         self.btn_rename = QPushButton("改名")
         self.btn_split = QPushButton("拆分")
-        for b in (self.btn_new_roll, self.btn_rename, self.btn_split):
+        self.btn_film_type = QPushButton("声明片种")
+        for b in (self.btn_new_roll, self.btn_rename, self.btn_split, self.btn_film_type):
             head.addWidget(b, 1)
         lay.addLayout(head)
 
@@ -117,6 +118,7 @@ class LibraryPanel(QWidget):
         self.btn_new_roll.clicked.connect(self._new_roll)
         self.btn_rename.clicked.connect(self._rename_roll)
         self.btn_split.clicked.connect(self._split_roll)
+        self.btn_film_type.clicked.connect(self._declare_film_type)
         self._signals = _ThumbSignals()
         self._signals.done.connect(self._thumb_ready)
 
@@ -131,7 +133,7 @@ class LibraryPanel(QWidget):
             self.lbl_state.setText("未导入")
             return
         for r in session.roll_groups:
-            self._add_roll_item(r.id, r.display_name)
+            self._add_roll_item(r.id, self._roll_caption(r))
         ungrouped = session.ungrouped()
         if ungrouped:
             self._add_roll_item("__ungrouped__",
@@ -143,6 +145,14 @@ class LibraryPanel(QWidget):
         it = QListWidgetItem(name)
         it.setData(Qt.UserRole, rid)
         self.roll_list.addItem(it)
+
+    @staticmethod
+    def _roll_caption(roll) -> str:
+        """卷名后带上已声明的片种：声明了却在界面上看不出来，用户下一轮只能靠猜——
+        参数选择的证据必须在使用它的界面上看得见。"""
+        from ..library.film_types import resolve
+        ft = resolve(getattr(roll, "film_type", "") or "")
+        return f"{roll.display_name}｜{ft.label}" if ft else roll.display_name
 
     def select_roll(self, rid: str):
         """编程化选卷：显式走 _roll_changed 全流程（setCurrentRow 在
@@ -283,6 +293,49 @@ class LibraryPanel(QWidget):
         self.set_session(self.session, tiff_assumption=self._assumption)
         self.select_roll(self.session.roll_groups[-1].id)
         self.request_split.emit(self.current_roll, frames)
+        self.grouping_changed.emit()
+
+    def _declare_film_type(self):
+        """卷级片种声明：只决定"这一卷用哪套技术级通道斜率"，不碰几何、不碰电平。
+
+        未声明 = 现产默认（逐比特不变），所以这一栏留空是安全选项，不是缺陷。
+        """
+        from ..library.film_types import FILM_TYPES, known_keys
+        if self.session is None or not self.current_roll \
+                or self.current_roll == "__ungrouped__":
+            return
+        keys = [""] + known_keys()
+        labels = ["（不声明，用通用默认）"] + [FILM_TYPES[k].label for k in keys[1:]]
+        if len(keys) == 1:
+            QMessageBox.information(self, "声明片种",
+                                    "还没有已标定的片种（参数表为空）。\n"
+                                    "所有卷都按通用默认出图，这是正常状态。")
+            return
+        r = self.session.roll(self.current_roll)
+        if r is None:
+            return
+        cur = labels[keys.index(r.film_type)] if r.film_type in keys else labels[0]
+        choice, ok = QInputDialog.getItem(self, "声明片种",
+                                         f"这一卷（{r.display_name}）是什么片种？",
+                                         labels, labels.index(cur), False)
+        if not ok:
+            return
+        old, key = r.film_type, keys[labels.index(choice)]
+        try:
+            self.session.declare_film_type(self.current_roll, key)
+        except (KeyError, ValueError) as exc:
+            QMessageBox.warning(self, "声明片种", f"声明没有写入：{exc}")
+            return
+        # 帧级同步：预览/草稿走的是 FrameRecord，不同步的话界面与导出会各说一套。
+        # 只改"上一轮由这一卷填进去"的帧——逐帧单独声明过的帧不归卷级管。
+        frames = self._frames_of(self.current_roll)
+        if old:
+            for f in frames:
+                if f.film_type == old:
+                    f.film_type = key
+        r.apply_film_type(frames)
+        self.set_session(self.session, tiff_assumption=self._assumption)
+        self.select_roll(self.current_roll)
         self.grouping_changed.emit()
 
     def mark_conflicts(self, conflicting: list[str]):
