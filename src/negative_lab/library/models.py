@@ -433,6 +433,11 @@ class FrameRecord:
     #: `False`=明确"没决定过"⇒ 门禁给 needs_review；`True`=决定过。
     #: 界面与验收套具**必须显式给值**，这条由 `test_orientation_flag_call_sites` 钉住。
     orientation_decided: bool | None = None
+    #: ㊶ 追加⑨/⑩：用户**声明**的片种键（`pipeline/film_types.py` 的 `key`）。
+    #: 空 = 未声明 ⇒ 技术级通道斜率走现产默认（逐比特不变）。
+    #: 为什么放在帧级而不是卷级：软件**不许猜**片种（三卷 G200/CN400 的 capture
+    #: 指纹完全相同，`film-corpus-traps` 第 7 条），而声明要能落到可核对的单位。
+    film_type: str = ""
 
     def key(self) -> str:
         return f"{self.source_path}#{self.source_sha256[:16]}"
@@ -465,6 +470,7 @@ class FrameRecord:
             "keep_rebate": bool(self.keep_rebate),      # v6.1 §4 显式布尔
             "orientation_decided": (None if self.orientation_decided is None
                                     else bool(self.orientation_decided)),   # B-12
+            "film_type": str(self.film_type),                    # ㊶ 追加⑨
         })
 
     @classmethod
@@ -477,6 +483,8 @@ class FrameRecord:
         kw["keep_rebate"] = kr if isinstance(kr, bool) else False
         od = d.get("orientation_decided", None)     # B-12：旧文件=没人说过
         kw["orientation_decided"] = od if isinstance(od, bool) else None
+        ft = d.get("film_type", "")                # ㊶ 追加⑨：旧文件=未声明
+        kw["film_type"] = ft.strip() if isinstance(ft, str) else ""
         kw["geometry"] = GeometryRegions.from_dict(d.get("geometry") or {})
         return cls(**kw)
 

@@ -781,6 +781,15 @@ def process_roll(frames: list[tuple[FrameRecord, np.ndarray]], *,
     """
     first: list[ProcessResult] = []
     fps: list[str] = []
+    if model_asset is None:
+        #: ㊶ 追加⑨/⑩：用户**声明**了片种 ⇒ 技术级通道斜率走该片种的资产。
+        #: 为什么在这里而不是往 `prior` 里填：`FilmProfile.exponent_prior` 那一路
+        #: 会被 `process_image` 末尾的默认资产无条件覆盖（追加⑩ 三臂实测）。
+        #: 未声明 ⇒ 一个字节都不变（`resolve_keys` 返回 None，仍走 `deterministic_asset`）。
+        from .film_types import asset_for, resolve_keys
+        declared = resolve_keys([rec.film_type for rec, _img in frames])
+        if declared is not None:
+            model_asset = asset_for(declared)
     for rec, img in frames:
         fp = (capture_fingerprints or {}).get(rec.source_path) \
             or capture_fingerprint_from_record(rec, img)
