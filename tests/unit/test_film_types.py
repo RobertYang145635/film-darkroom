@@ -289,3 +289,25 @@ def test_print_scale_helpers_must_use_the_same_aim_as_the_print():
     assert window_y_med(bad, 0.50) is None
     #: 负控制：把 aim 传进去也不许把异常漏出去
     assert window_y_med(bad, 0.50, aim=0.10) is None
+
+
+def test_declared_asset_provenance_is_visible_in_the_delivered_record(monkeypatch):
+    """交付记录必须答得出"这帧用了哪个片种、打印目标是多少"。
+
+    只有 `asset_version` 是不够的：`print_aim` 不改任何反相参数，
+    它在 sidecar 里会完全隐形（㊶ 追加⑯ 建探针时实测 `film_type` 读出来是 `None`，
+    只能靠解析版本字符串反推——那正是"证据链在交付记录里看不见"这一类缺陷）。
+    """
+    monkeypatch.setitem(FILM_TYPES, "probe-vis", FilmType(
+        key="probe-vis", label="溯源探针", roll="probe_roll",
+        red_ratio=LOOK_RED_EXPONENT, blue_ratio=LOOK_BLUE_EXPONENT,
+        print_aim=0.10, provenance="本测试：交付记录可见性", frames=7))
+    info = _roll("probe-vis").model_asset
+    assert info.get("film_type") == "probe-vis"
+    assert float(info.get("print_aim")) == pytest.approx(0.10)
+    assert int(info.get("frames")) == 7
+    assert "溯源探针" not in str(info.get("provenance"))   # 出处是测量描述，不是 label
+    assert str(info.get("provenance")).startswith("本测试")
+    #: 负控制：未声明的默认资产没有这些字段，不该被凭空造出来
+    off = _roll("").model_asset
+    assert "film_type" not in off and "print_aim" not in off

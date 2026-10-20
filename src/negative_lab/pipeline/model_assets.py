@@ -89,10 +89,19 @@ class ModelAsset:
                 setattr(params, key, float(p[key]))
         params.backend_name = ("density-affine-curves"
                                if any(c for c in curves) else "density-affine")
-        return {"applied": True, "asset_version": self.asset_version,
+        info = {"applied": True, "asset_version": self.asset_version,
                 "asset_sha256": self.sha256, "backend": params.backend_name,
                 "training_manifest_sha256": (self.meta or {}).get(
                     "training_manifest_sha256", "")}
+        #: 片种资产的溯源字段一并回传。交付记录必须能回答
+        #: "这一帧用的是哪个片种、打印中灰目标是多少、值是在几帧上定的"——
+        #: 只有 `asset_version` 的话，`print_aim` 这类**不改反相参数**的字段
+        #: 在 sidecar 里完全隐形（㊶ 追加⑯ 建探针时实测 `film_type` 读出来是 None，
+        #: 只能靠解析版本字符串反推）。
+        for key in ("film_type", "provenance", "frames", "print_aim"):
+            if p.get(key) is not None:
+                info[key] = p[key]
+        return info
 
     def to_dict(self) -> dict:
         return {"schema_version": SCHEMA, "asset_version": self.asset_version,
