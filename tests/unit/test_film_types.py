@@ -150,3 +150,27 @@ def test_roll_level_declaration_reaches_the_backend(monkeypatch):
     _, results = process_roll([(recs[0], img)])
     assert results[0].report.params.blue_ratio == pytest.approx(0.62)
     assert str(results[0].model_asset.get("asset_version")) == "film-type-probe-roll-v1"
+
+
+def test_declare_film_type_is_the_single_entry(tmp_path, monkeypatch):
+    """`ImportSession.declare_film_type` 是 CLI 与将来 GUI 共用的唯一入口。"""
+    from negative_lab.library.models import FrameRecord, ImportSession, RollGroup
+    ft = FilmType(key="probe-sess", label="会话探针", roll="probe_roll",
+                  red_ratio=LOOK_RED_EXPONENT, blue_ratio=0.80,
+                  provenance="本测试：会话往返", frames=1)
+    monkeypatch.setitem(FILM_TYPES, "probe-sess", ft)
+    rec = FrameRecord(source_path="a.NEF", source_sha256="0" * 64,
+                      geometry=GeometryRegions(), roll_id="r1")
+    sess = ImportSession(files=[rec],
+                         roll_groups=[RollGroup(id="r1", display_name="卷一",
+                                                frame_ids=["a.NEF"])])
+    with pytest.raises(ValueError, match="未知片种"):
+        sess.declare_film_type("r1", "no-such")
+    with pytest.raises(KeyError):
+        sess.declare_film_type("没有这卷", "probe-sess")
+    sess.declare_film_type("卷一", "probe-sess")          # 按显示名也要能找到
+    p = sess.save(tmp_path / "s.json")
+    back = ImportSession.load(p)
+    assert back.roll("r1").film_type == "probe-sess"
+    sess.declare_film_type("r1", "")                       # 空键 = 取消声明
+    assert sess.roll("r1").film_type == ""

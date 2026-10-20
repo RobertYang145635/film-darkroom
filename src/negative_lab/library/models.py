@@ -589,6 +589,23 @@ class ImportSession:
                 return r
         return None
 
+    def declare_film_type(self, roll_id_or_name: str, key: str) -> RollGroup:
+        """**唯一的片种声明入口**（CLI 与将来的 GUI 下拉都走这里，别各写一份）。
+
+        未知键直接抛错：`save()` 会经 `RollGroup.validate()` 再挡一次，
+        但那里报错太晚（用户的卷已经被改成坏值），所以在这里就拒绝。
+        空键 = 取消声明（回到现产斜率）。
+        """
+        from .film_types import known_keys, resolve
+        target = self.roll(roll_id_or_name) or next(
+            (r for r in self.roll_groups if r.display_name == roll_id_or_name), None)
+        if target is None:
+            raise KeyError(f"会话里没有卷 {roll_id_or_name!r}")
+        if key and resolve(key) is None:
+            raise ValueError(f"未知片种 {key!r}；已知：{known_keys()}")
+        target.film_type = key
+        return target
+
     def ungrouped(self) -> list[FrameRecord]:
         return [f for f in self.files if not f.roll_id]
 

@@ -209,14 +209,13 @@ def cmd_roll(args) -> int:
         print(f"会话中没有卷 {args.roll!r}", file=sys.stderr)
         return 2
     if args.film_type:
-        from .library.film_types import known_keys, resolve
-        if resolve(args.film_type) is None:
-            print(f"未知片种 {args.film_type!r}；已知：{known_keys()}"
-                  f"（未声明时保持现产斜率，未知键一律不接受）", file=sys.stderr)
+        try:
+            roll = sess.declare_film_type(roll.id, args.film_type)
+        except ValueError as e:
+            print(f"{e}（未声明时保持现产斜率，未知键一律不接受）", file=sys.stderr)
             return 2
-        roll.film_type = args.film_type
         sess.save(Path(args.session))
-        print(f"已声明卷 {roll.id} 片种={args.film_type}，写回会话 {args.session}")
+        print(f"已声明卷 {roll.id} 片种={roll.film_type}，写回会话 {args.session}")
     frames = [f for f in (sess.frame(p) for p in roll.frame_ids) if f]
     roll.apply_film_type(frames)      # ㊶ 追加⑪：卷级片种声明落到帧上（帧级优先）
     intent = _intent_from_args(args)
