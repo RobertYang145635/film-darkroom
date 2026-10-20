@@ -92,6 +92,11 @@ class RenderIntent:
     #: 拿一个对着已标定帧拟合出来的口味系数去放大一片不知道错在哪的颜色，
     #: 实测把 1299 两帧的饱和 p95 从 0.537/0.341 推到 0.910/0.769。
     print_chroma_gain: float = 0.0
+    #: 印相曲线的**中灰输出目标**（纸级反射率）。`0.0` = 未施加 = 用模块默认 `PRINT_AIM`。
+    #: 为什么逐帧可换而不是全局常数：ECN-2 两卷一致偏亮 ~0.30 EV 而 G200 两卷不偏，
+    #: 全局改会把 G200 推过头（`docs/blockers.md` B-16 追加⑯）⇒ 按片种给。
+    #: 与 `print_anchor` 同进同出：只在施加过印相时才写进 schema。
+    print_aim: float = 0.0
     # 候选来源说明（不是控件；进入 sidecar）
     origin: str = "user"
     notes: list = field(default_factory=list)
@@ -118,6 +123,7 @@ class RenderIntent:
                             print_anchor=tuple(self.print_anchor or ()),
                             print_dmax=float(self.print_dmax or 0.0),
                             print_chroma_gain=float(self.print_chroma_gain or 0.0),
+                            print_aim=float(self.print_aim or 0.0),
                             origin=self.origin, notes=list(self.notes))
 
     def reset_field(self, name: str) -> None:
@@ -148,6 +154,8 @@ class RenderIntent:
             d["print_dmax"] = float(self.print_dmax)
             if float(self.print_chroma_gain or 0.0) > 0:
                 d["print_chroma_gain"] = float(self.print_chroma_gain)
+            if float(self.print_aim or 0.0) > 0:
+                d["print_aim"] = float(self.print_aim)
         d["origin"] = self.origin
         d["notes"] = list(self.notes)
         return d
@@ -168,6 +176,7 @@ class RenderIntent:
                 it.print_anchor = tuple(float(v) for v in anchor)
                 it.print_dmax = float(d.get("print_dmax") or 0.0)
                 it.print_chroma_gain = float(d.get("print_chroma_gain") or 0.0)
+                it.print_aim = float(d.get("print_aim") or 0.0)
             except (TypeError, ValueError):
                 it.print_anchor = ()        # 坏数据：退回"不施加"，不猜
         it.origin = str(d.get("origin", "user"))
@@ -400,7 +409,9 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
         remapped, applied = print_remap_array(
             x, anchor, it.print_dmax,
             chroma_gain=(float(it.print_chroma_gain)
-                         if float(it.print_chroma_gain or 0.0) > 0 else None))
+                         if float(it.print_chroma_gain or 0.0) > 0 else None),
+            aim=(float(it.print_aim)
+                 if float(it.print_aim or 0.0) > 0 else None))
         if applied is not None:
             x = remapped                    # 锚点退化则不动，控件照旧生效
     # 1) 色温/色调（色适应）

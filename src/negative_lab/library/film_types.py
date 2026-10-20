@@ -31,6 +31,10 @@ class FilmType:
     blue_ratio: float
     provenance: str               # 在谁的样片上、怎么量的；空字符串直接抛错
     frames: int                   # 定值用的帧数（置信度证据）
+    #: 印相中灰输出目标（纸级反射率）。`0.0` = 不施加 = 用全局 `PRINT_AIM`。
+    #: 这一维为什么也在片种表里：ECN-2 两卷一致偏亮 ~0.30 EV、G200 两卷不偏，
+    #: 全局改会把 G200 推过头（`docs/blockers.md` B-16 追加⑯）。
+    print_aim: float = 0.0
 
     def __post_init__(self):
         if not self.key or not self.label or not self.roll:
@@ -44,6 +48,10 @@ class FilmType:
             v = float(getattr(self, name))
             if not (0.2 <= v <= 4.0):
                 raise ValueError(f"片种 {self.key}.{name}={v} 出界（0.2~4.0）")
+        pa = float(self.print_aim)
+        if pa and not (0.02 <= pa <= 0.45):
+            raise ValueError(f"片种 {self.key}.print_aim={pa} 出界（0.02~0.45，"
+                             f"0 表示不施加）")
 
 
 #: 表。每个值都要是 A 层（交付口径）网格的**内点最小**，出处写在各自字段里。
@@ -51,7 +59,7 @@ class FilmType:
 FILM_TYPES: dict[str, FilmType] = {
     "ecn2-5207": FilmType(
         key="ecn2-5207", label="ECN-2 · 5207 卷", roll="ECN2_5207",
-        red_ratio=1.70, blue_ratio=0.85, frames=35,
+        red_ratio=1.70, blue_ratio=0.85, frames=35, print_aim=0.10,
         provenance="用户手工正片真值 35 帧（`棚拍5207+5219/ECN2`，对齐表 v2）。"
                    "A 层（交付口径，显示域→384→中心 70%）联立网格 `tmp_slope_cast_sweep.py joint`："
                    "rr 轴 Δcast_rg 在 bb=0.85 上 1.50→−0.0872 / 1.70→−0.0094 / 1.85→+0.0401 / "
@@ -59,16 +67,23 @@ FILM_TYPES: dict[str, FilmType] = {
                    "0.50→0.4830 / 0.65→0.2435 / 0.85→0.0579 / 1.00→0.0598 / 1.15→0.1350（内点）。"
                    "⚠ 单轴扫时 bb 的最优给到 1.00，抬 rr 之后降到 0.85——两轴不正交，"
                    "0.85 与 1.00 只差 0.0019（Δbg 过零 ≈0.92），取 J 最小且改动更少的 0.85。"
-                   "cast 误差 0.2328→0.0579。"),
+                   "cast 误差 0.2328→0.0579。"
+                   "print_aim=0.10 另有一笔账：`tmp_curve_targets_perstock.py` 在 white 不动"
+                   "（=现产 0.80375）时扫 aim，本卷 |L*| 走 0.07→5.898 / **0.10→5.742** / "
+                   "0.13→6.041（内点最小），带符号 +4.902→**+0.314**、|std| 0.0257→0.0200、"
+                   "|Cab| 5.502→4.365 同时变好；G200 两卷在同一格过冲到 −2.09/−2.41 ⇒ 不进全局。"),
     "ecn2-5219": FilmType(
         key="ecn2-5219", label="ECN-2 · 5219 卷", roll="ECN2_5219",
-        red_ratio=1.70, blue_ratio=0.65, frames=35,
+        red_ratio=1.70, blue_ratio=0.65, frames=35, print_aim=0.10,
         provenance="用户手工正片真值 35 帧（同上一卷的目录，另一个卷号、同一 ECN-2 工艺）。"
                    "A 层联立网格：rr 轴 Δcast_rg 1.50→−0.0477 / 1.70→+0.0283 / 1.85→+0.0785 / "
                    "2.00→+0.1236（内点）；bb 轴在 rr=1.70 上 Jc 为 "
                    "0.50→0.1846 / 0.65→0.0567 / 0.85→0.2252 / 1.00→0.3080 / 1.15→0.3701（内点）。"
                    "与 5207 同工艺却往**相反**方向调（这支 Δbg 过零 ≈0.624），"
-                   "这正是参数必须按片种给的证据。cast 误差 0.3059→0.0567。"),
+                   "这正是参数必须按片种给的证据。cast 误差 0.3059→0.0567。"
+                   "print_aim=0.10：本卷 |L*| 走 0.07→4.496 / **0.10→4.499** / 0.13→4.699，"
+                   "带符号 +4.853→**+0.757**、|std| 0.0250→0.0211、|Cab| 6.824→5.697；"
+                   "与 5207 落在**同一格**（两卷独立同意），出处见上一条的曲线扫。"),
 }
 
 

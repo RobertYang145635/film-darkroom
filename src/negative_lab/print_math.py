@@ -249,7 +249,14 @@ _LUM_W = np.array([0.2126, 0.7152, 0.0722], dtype=np.float64)
 _LUM_W32 = _LUM_W.astype(np.float32)
 
 
-def anchor_refusal_reason(samples: np.ndarray | None) -> str:
+def _curve_kwargs(aim: float | None) -> dict:
+    """`print_curve` 的 `aim` 默认值在**定义时**就绑定了模块常数，
+    所以"运行时才决定的按片种目标"必须显式传；`None` 表示"没传"= 现产行为。"""
+    return {} if aim is None else {"aim": float(aim)}
+
+
+def anchor_refusal_reason(samples: np.ndarray | None,
+                          aim: float | None = None) -> str:
     """为什么定不出打印曲线——**拒绝必须说得出原因**。
 
     没有这句话，被拒的帧会安静地按未印相的技术正片导出，而用户看到的
@@ -271,7 +278,7 @@ def anchor_refusal_reason(samples: np.ndarray | None) -> str:
         return (f"画面中心分位退化（lo {lo:.3f} / mid {mid:.3f} / hi {hi:.3f}），"
                 "黑-中灰-白次序不成立")
     try:
-        print_curve((lo, mid, hi))
+        print_curve((lo, mid, hi), **_curve_kwargs(aim))
     except ValueError as e:
         return str(e)
     return ""
@@ -458,7 +465,8 @@ def level_shift(density_median: float | None,
 
 def anchor_with_level(anchor: tuple[float, ...] | None,
                       density_median: float | None,
-                      highlight_area: float | None = None):
+                      highlight_area: float | None = None,
+                      aim: float | None = None):
     """给锚点加电平绝对项，返回 `(锚, 实际δ, 说明)`；**δ=0 时锚逐比特不变**。
 
     只动**中灰与白**、黑锚不动：黑锚是场景暗部的地板（由 `P_LOW` 定），
@@ -481,7 +489,7 @@ def anchor_with_level(anchor: tuple[float, ...] | None,
         return anchor, 0.0, f"两点退化锚：不加电平项（δ={delta:+.4f} 未施加）"
     shifted = (anchor[0], anchor[1] - delta, anchor[2] - delta)
     try:
-        print_curve(shifted)
+        print_curve(shifted, **_curve_kwargs(aim))
     except ValueError as exc:
         return anchor, 0.0, f"平移后曲线不合法，保持原锚（δ={delta:+.4f} 未施加）：{exc}"
     return shifted, delta, ""
@@ -635,7 +643,8 @@ PRINT_WINDOW_YMED_REFERENCE = 0.43
 
 
 def window_y_med(anchor: tuple[float, ...] | None,
-                 density_median: float | None) -> float | None:
+                 density_median: float | None,
+                 aim: float | None = None) -> float | None:
     """出厂曲线上这帧密度中位落到的**纸级亮度**（`1 − 10^−v`），无携带者时返回 `None`。
 
     与打印锚点**同一个取样总体**（`centre_region` ∩ `picture_density`）的中位数——
@@ -645,7 +654,10 @@ def window_y_med(anchor: tuple[float, ...] | None,
         return None
     if not math.isfinite(float(density_median)):
         return None
-    xs, ys = print_curve(anchor)
+    try:
+        xs, ys = print_curve(anchor, **_curve_kwargs(aim))
+    except ValueError:
+        return None
     v = float(np.interp(float(density_median), xs, ys))
     return float(1.0 - 10.0 ** (-v))
 
@@ -653,7 +665,8 @@ def window_y_med(anchor: tuple[float, ...] | None,
 def white_window_floor(anchor: tuple[float, ...] | None,
                        w_min: float | None = None,
                        density_median: float | None = None,
-                       tau: float | None = None):
+                       tau: float | None = None,
+                       aim: float | None = None):
     """窄跨度负片不拉满纸级：`(lo, mid, hi) → (lo, mid, max(hi, lo + w_min))`。
 
     返回 `(锚, 是否改动, 说明)`。`lo/mid` 不动 ⇒ 黑点与中灰一字不改。
@@ -686,7 +699,7 @@ def white_window_floor(anchor: tuple[float, ...] | None,
                                    f"（这帧本来就印得暗），不收窄窗口")
     raised = (lo, mid, target)
     try:
-        print_curve(raised)
+        print_curve(raised, **_curve_kwargs(aim))
     except ValueError as exc:
         return anchor, False, f"窗口下限会使曲线不合法，保持原白锚：{exc}"
     return raised, True, ""
@@ -774,7 +787,9 @@ def chroma_gain_at(paper_luma: np.ndarray, base_gain: float) -> np.ndarray:
 
 def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
                 dmax_old: float, mask_band: np.ndarray | None,
-                chroma_gain: float = LOOK_CHROMA_GAIN) -> np.ndarray:
+                chroma_gain: float = LOOK_CHROMA_GAIN,
+                aim: float | None = None,
+                white: float | None = None) -> np.ndarray:
     """若干行的保色度重映射，返回 `(数组, 该块的裁剪统计)`。
 
     统计是 `{"n", "n_clip", "k_sum"}`：`n_clip` 个像素的色度被纸白天花板收过，
@@ -791,7 +806,10 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     """
     lum = rgb @ _LUM_W32
     top = rgb.max(axis=2)
-    new_lum = remap_luma(lum, anchor, dmax_old).astype(np.float32)
+    new_lum = remap_luma(lum, anchor, dmax_old,
+                         aim=PRINT_AIM if aim is None else float(aim),
+                         white=PRINT_WHITE if white is None else float(white)
+                         ).astype(np.float32)
     floor = np.float32(1e-5)
     bright = lum > floor
     gain = np.ones(lum.shape, dtype=np.float32)
@@ -845,11 +863,19 @@ def print_remap_array(positive_linear: np.ndarray,
                       anchor: tuple[float, float, float] | None,
                       dmax_old: float, mask: np.ndarray | None = None,
                       max_chunk_pixels: int = 4_000_000,
-                      chroma_gain: float | None = None):
+                      chroma_gain: float | None = None,
+                      aim: float | None = None,
+                      white: float | None = None):
     """**按行分块**的打印重映射，返回 (新数组, 采用记录或 None)。
 
     `chroma_gain=None` 表示"用模块默认值"（`LOOK_CHROMA_GAIN`）；
     生产路径会**按片基来源**传 1.0（未实测就不放大色彩），见 `service` 第 9b 步。
+
+    `aim`/`white` 同理是**逐帧可换的印相输出目标**（`None` = 用模块默认）。
+    此前这条链在 `_remap_band` 处断掉：`remap_luma` 早就有 `aim`/`white` 形参，
+    但没人转发，所以"打印中灰目标"只能是全局常数——实测 ECN-2 两卷一致偏亮
+    ~0.30 EV，而 G200 两卷不偏（`docs/blockers.md` B-16 追加⑯），
+    全局改会把 G200 推过头，所以必须按片种给。
 
     分块是必须的，不是优化：`apply_render` 作用在**全分辨率**技术正片上，
     未分块时 45MP 帧会一次新建六个同尺寸数组（约 1.6GB 峰值），
@@ -859,11 +885,13 @@ def print_remap_array(positive_linear: np.ndarray,
     if anchor is None:
         return positive_linear, None
     k = LOOK_CHROMA_GAIN if chroma_gain is None else float(chroma_gain)
+    a = PRINT_AIM if aim is None else float(aim)
+    w = PRINT_WHITE if white is None else float(white)
     x = np.asarray(positive_linear, dtype=np.float32)
     if x.ndim != 3 or x.shape[-1] < 3:
         return positive_linear, None
     try:
-        print_curve(anchor)                      # 先验曲线合法，避免半路抛错
+        print_curve(anchor, aim=a, white=w)      # 先验曲线合法，避免半路抛错
     except ValueError:
         return positive_linear, None
     m = np.asarray(mask, dtype=bool) if mask is not None else None
@@ -878,7 +906,7 @@ def print_remap_array(positive_linear: np.ndarray,
     k_sum = 0.0
     if h <= rows:
         out, st = _remap_band(rgb, anchor, float(dmax_old),
-                              None if m is None else m, k)
+                              None if m is None else m, k, aim=a, white=w)
         px += st["n"]
         n_clip += st["n_clip"]
         k_sum += st["k_sum"]
@@ -887,7 +915,8 @@ def print_remap_array(positive_linear: np.ndarray,
         for y0 in range(0, h, rows):
             y1 = min(y0 + rows, h)
             band, st = _remap_band(rgb[y0:y1], anchor, float(dmax_old),
-                                   None if m is None else m[y0:y1], k)
+                                   None if m is None else m[y0:y1], k,
+                                   aim=a, white=w)
             out[y0:y1] = band
             px += st["n"]
             n_clip += st["n_clip"]

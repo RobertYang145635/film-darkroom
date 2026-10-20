@@ -193,3 +193,99 @@ def test_roll_caption_shows_declared_stock(monkeypatch):
     # 未声明 / 键被从表里删掉：都只显示卷名，不显示空壳分隔符
     assert cap(SimpleNamespace(display_name="5207", film_type="")) == "5207"
     assert cap(SimpleNamespace(display_name="5207", film_type="gone")) == "5207"
+
+
+# ------------------------------------------------------- 印相中灰目标按片种（㊶ 追加⑯）
+def _ft_aim(key: str, aim: float) -> FilmType:
+    return FilmType(key=key, label=f"探针 aim {aim}", roll="probe_roll",
+                    red_ratio=LOOK_RED_EXPONENT, blue_ratio=LOOK_BLUE_EXPONENT,
+                    print_aim=aim, provenance="本测试：印相中灰目标按片种", frames=1)
+
+
+def test_print_aim_out_of_range_is_rejected():
+    """0 表示"不施加"；非零必须落在纸级反射率的合理区间。"""
+    for bad in (0.01, 0.60, -0.2):
+        with pytest.raises(ValueError, match="print_aim"):
+            _ft_aim(f"probe-aim-bad-{bad}", bad)
+    assert _ft_aim("probe-aim-zero", 0.0).print_aim == 0.0
+
+
+def test_print_aim_reaches_the_render_and_changes_pixels(monkeypatch):
+    """声明带 aim 的片种 ⇒ 意图里看得见、像素真的变了（机制不是装饰）。"""
+    monkeypatch.setitem(FILM_TYPES, "probe-aim-on", _ft_aim("probe-aim-on", 0.10))
+    pr = _roll("probe-aim-on")
+    assert float(pr.render_intent.print_aim) == pytest.approx(0.10)
+    assert pr.render_intent.to_dict().get("print_aim") == pytest.approx(0.10)
+    off = _roll("")
+    assert float(off.render_intent.print_aim) == 0.0
+    assert not np.array_equal(pr.rendered_positive_linear,
+                              off.rendered_positive_linear)
+
+
+def test_print_aim_zero_is_bit_identical_to_undeclared(monkeypatch):
+    """退化控制：`print_aim=0` 的片种必须与"什么都不声明"**逐比特相同**。
+
+    这条过了才可以说"老用户与未声明的卷不受这次改动影响"——
+    斜率那一维已有同型锁（`test_declaring_production_slopes_is_a_no_op`），
+    这一维是新加的通道，必须单独钉。
+    """
+    monkeypatch.setitem(FILM_TYPES, "probe-aim-off", _ft_aim("probe-aim-off", 0.0))
+    a = _roll("probe-aim-off")
+    b = _roll("")
+    assert np.array_equal(a.rendered_positive_linear, b.rendered_positive_linear)
+    assert "print_aim" not in a.render_intent.to_dict()
+
+
+def test_old_intent_schema_without_print_aim_still_loads():
+    """旧 sidecar/草稿里没有 `print_aim` ⇒ 读成 0（不施加），不是报错也不是猜值。"""
+    from negative_lab.library.render import RenderIntent
+    it = RenderIntent.from_dict({"print_anchor": [0.05, 0.40, 1.20], "print_dmax": 1.3})
+    assert float(it.print_aim) == 0.0
+    assert float(RenderIntent.from_dict(it.to_dict()).print_aim) == 0.0
+
+
+def test_print_remap_array_default_targets_are_bit_identical():
+    """`aim`/`white` 不传 ⇒ 与模块默认逐比特同（新形参不许改变现产行为）。"""
+    from negative_lab import print_math
+    from negative_lab.print_math import print_remap_array
+    anchor = (0.05, 0.40, 1.20)
+    x = np.random.default_rng(7).uniform(0.02, 0.9, (24, 40, 3)).astype(np.float32)
+    d0, _ = print_remap_array(x, anchor, 1.3)
+    d1, _ = print_remap_array(x, anchor, 1.3, aim=print_math.PRINT_AIM,
+                              white=print_math.PRINT_WHITE)
+    assert np.array_equal(d0, d1)
+    d2, _ = print_remap_array(x, anchor, 1.3, aim=0.10)
+    assert not np.array_equal(d0, d2)
+
+
+def test_print_scale_helpers_must_use_the_same_aim_as_the_print():
+    """㊶ 追加⑯ 上线时抓到的真缺陷：辅助判断各自偷偷用**默认 aim** 验曲线。
+
+    片种把 aim 降到 0.10 之后，"三点曲线能不能解"这道闸在 `service` 里按 0.10 过了，
+    紧接着 `window_y_med` 又按默认 0.18 去解同一条曲线 ⇒ 直接抛
+    `ValueError: 打印曲线斜率未递增（趾部 0.709 ≥ 高光 0.574）`，整卷导出崩。
+    这条锁钉两件事：① aim 必须**真的被转发**（不是签名里有、体里不用）；
+    ② 解不出时 `window_y_med` 按它自己的契约返回 `None`，不许把异常抛给调用方。
+    """
+    from negative_lab.print_math import (print_curve, window_y_med,
+                                         white_window_floor, anchor_with_level)
+    good = (0.05, 0.50, 1.30)
+    #: ① 转发有效：同一根锚，换 aim 必须换出不同的纸级亮度
+    y_def = window_y_med(good, 0.50)
+    y_low = window_y_med(good, 0.50, aim=0.10)
+    assert y_def is not None and y_low is not None and y_def != y_low
+    xs, ys = print_curve(good, aim=0.10)
+    import math as _m
+    assert _m.isclose(y_low, float(1.0 - 10.0 ** (-float(np.interp(0.50, xs, ys)))),
+                      rel_tol=1e-9)
+    #: 其余两个辅助也不能忽略 aim（它们内部要验曲线，且必须能正常返回）
+    assert anchor_with_level(good, 0.50, 0.2, aim=0.10)[1] == \
+        anchor_with_level(good, 0.50, 0.2)[1]          # δ 与 aim 无关，但不许抛
+    assert white_window_floor(good, density_median=0.50, aim=0.10)[0] is not None
+    #: ② 反例：这根锚在默认 aim 下解不出（趾部斜率 > 高光），必须返回 None 而不是抛
+    bad = (0.05, 0.06, 1.30)
+    with pytest.raises(ValueError):
+        print_curve(bad)
+    assert window_y_med(bad, 0.50) is None
+    #: 负控制：把 aim 传进去也不许把异常漏出去
+    assert window_y_med(bad, 0.50, aim=0.10) is None

@@ -528,6 +528,11 @@ def process_image(t_source: np.ndarray, *,
     asset = (model_asset if model_asset is not None else
              deterministic_asset(reason="默认关闭：通用矩阵尚未通过颜色真值验证"))
     asset_info = asset.apply_to(rep.params)
+    #: ㊶ 追加⑯：片种资产可以带自己的**印相中灰目标**（`print_aim`）。
+    #: 在解资产之后立刻取，因为下面"三点曲线能不能解"的验证必须用**同一个目标**去问，
+    #: 否则会出现"按默认目标判退化、按片种目标本可以解"的错杀。
+    #: 0 / 资产里没有这个键 = 不施加 = 用 `PRINT_AIM`，未声明的卷逐比特不变。
+    asset_aim = float((getattr(asset, "payload", None) or {}).get("print_aim") or 0.0)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
@@ -580,10 +585,10 @@ def process_image(t_source: np.ndarray, *,
         anchor = density_anchor(samples)
         linear_fallback = ""
         if anchor is None:
-            print_refused = anchor_refusal_reason(samples)
+            print_refused = anchor_refusal_reason(samples, aim=(asset_aim or None))
         else:
             try:
-                print_curve(anchor)
+                print_curve(anchor, **({} if not asset_aim else {"aim": asset_aim}))
             except ValueError as exc:
                 #: 三点曲线解不出（趾部挤成一团）不等于"这帧不该印"。
                 #: 退成两点直线仍能压掉雾；实测 `1298_G200::G200-10`
@@ -611,14 +616,16 @@ def process_image(t_source: np.ndarray, *,
             #: 的那一侧（`y_med < PRINT_WINDOW_YMED_REFERENCE`，B-14㉕；
             #: 这是经验分隔不是机理，依据全部写在那条常量块里）。
             anchor_before_window = tuple(float(v) for v in anchor)
-            window_y = window_y_med(anchor_before_window, density_median)
+            window_y = window_y_med(anchor_before_window, density_median,
+                                     aim=(asset_aim or None))
             anchor, window_raised, window_note = white_window_floor(
-                anchor, density_median=density_median)
+                anchor, density_median=density_median, aim=(asset_aim or None))
             #: 电平绝对项（B-14⑭/㉓）：读**与锚同一个取样总体**（`centre_region` 里的
             #: `picture_density`）的密度中位与高调面积，只抬中灰与白、黑锚不动。
             #: δ=0 时逐比特等于不加这一项。
             anchor, level_delta, level_note = anchor_with_level(anchor, density_median,
-                                                                hi_area)
+                                                                hi_area,
+                                                                aim=(asset_aim or None))
             a = [round(float(v), 5) for v in anchor]
             #: 片基没实测的帧**不放大色彩**：`LOOK_CHROMA_GAIN` 是对着
             #: "已标定"的帧拟合出来的口味系数，乘到一片不知道错在哪的颜色上
@@ -629,11 +636,12 @@ def process_image(t_source: np.ndarray, *,
                 merged["print_anchor"] = list(a)
                 merged["print_dmax"] = float(rep.params.dmax)
                 merged["print_chroma_gain"] = gain_off
+                merged["print_aim"] = asset_aim
                 cand.intent = merged
             intent = RenderIntent.from_dict(
                 {**intent.to_dict(), "print_anchor": a,
                  "print_dmax": float(rep.params.dmax),
-                 "print_chroma_gain": gain_off})
+                 "print_chroma_gain": gain_off, "print_aim": asset_aim})
             print_scale_info = (
                 {"d_lo": a[0], "d_hi": a[1], "points": 2}
                 if len(a) == 2 else
@@ -641,6 +649,7 @@ def process_image(t_source: np.ndarray, *,
             print_scale_info.update({
                 "dmax_old": float(rep.params.dmax),
                 "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
+                "print_aim": (asset_aim or None),
                 "chroma_gain_reason": (
                     "片基未实测（generic_prior），色彩不做放大"
                     if gain_off else "片基已实测"),

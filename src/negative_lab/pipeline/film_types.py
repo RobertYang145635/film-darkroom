@@ -30,6 +30,7 @@ def asset_for(ft: FilmType) -> ModelAsset:
     """片种 → 资产。矩阵仍是单位阵、曲线为空 ⇒ 除了两个斜率什么都不动。"""
     payload = {"density_matrix": np.eye(3).tolist(), "channel_curves": [None, None, None],
                "red_ratio": float(ft.red_ratio), "blue_ratio": float(ft.blue_ratio),
+               "print_aim": float(ft.print_aim),
                "reference_exponent": None, "dmax": None,
                "film_type": ft.key, "provenance": ft.provenance, "frames": int(ft.frames)}
     return ModelAsset(asset_version=f"film-type-{ft.key}-v1", payload=payload,
