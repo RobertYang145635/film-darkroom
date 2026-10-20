@@ -4840,3 +4840,32 @@ bb=0.25 时 5207 的 C 层 `Δcast_bg` 是 −0.2979，而 A 层是 **−0.9562*
 
 `5207` 与 `5219` 是同工艺（ECN-2）的两支卷（250D 日光 / 500T 灯光），
 蓝斜率却要往相反方向走（1.00 vs 0.65）⇒ **粒度必须到"具体片种"，不能只到"工艺"**。
+
+### B-8 追加（2026-10-20）：**同一份代码连着两次全量 `tests/unit`：一次 688 全绿，一次在 31% 崩在同一行**；"重复 apply"这个假设当场被否
+
+今天为了不再拿"非 GUI 子集"当门，用 `QT_QPA_PLATFORM=offscreen` 连跑了两次**完整**
+`tests/unit`（含所有 Qt 文件），HEAD 分别是 `87dc33a` 前后：
+
+| 跑法 | 结果 |
+| --- | --- |
+| 第 1 次 | **688 passed in 258.26s**（全绿，含 12 个 Qt 文件） |
+| 第 2 次 | 进度条走到 **31% + 37 个点**时 `Windows fatal exception: access violation`， |
+| | faulthandler 顶帧 `ui/theme.py:189 in apply` ← `tests/unit/test_v6_keep_rebate.py:34 in qapp`，**没有任何 FAILED 行** |
+
+两件事要记下来：
+
+1. **门可以全绿跑**：以前几轮我报的是"非 GUI N passed"（把 12 个 Qt 文件 `--ignore` 掉），
+   那不等于门过了。今天第 1 次是**真·全量 688 passed**，所以"GUI 测试跑不动"不是借口；
+   但第 2 次崩在同一处，说明**绿不可靠**这一点仍然成立（与 B-8 最初的 3/12 一致）。
+2. **否掉一个看起来很合理的根因假设**：崩溃栈指向 `theme.apply()`，而 `qapp` 是
+   `scope="module"` 的 fixture ⇒ 每个测试模块都会对**同一个** `QApplication`
+   再调一次 `theme.apply`（`app.setPalette` + `app.setStyleSheet`）。
+   于是猜想"重复 apply 把 style/polish 弄坏"。直接压测：
+   一个进程里 `QApplication([])` + `theme.apply(app)` **连做 60 次** ⇒ **不崩**（全 60 次打印）。
+   ⇒ 重复 apply 不是充分原因。剩下的候选（**都还没有证据，别再写成结论**）：
+   ① 前一模块创建的控件被销毁后，再次 apply 时 Qt 去 polish 悬空对象；
+   ② 与具体模块顺序有关（第 2 次崩在 31%，第 1 次同一位置没崩）；
+   ③ 与本仓库无关的 PySide6/驱动偶发。
+   下一次要做的判据实验：**固定 `-p no:randomly` 的同一顺序连跑 5 次**数崩溃率，
+   以及**把 `qapp` 改成 session 作用域**（每进程只 apply 一次）再连跑 5 次对比——
+   两个各 5 轮、每轮约 4 分钟，能真正区分①/③；本轮时间不够，**不动测试基建**。
