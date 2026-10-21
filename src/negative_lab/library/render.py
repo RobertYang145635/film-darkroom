@@ -97,6 +97,13 @@ class RenderIntent:
     #: 全局改会把 G200 推过头（`docs/blockers.md` B-16 追加⑯）⇒ 按片种给。
     #: 与 `print_anchor` 同进同出：只在施加过印相时才写进 schema。
     print_aim: float = 0.0
+    #: 高光带白点蓝黄校正的**片种强度**（`white_balance.apply_white_balance`）。
+    #: `0.0` = 不施加 = 交付逐比特不变；方向与大小由本帧自己解，强度按片种给。
+    #: 为什么在片种表里而不是全局常数：两卷量到的**内点都是 1.30**，但可用区间宽度差很多
+    #: （5207 在 1.30~2.80 都合格；5219 只有 1.30 一格，更大的 `k` 把白的 `b*` 推过零、
+    #: 撞回 T1）⇒ 入口必须能按片种分开调（`docs/blockers.md` B-16 追加㉙/㉚）。
+    #: 与 `print_anchor` 同进同出：只在施加过印相时才写进 schema。
+    white_balance: float = 0.0
     # 候选来源说明（不是控件；进入 sidecar）
     origin: str = "user"
     notes: list = field(default_factory=list)
@@ -114,8 +121,12 @@ class RenderIntent:
 
         把 `print_anchor` 算进来是必须的：否则一个"只改了印相"的 intent 会自称
         恒等，`apply_render` 的恒等短路就把印相悄悄丢了，预览与导出随即分叉。
+        `print_aim` / `white_balance` 同理：它们是两个"可以脱离锚点单独施加"的处理，
+        漏进来就会重演同一个短路丢处理（生产里它们随锚点同进同出，但**契约不该靠巧合**）。
         """
         return (not self.print_anchor
+                and abs(float(self.print_aim or 0.0)) < 1e-12
+                and abs(float(self.white_balance or 0.0)) < 1e-12
                 and all(abs(float(getattr(self, k))) < 1e-12 for k in P0_FIELDS))
 
     def copy(self) -> "RenderIntent":
@@ -124,6 +135,7 @@ class RenderIntent:
                             print_dmax=float(self.print_dmax or 0.0),
                             print_chroma_gain=float(self.print_chroma_gain or 0.0),
                             print_aim=float(self.print_aim or 0.0),
+                            white_balance=float(self.white_balance or 0.0),
                             origin=self.origin, notes=list(self.notes))
 
     def reset_field(self, name: str) -> None:
@@ -156,6 +168,8 @@ class RenderIntent:
                 d["print_chroma_gain"] = float(self.print_chroma_gain)
             if float(self.print_aim or 0.0) > 0:
                 d["print_aim"] = float(self.print_aim)
+            if float(self.white_balance or 0.0) > 0:
+                d["white_balance"] = float(self.white_balance)
         d["origin"] = self.origin
         d["notes"] = list(self.notes)
         return d
@@ -177,6 +191,7 @@ class RenderIntent:
                 it.print_dmax = float(d.get("print_dmax") or 0.0)
                 it.print_chroma_gain = float(d.get("print_chroma_gain") or 0.0)
                 it.print_aim = float(d.get("print_aim") or 0.0)
+                it.white_balance = float(d.get("white_balance") or 0.0)
             except (TypeError, ValueError):
                 it.print_anchor = ()        # 坏数据：退回"不施加"，不猜
         it.origin = str(d.get("origin", "user"))
@@ -427,6 +442,12 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
         x = _apply_tone(x, curve)
     # 7-8) 自然饱和度 / 饱和度
     x = _apply_chroma(x, it.vibrance, it.saturation)
+    # 8.5) 高光带白点蓝黄校正（B-16 追加㉚）：方向逐帧由本帧自己解，强度按片种给。
+    # 放在彩度之后、钳位之前——它改的是"白该不该带蓝"，不该被前面的口味系数决定。
+    if abs(float(it.white_balance or 0.0)) > 1e-12:
+        from ..print_math import PRINT_WHITE
+        from ..white_balance import apply_white_balance
+        x, _wb = apply_white_balance(x, float(it.white_balance), PRINT_WHITE)
     # 9) gamut/finite guard
     return np.nan_to_num(np.clip(x, 0.0, 1.0), nan=0.0, posinf=1.0,
                          neginf=0.0).astype(np.float32)

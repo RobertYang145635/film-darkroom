@@ -533,6 +533,10 @@ def process_image(t_source: np.ndarray, *,
     #: 否则会出现"按默认目标判退化、按片种目标本可以解"的错杀。
     #: 0 / 资产里没有这个键 = 不施加 = 用 `PRINT_AIM`，未声明的卷逐比特不变。
     asset_aim = float((getattr(asset, "payload", None) or {}).get("print_aim") or 0.0)
+    #: ㊶ 追加㉚：片种资产也可以带**高光带白点蓝黄校正的强度**。
+    #: 方向与大小逐帧由本帧输出自己解（`white_balance`），这里只传"打到几成"；
+    #: 0 / 资产里没有这个键 = 不施加 = 未声明的卷逐比特不变。
+    asset_wb = float((getattr(asset, "payload", None) or {}).get("white_balance") or 0.0)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
@@ -637,11 +641,13 @@ def process_image(t_source: np.ndarray, *,
                 merged["print_dmax"] = float(rep.params.dmax)
                 merged["print_chroma_gain"] = gain_off
                 merged["print_aim"] = asset_aim
+                merged["white_balance"] = asset_wb
                 cand.intent = merged
             intent = RenderIntent.from_dict(
                 {**intent.to_dict(), "print_anchor": a,
                  "print_dmax": float(rep.params.dmax),
-                 "print_chroma_gain": gain_off, "print_aim": asset_aim})
+                 "print_chroma_gain": gain_off, "print_aim": asset_aim,
+                 "white_balance": asset_wb})
             print_scale_info = (
                 {"d_lo": a[0], "d_hi": a[1], "points": 2}
                 if len(a) == 2 else
@@ -650,6 +656,9 @@ def process_image(t_source: np.ndarray, *,
                 "dmax_old": float(rep.params.dmax),
                 "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
                 "print_aim": (asset_aim or None),
+                #: ⚠ 与解码元数据里的 `white_balance_policy`（LibRaw 相机白平衡）不是一回事：
+                #: 这一维是**交付侧**高光带白点蓝黄校正的强度，读的人别按相机白平衡理解。
+                "white_balance_strength": (asset_wb or None),
                 "chroma_gain_reason": (
                     "片基未实测（generic_prior），色彩不做放大"
                     if gain_off else "片基已实测"),
