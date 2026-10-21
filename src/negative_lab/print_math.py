@@ -766,7 +766,8 @@ PRINT_CHROMA_HIGHLIGHT_GAIN = 0.80
 PRINT_CHROMA_HIGHLIGHT_START = 0.85
 
 
-def chroma_gain_at(paper_luma: np.ndarray, base_gain: float) -> np.ndarray:
+def chroma_gain_at(paper_luma: np.ndarray, base_gain: float,
+                   highlight_gain: float | None = None) -> np.ndarray:
     """逐像素色度增益：纸级 `PRINT_CHROMA_HIGHLIGHT_START` 之前恒等于 `base_gain`，
     之后线性收到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（**亮度不参与运算**，权重和恒为 1）。
 
@@ -776,10 +777,16 @@ def chroma_gain_at(paper_luma: np.ndarray, base_gain: float) -> np.ndarray:
     但公式本身不做钳位——**故意不做**：负控制要靠"把末端反而放大"这一档
     来证明这把尺有区分力（`tests/regression/test_highlight_desaturation.py`），
     加了钳位那条控制就变成空转（本轮实测踩过：钳位版下 `k_hi=4.2` 与 2.5 逐比特相同）。
+
+    `highlight_gain=None` = 用模块默认（现产行为逐比特不变）；
+    给值就是**按片种改这条斜坡的末端**——㉞ 量到 5219 在 0.55 上
+    `J` 赢 2.1% 且 `sat_p95` 只动 +0.0002，而 5207 整条网格只动 0.3% ⇒
+    这一维和 `aim`/`white_balance` 一样，只能是片种参数。
     """
     y = np.asarray(paper_luma, np.float32)
     k0 = np.float32(base_gain)
-    kh = np.float32(PRINT_CHROMA_HIGHLIGHT_GAIN)
+    kh = np.float32(PRINT_CHROMA_HIGHLIGHT_GAIN if highlight_gain is None
+                    else float(highlight_gain))
     t0 = np.float32(PRINT_CHROMA_HIGHLIGHT_START)
     ramp = np.clip((y / np.float32(PRINT_WHITE) - t0) / np.float32(1.0 - t0), 0.0, 1.0)
     return (k0 - (k0 - kh) * ramp).astype(np.float32, copy=False)
@@ -789,7 +796,8 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
                 dmax_old: float, mask_band: np.ndarray | None,
                 chroma_gain: float = LOOK_CHROMA_GAIN,
                 aim: float | None = None,
-                white: float | None = None) -> np.ndarray:
+                white: float | None = None,
+                highlight_gain: float | None = None) -> np.ndarray:
     """若干行的保色度重映射，返回 `(数组, 该块的裁剪统计)`。
 
     统计是 `{"n", "n_clip", "k_sum"}`：`n_clip` 个像素的色度被纸白天花板收过，
@@ -831,7 +839,8 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # 软件饱和 p95 0.212 对用户参考 0.405（差 −0.193），是成品"不够像"的主因。
     # k 在**纸级末端**收回到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（见那三条常量的依据）。
     y = out @ _LUM_W32
-    db = chroma_gain_at(y, chroma_gain)[..., None] * (out - y[..., None])
+    db = chroma_gain_at(y, chroma_gain,
+                        highlight_gain=highlight_gain)[..., None] * (out - y[..., None])
     # ---- 顶破纸白天花板时**只收色度、不收电平**（㉝）。
     # 旧写法是"整像素同除一个系数"：它保通道比例，但把**亮度一起拖下去**。
     # 分层量出来的代价（`tmp_layer_blame.py`，11 帧、验收同一把尺，
@@ -865,7 +874,8 @@ def print_remap_array(positive_linear: np.ndarray,
                       max_chunk_pixels: int = 4_000_000,
                       chroma_gain: float | None = None,
                       aim: float | None = None,
-                      white: float | None = None):
+                      white: float | None = None,
+                      highlight_gain: float | None = None):
     """**按行分块**的打印重映射，返回 (新数组, 采用记录或 None)。
 
     `chroma_gain=None` 表示"用模块默认值"（`LOOK_CHROMA_GAIN`）；
@@ -887,6 +897,8 @@ def print_remap_array(positive_linear: np.ndarray,
     k = LOOK_CHROMA_GAIN if chroma_gain is None else float(chroma_gain)
     a = PRINT_AIM if aim is None else float(aim)
     w = PRINT_WHITE if white is None else float(white)
+    hg = (PRINT_CHROMA_HIGHLIGHT_GAIN if highlight_gain is None
+          else float(highlight_gain))
     x = np.asarray(positive_linear, dtype=np.float32)
     if x.ndim != 3 or x.shape[-1] < 3:
         return positive_linear, None
@@ -906,7 +918,8 @@ def print_remap_array(positive_linear: np.ndarray,
     k_sum = 0.0
     if h <= rows:
         out, st = _remap_band(rgb, anchor, float(dmax_old),
-                              None if m is None else m, k, aim=a, white=w)
+                              None if m is None else m, k, aim=a, white=w,
+                              highlight_gain=hg)
         px += st["n"]
         n_clip += st["n_clip"]
         k_sum += st["k_sum"]
@@ -916,17 +929,21 @@ def print_remap_array(positive_linear: np.ndarray,
             y1 = min(y0 + rows, h)
             band, st = _remap_band(rgb[y0:y1], anchor, float(dmax_old),
                                    None if m is None else m[y0:y1], k,
-                                   aim=a, white=w)
+                                   aim=a, white=w, highlight_gain=hg)
             out[y0:y1] = band
             px += st["n"]
             n_clip += st["n_clip"]
             k_sum += st["k_sum"]
     if x.shape[-1] > 3:
         out = np.concatenate([out, x[..., 3:]], axis=2)
+    #: ⚠ 这里记的必须是**这一帧真正生效的**目标，不是模块默认值。
+    #: 旧写法写死 `PRINT_AIM`/`PRINT_WHITE`/`PRINT_CHROMA_HIGHLIGHT_GAIN`，
+    #: 于是 ㊶⑯ 之后凡是按片种传了 `aim` 的帧，sidecar 里都记成 0.18（现产其实是 0.10）
+    #: ——交付记录说一套、像素做一套，正是本项目最忌讳的那种"看不见的决定"。
     info = {"d_lo": round(anchor[0], 5), "d_hi": round(anchor[-1], 5),
-            "points": len(anchor), "aim": PRINT_AIM, "white": PRINT_WHITE,
+            "points": len(anchor), "aim": round(a, 5), "white": round(w, 5),
             "dmax_old": round(float(dmax_old), 5), "chroma_gain": round(k, 5),
-            "chroma_gain_highlight": PRINT_CHROMA_HIGHLIGHT_GAIN,
+            "chroma_gain_highlight": round(hg, 5),
             "chroma_ramp_start": PRINT_CHROMA_HIGHLIGHT_START,
             # ㉝：彩度顶破纸白时**收色度**的那一级要可观察——不许静默改像素。
             "chroma_clip_frac": round(float(n_clip) / float(max(px, 1)), 5),

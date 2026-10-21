@@ -311,3 +311,83 @@ def test_declared_asset_provenance_is_visible_in_the_delivered_record(monkeypatc
     #: 负控制：未声明的默认资产没有这些字段，不该被凭空造出来
     off = _roll("").model_asset
     assert "film_type" not in off and "print_aim" not in off
+
+
+# ------------------------------------------- 纸白端彩度收回档按片种（㊶ 追加/㉟）
+def _ft_chg(key: str, chg: float) -> FilmType:
+    return FilmType(key=key, label=f"探针高光档 {chg}", roll="probe_roll",
+                    red_ratio=LOOK_RED_EXPONENT, blue_ratio=LOOK_BLUE_EXPONENT,
+                    chroma_highlight_gain=chg,
+                    provenance="本测试：纸白端彩度收回档按片种", frames=1)
+
+
+def test_chroma_highlight_gain_out_of_range_is_rejected():
+    """0 = 不施加；非零必须落在量过的区间（表里不许出现没量过的档）。"""
+    for bad in (0.01, 1.80, -0.5):
+        with pytest.raises(ValueError, match="chroma_highlight_gain"):
+            _ft_chg(f"probe-chg-bad-{bad}", bad)
+    assert _ft_chg("probe-chg-zero", 0.0).chroma_highlight_gain == 0.0
+
+
+def test_chroma_highlight_gain_reaches_the_render_and_is_recorded(monkeypatch):
+    """声明带这一档的片种 ⇒ 意图看得见、像素真的变、**sidecar 记的是生效值**。"""
+    monkeypatch.setitem(FILM_TYPES, "probe-chg-on", _ft_chg("probe-chg-on", 0.55))
+    pr = _roll("probe-chg-on")
+    assert float(pr.render_intent.print_chroma_highlight_gain) == pytest.approx(0.55)
+    assert (pr.render_intent.to_dict().get("print_chroma_highlight_gain")
+            == pytest.approx(0.55))
+    off = _roll("")
+    assert float(off.render_intent.print_chroma_highlight_gain) == 0.0
+    assert not np.array_equal(pr.rendered_positive_linear,
+                              off.rendered_positive_linear)
+    rec = pr.meta["print_scale"]
+    assert rec["chroma_highlight_gain"] == pytest.approx(0.55)
+
+
+def test_chroma_highlight_gain_zero_is_bit_identical_to_undeclared(monkeypatch):
+    """退化控制：`chroma_highlight_gain=0` 必须与"什么都不声明"逐比特相同
+    ⇒ 未声明的卷（含 G200 那两卷）一个字都不受影响。"""
+    monkeypatch.setitem(FILM_TYPES, "probe-chg-off", _ft_chg("probe-chg-off", 0.0))
+    a = _roll("probe-chg-off")
+    b = _roll("")
+    assert np.array_equal(a.rendered_positive_linear, b.rendered_positive_linear)
+    assert "print_chroma_highlight_gain" not in a.render_intent.to_dict()
+
+
+def test_print_remap_records_effective_targets_not_module_defaults():
+    """㉟ 补的真缺陷：`info` 从前写死模块常数，于是按片种传了 `aim` 的帧
+    在交付记录里被记成 0.18（现产），**记录说一套、像素做一套**。"""
+    from negative_lab import print_math
+    from negative_lab.print_math import print_remap_array
+    x = np.random.default_rng(5).uniform(0.02, 0.9, (16, 24, 3)).astype(np.float32)
+    anchor = (0.05, 0.40, 1.20)
+    _out, info = print_remap_array(x, anchor, 1.3, aim=0.10, white=0.75,
+                                   highlight_gain=0.55)
+    assert info["aim"] == pytest.approx(0.10), "生效的 aim 没记进 sidecar"
+    assert info["white"] == pytest.approx(0.75), "生效的 white 没记进 sidecar"
+    assert info["chroma_gain_highlight"] == pytest.approx(0.55)
+    _o2, i2 = print_remap_array(x, anchor, 1.3)
+    assert i2["aim"] == pytest.approx(print_math.PRINT_AIM)
+    assert i2["chroma_gain_highlight"] == pytest.approx(
+        print_math.PRINT_CHROMA_HIGHLIGHT_GAIN)
+
+
+def test_chroma_gain_at_default_is_bit_identical_and_only_moves_highlights():
+    """不传 = 现产逐比特；传值只动纸级末端以上，中调一个比特都不许变。"""
+    from negative_lab import print_math
+    from negative_lab.print_math import chroma_gain_at
+    y = np.linspace(0.0, print_math.PRINT_WHITE, 400).astype(np.float32)
+    a = chroma_gain_at(y, 2.50)
+    b = chroma_gain_at(y, 2.50, highlight_gain=print_math.PRINT_CHROMA_HIGHLIGHT_GAIN)
+    assert np.array_equal(a, b)
+    c = chroma_gain_at(y, 2.50, highlight_gain=0.55)
+    mid = y < print_math.PRINT_WHITE * print_math.PRINT_CHROMA_HIGHLIGHT_START
+    assert np.array_equal(a[mid], c[mid]), "斜坡起点以下就被动了"
+    assert float(np.abs(a[~mid] - c[~mid]).max()) > 0.05, "纸白端没收到 ⇒ 这一维是空转"
+
+
+def test_intent_with_only_chroma_highlight_gain_does_not_claim_identity():
+    """与 `white_balance` 同型：可脱离锚点单独施加的处理不许自称恒等。"""
+    from negative_lab.library.render import RenderIntent
+    assert RenderIntent(print_chroma_highlight_gain=0.55).is_identity() is False
+    assert RenderIntent().is_identity() is True

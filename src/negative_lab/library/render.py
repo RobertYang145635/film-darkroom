@@ -104,6 +104,11 @@ class RenderIntent:
     #: 撞回 T1）⇒ 入口必须能按片种分开调（`docs/blockers.md` B-16 追加㉙/㉚）。
     #: 与 `print_anchor` 同进同出：只在施加过印相时才写进 schema。
     white_balance: float = 0.0
+    #: 纸白端彩度**收回到几成**（`print_math.chroma_gain_at` 的 `highlight_gain`）。
+    #: `0.0` = 不施加 = 用模块默认 `PRINT_CHROMA_HIGHLIGHT_GAIN`（现产 0.80）。
+    #: 为什么按片种：㉞ 量到 5219 在 0.55 上 `J` 赢 2.1% 且 `sat_p95` 只动 +0.0002，
+    #: 而 5207 整条网格只动 0.3% ⇒ 与 `aim`/`white_balance` 同属"一卷一个方向"的那一类。
+    print_chroma_highlight_gain: float = 0.0
     # 候选来源说明（不是控件；进入 sidecar）
     origin: str = "user"
     notes: list = field(default_factory=list)
@@ -127,6 +132,7 @@ class RenderIntent:
         return (not self.print_anchor
                 and abs(float(self.print_aim or 0.0)) < 1e-12
                 and abs(float(self.white_balance or 0.0)) < 1e-12
+                and abs(float(self.print_chroma_highlight_gain or 0.0)) < 1e-12
                 and all(abs(float(getattr(self, k))) < 1e-12 for k in P0_FIELDS))
 
     def copy(self) -> "RenderIntent":
@@ -136,6 +142,8 @@ class RenderIntent:
                             print_chroma_gain=float(self.print_chroma_gain or 0.0),
                             print_aim=float(self.print_aim or 0.0),
                             white_balance=float(self.white_balance or 0.0),
+                            print_chroma_highlight_gain=float(
+                                self.print_chroma_highlight_gain or 0.0),
                             origin=self.origin, notes=list(self.notes))
 
     def reset_field(self, name: str) -> None:
@@ -170,6 +178,8 @@ class RenderIntent:
                 d["print_aim"] = float(self.print_aim)
             if float(self.white_balance or 0.0) > 0:
                 d["white_balance"] = float(self.white_balance)
+            if float(self.print_chroma_highlight_gain or 0.0) > 0:
+                d["print_chroma_highlight_gain"] = float(self.print_chroma_highlight_gain)
         d["origin"] = self.origin
         d["notes"] = list(self.notes)
         return d
@@ -192,6 +202,8 @@ class RenderIntent:
                 it.print_chroma_gain = float(d.get("print_chroma_gain") or 0.0)
                 it.print_aim = float(d.get("print_aim") or 0.0)
                 it.white_balance = float(d.get("white_balance") or 0.0)
+                it.print_chroma_highlight_gain = float(
+                    d.get("print_chroma_highlight_gain") or 0.0)
             except (TypeError, ValueError):
                 it.print_anchor = ()        # 坏数据：退回"不施加"，不猜
         it.origin = str(d.get("origin", "user"))
@@ -426,7 +438,10 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
             chroma_gain=(float(it.print_chroma_gain)
                          if float(it.print_chroma_gain or 0.0) > 0 else None),
             aim=(float(it.print_aim)
-                 if float(it.print_aim or 0.0) > 0 else None))
+                 if float(it.print_aim or 0.0) > 0 else None),
+            highlight_gain=(float(it.print_chroma_highlight_gain)
+                            if float(it.print_chroma_highlight_gain or 0.0) > 0
+                            else None))
         if applied is not None:
             x = remapped                    # 锚点退化则不动，控件照旧生效
     # 1) 色温/色调（色适应）

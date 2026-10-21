@@ -40,6 +40,10 @@ class FilmType:
     #: 为什么按片种给：㉙ 量到同一套约束在两卷上的可用区间宽度不同
     #: （5207 合格区间 1.30~2.80，5219 只有 1.30 一格）⇒ 不能钉成全局常数。
     white_balance: float = 0.0
+    #: 纸白端彩度收回档（`print_math.chroma_gain_at` 的 `highlight_gain`）。
+    #: `0.0` = 不施加 = 用全局 `PRINT_CHROMA_HIGHLIGHT_GAIN`。
+    #: ㉞：5219 要 0.55（`J` −2.1%、全部护栏干净通过），5207 整条网格只动 0.3% ⇒ 按片种。
+    chroma_highlight_gain: float = 0.0
 
     def __post_init__(self):
         if not self.key or not self.label or not self.roll:
@@ -61,6 +65,10 @@ class FilmType:
         if wb and not (0.05 <= wb <= 4.0):
             raise ValueError(f"片种 {self.key}.white_balance={wb} 出界（0.05~4.0，"
                              f"0 表示不施加）")
+        chg = float(self.chroma_highlight_gain)
+        if chg and not (0.05 <= chg <= 1.50):
+            raise ValueError(f"片种 {self.key}.chroma_highlight_gain={chg} 出界"
+                             f"（0.05~1.50，0 表示不施加）")
 
 
 #: 表。每个值都要是 A 层（交付口径）网格的**内点最小**，出处写在各自字段里。

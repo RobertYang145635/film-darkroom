@@ -572,7 +572,7 @@ def test_chroma_ramp_negative_control_off_is_the_old_product(monkeypatch):
 
     monkeypatch.setattr("negative_lab.print_math.PRINT_CHROMA_HIGHLIGHT_GAIN", 0.80)
 
-    def _old(y, base):     # 改之前的实现：整帧同一个标量
+    def _old(y, base, highlight_gain=None):     # 改之前的实现：整帧同一个标量
         return np.full(np.asarray(y).shape, base, dtype=np.float32)
 
     monkeypatch.setattr("negative_lab.print_math.chroma_gain_at", _old)
