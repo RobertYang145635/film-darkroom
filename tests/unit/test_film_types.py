@@ -488,9 +488,23 @@ def test_intent_with_only_print_white_does_not_claim_identity():
     assert RenderIntent(print_white=0.845).copy().print_white == pytest.approx(0.845)
 
 
-def test_ecn2_stocks_declare_the_same_white_and_aim_cell():
-    """规矩 25：跨卷一致必须是**同一格**，不是"各自都变好一点"。"""
-    for key in ("ecn2-5207", "ecn2-5219"):
-        ft = FILM_TYPES[key]
-        assert float(ft.print_white) == pytest.approx(0.845)
-        assert float(ft.print_aim) == pytest.approx(0.07)
+def test_ecn2_stocks_split_on_the_paper_white_cell():
+    """㊯：这一格**按片种分道**——5207 保留，5219 退回。
+
+    #36 把两臂放到逐帧对过网格的裁块上重跑（对齐变换只由基线臂定一次、两臂共用），
+    5207 的 HOLD 降幅在对齐口径下原样站住（−14.9%，暗/亮六端 6/6 变好），
+    5219 从 −17.2% 塌到 **−3.0%** ⇒ ㊫ 登记的本卷数字约 82% 是 ㊭ 那个 2~4% 网格错位的产物。
+    按 #36 预写的 A3 判据依据公开撤回，产品去留交看图（`ship_vs_base_5219.png` 8 帧读不出
+    「明显更像他」）⇒ 本卷退回 `print_white=0`（不施加）与 `print_aim=0.10`（㊶ 原值）。
+    这条锁的存在本身就是结论：**同格要求的是效果同格，不是参数同格**（规矩 25）。
+    """
+    keep = FILM_TYPES["ecn2-5207"]
+    assert float(keep.print_white) == pytest.approx(0.845)
+    assert float(keep.print_aim) == pytest.approx(0.07)
+    back = FILM_TYPES["ecn2-5219"]
+    assert float(back.print_white) == 0.0, "本卷纸白必须退回不施加（㊯）"
+    assert float(back.print_aim) == pytest.approx(0.10), "本卷 aim 必须退回 ㊶ 的原值"
+    #: 退回之后本卷的其余三项按片种参数不许被牵连（㊶/㉚/㊱ 的账各自独立）
+    assert (float(back.red_ratio), float(back.blue_ratio)) == pytest.approx((1.70, 0.65))
+    assert float(back.white_balance) == pytest.approx(1.80)
+    assert float(back.chroma_highlight_gain) == pytest.approx(0.45)
