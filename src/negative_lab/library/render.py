@@ -109,6 +109,17 @@ class RenderIntent:
     #: 为什么按片种：㉞ 量到 5219 在 0.55 上 `J` 赢 2.1% 且 `sat_p95` 只动 +0.0002，
     #: 而 5207 整条网格只动 0.3% ⇒ 与 `aim`/`white_balance` 同属"一卷一个方向"的那一类。
     print_chroma_highlight_gain: float = 0.0
+    #: 印相曲线的**纸白输出目标**（纸级反射率，线性域）。`0.0` = 未施加 = 用模块默认
+    #: `PRINT_WHITE`（现产 0.80375）。
+    #: 为什么按片种、且为什么和 `print_aim` **成对**给：㊦ 的 12 箱条件传递曲线量到
+    #: 我方"绕中灰被压扁"（两卷 12/12 箱同号，NLP 近 3 倍近），而 `aim` 单轴扫时
+    #: 白端被全局常数钉住 ⇒ 只解出半个形状。㊧ 联立 `white × aim` 才出现内点最小
+    #: （`docs/blockers.md` B-16 追加㊦/㊧/㊩）。
+    #: ⚠ 施加范围**只到渲染层**（`print_remap_array` 的 `white` + 白点校正的纸白参考），
+    #: 不回灌锚链（`print_curve` 的 `white` 默认值）——量到的那组数就是这么产生的，
+    #: 而且方向是保守的：`white` 越大 `v_hi` 越大、高光段斜率越大 ⇒ 三点曲线**更容易**
+    #: 通过单调性检查，绝不会出现"锚链判过、渲染不合法"。
+    print_white: float = 0.0
     # 候选来源说明（不是控件；进入 sidecar）
     origin: str = "user"
     notes: list = field(default_factory=list)
@@ -126,11 +137,13 @@ class RenderIntent:
 
         把 `print_anchor` 算进来是必须的：否则一个"只改了印相"的 intent 会自称
         恒等，`apply_render` 的恒等短路就把印相悄悄丢了，预览与导出随即分叉。
-        `print_aim` / `white_balance` 同理：它们是两个"可以脱离锚点单独施加"的处理，
-        漏进来就会重演同一个短路丢处理（生产里它们随锚点同进同出，但**契约不该靠巧合**）。
+        `print_aim` / `print_white` / `white_balance` 同理：它们是"可以脱离锚点单独施加"
+        的处理，漏进来就会重演同一个短路丢处理
+        （生产里它们随锚点同进同出，但**契约不该靠巧合**）。
         """
         return (not self.print_anchor
                 and abs(float(self.print_aim or 0.0)) < 1e-12
+                and abs(float(self.print_white or 0.0)) < 1e-12
                 and abs(float(self.white_balance or 0.0)) < 1e-12
                 and abs(float(self.print_chroma_highlight_gain or 0.0)) < 1e-12
                 and all(abs(float(getattr(self, k))) < 1e-12 for k in P0_FIELDS))
@@ -141,6 +154,7 @@ class RenderIntent:
                             print_dmax=float(self.print_dmax or 0.0),
                             print_chroma_gain=float(self.print_chroma_gain or 0.0),
                             print_aim=float(self.print_aim or 0.0),
+                            print_white=float(self.print_white or 0.0),
                             white_balance=float(self.white_balance or 0.0),
                             print_chroma_highlight_gain=float(
                                 self.print_chroma_highlight_gain or 0.0),
@@ -176,6 +190,8 @@ class RenderIntent:
                 d["print_chroma_gain"] = float(self.print_chroma_gain)
             if float(self.print_aim or 0.0) > 0:
                 d["print_aim"] = float(self.print_aim)
+            if float(self.print_white or 0.0) > 0:
+                d["print_white"] = float(self.print_white)
             if float(self.white_balance or 0.0) > 0:
                 d["white_balance"] = float(self.white_balance)
             if float(self.print_chroma_highlight_gain or 0.0) > 0:
@@ -201,6 +217,7 @@ class RenderIntent:
                 it.print_dmax = float(d.get("print_dmax") or 0.0)
                 it.print_chroma_gain = float(d.get("print_chroma_gain") or 0.0)
                 it.print_aim = float(d.get("print_aim") or 0.0)
+                it.print_white = float(d.get("print_white") or 0.0)
                 it.white_balance = float(d.get("white_balance") or 0.0)
                 it.print_chroma_highlight_gain = float(
                     d.get("print_chroma_highlight_gain") or 0.0)
@@ -439,6 +456,8 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
                          if float(it.print_chroma_gain or 0.0) > 0 else None),
             aim=(float(it.print_aim)
                  if float(it.print_aim or 0.0) > 0 else None),
+            white=(float(it.print_white)
+                   if float(it.print_white or 0.0) > 0 else None),
             highlight_gain=(float(it.print_chroma_highlight_gain)
                             if float(it.print_chroma_highlight_gain or 0.0) > 0
                             else None))
@@ -462,7 +481,13 @@ def apply_render(technical: np.ndarray, intent: RenderIntent | None = None
     if abs(float(it.white_balance or 0.0)) > 1e-12:
         from ..print_math import PRINT_WHITE
         from ..white_balance import apply_white_balance
-        x, _wb = apply_white_balance(x, float(it.white_balance), PRINT_WHITE)
+        #: 纸白参考必须跟着 `print_white` 走：这一维找的是"接近纸白的像素"，
+        #: 纸白挪到 0.845 之后还把窗口钉在 0.80375，量的就是**旧纸白的中高光**，
+        #: 而㊧/㊩ 联立扫出来的那组数正是"两者一起挪"的产物（探针当场改的是
+        #: 模块全局 `PRINT_WHITE`，这一处 import 在函数体内 ⇒ 被一起改到）。
+        paper_white = (float(it.print_white)
+                       if float(it.print_white or 0.0) > 0 else float(PRINT_WHITE))
+        x, _wb = apply_white_balance(x, float(it.white_balance), paper_white)
     # 9) gamut/finite guard
     return np.nan_to_num(np.clip(x, 0.0, 1.0), nan=0.0, posinf=1.0,
                          neginf=0.0).astype(np.float32)

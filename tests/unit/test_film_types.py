@@ -391,3 +391,106 @@ def test_intent_with_only_chroma_highlight_gain_does_not_claim_identity():
     from negative_lab.library.render import RenderIntent
     assert RenderIntent(print_chroma_highlight_gain=0.55).is_identity() is False
     assert RenderIntent().is_identity() is True
+
+
+# ------------------------------------------- 纸白输出目标按片种（㊫）
+def _ft_white(key: str, pw: float, aim: float = 0.0) -> FilmType:
+    return FilmType(key=key, label=f"探针纸白 {pw}", roll="probe_roll",
+                    red_ratio=LOOK_RED_EXPONENT, blue_ratio=LOOK_BLUE_EXPONENT,
+                    print_white=pw, print_aim=aim,
+                    provenance="本测试：纸白输出目标按片种", frames=1)
+
+
+def test_print_white_out_of_range_is_rejected():
+    """0 = 不施加；非零必须落在量过的区间（0.60~0.98），表里不许出现没量过的档。"""
+    for bad in (0.30, 1.20, -0.5):
+        with pytest.raises(ValueError, match="print_white"):
+            _ft_white(f"probe-pw-bad-{bad}", bad)
+    assert _ft_white("probe-pw-zero", 0.0).print_white == 0.0
+
+
+def test_print_white_reaches_the_render_and_is_recorded(monkeypatch):
+    """生产路径：声明纸白 ⇒ 意图看得见、像素真的变、sidecar 记的是生效值。"""
+    monkeypatch.setitem(FILM_TYPES, "probe-pw-on", _ft_white("probe-pw-on", 0.845))
+    pr = _roll("probe-pw-on")
+    assert float(pr.render_intent.print_white) == pytest.approx(0.845)
+    assert pr.render_intent.to_dict().get("print_white") == pytest.approx(0.845)
+    off = _roll("")
+    assert float(off.render_intent.print_white) == 0.0
+    assert not np.array_equal(pr.rendered_positive_linear,
+                              off.rendered_positive_linear), "纸白没改变像素 ⇒ 这一维是空转"
+    assert pr.meta["print_scale"]["print_white"] == pytest.approx(0.845)
+
+
+def test_print_white_zero_is_bit_identical_to_undeclared(monkeypatch):
+    """退化控制：`print_white=0` 必须与"什么都不声明"逐比特相同
+    ⇒ 没标纸白的卷（含 G200 两卷）一个字都不受影响。"""
+    monkeypatch.setitem(FILM_TYPES, "probe-pw-off", _ft_white("probe-pw-off", 0.0))
+    a = _roll("probe-pw-off")
+    b = _roll("")
+    assert np.array_equal(a.rendered_positive_linear, b.rendered_positive_linear)
+    assert "print_white" not in a.render_intent.to_dict()
+
+
+def test_print_white_is_the_same_ruler_in_all_four_reads(monkeypatch):
+    """㊫ 的真风险：纸白在 `_remap_band` 里是**四件事**的尺（曲线高光端点、整像素同除的
+    天花板、彩度斜坡的归一点、顶破纸白的剩余空间）。探针当年改的是**模块全局**，
+    一次动四件；上线走**逐帧参数**，只转发给曲线的话只动一件 ⇒
+    交付出去的像素不等于量过的那组数（纪律 12：组合口径就是模型）。
+
+    两条对照都要过：
+    ① 显式 `white=` == 改全局（同一条语义的两条入口，逐比特）；
+    ② 显式 `white=PRINT_WHITE` == 不传（"用默认"必须是死值，不是另一个臂）。
+    """
+    from negative_lab import print_math
+    from negative_lab.print_math import print_remap_array
+    #: 激励必须**同时**打到四个读取点：够亮（`lum` 让曲线把它抬过纸白 ⇒ `gain>1` ⇒ `cap` 生效）、
+    #: 通道差够大（顶破纸白 ⇒ `slack`/`k2` 生效）、亮度落在彩度斜坡以上（`ramp` 生效）。
+    #: 第一版用 `uniform(0.02, 0.97)` + 一条把大部分像素**压暗**的锚 ⇒ `gain ≤ 1`，
+    #: `np.minimum(gain, cap, where=gain>1)` 根本不写，把 `cap` 那一处改回模块全局
+    #: 测试照样绿（当场用"逐处回退"的负控制抓到，四只回退三处才红）。
+    rng = np.random.default_rng(7)
+    x = rng.uniform(0.62, 0.99, (32, 48, 3)).astype(np.float32)
+    anchor = (0.05, 0.30, 0.62)      # `d_hi` 小 ⇒ 曲线把这批亮像素**提亮**到纸白附近
+    dmax_old = 1.3
+    dflt = print_math.PRINT_WHITE
+    out_default, _i0 = print_remap_array(x, anchor, dmax_old, aim=0.07)
+    out_explicit_default, _i1 = print_remap_array(x, anchor, dmax_old, aim=0.07, white=dflt)
+    assert np.array_equal(out_default, out_explicit_default), "② 传默认值就不等于默认值"
+
+    monkeypatch.setattr(print_math, "PRINT_WHITE", 0.845)
+    out_patch, _i2 = print_remap_array(x, anchor, dmax_old, aim=0.07)      # 探针口径
+    monkeypatch.undo()
+    out_arg, i3 = print_remap_array(x, anchor, dmax_old, aim=0.07, white=0.845)
+    assert np.array_equal(out_patch, out_arg), \
+        "① 改全局与逐帧传值不等价 ⇒ 纸白还有没被转发的读取点，上线的不是量到的那个东西"
+    assert not np.array_equal(out_arg, out_default), "非空控制：0.845 必须真的改变像素"
+    assert i3["white"] == pytest.approx(0.845)
+    #: 激励本身要非空转：这批像素必须真的**碰过天花板**（`chroma_clip_frac>0` ⇒ `slack` 被走过），
+    #: 且必须真的有 `gain>1` 的像素（否则 `cap` 那一处又是空的）。
+    assert i3["chroma_clip_frac"] > 0.0, "激励没顶破纸白 ⇒ `slack` 那一处没被这个测试覆盖"
+    _o, i_dflt = print_remap_array(x, anchor, dmax_old, aim=0.07)
+    assert i_dflt["chroma_clip_frac"] != i3["chroma_clip_frac"], \
+        "收回系数与纸白无关 ⇒ 这一维又是空转"
+    #: 斜坡的尺也要跟着挪：同一档 `highlight_gain` 下，把纸白抬高应让**高光末端**变化，
+    #: 而纸级中段（远低于两把尺的斜坡起点）一个比特都不许动。
+    y = np.linspace(0.0, 0.845, 300).astype(np.float32)
+    g_lo = print_math.chroma_gain_at(y, 2.50, highlight_gain=0.45, white=dflt)
+    g_hi = print_math.chroma_gain_at(y, 2.50, highlight_gain=0.45, white=0.845)
+    mid = y < dflt * print_math.PRINT_CHROMA_HIGHLIGHT_START
+    assert np.array_equal(g_lo[mid], g_hi[mid]), "斜坡起点以下就被纸白动了"
+    assert float(np.abs(g_lo[~mid] - g_hi[~mid]).max()) > 1e-6, "纸白没参与斜坡 ⇒ 转发了个空值"
+
+
+def test_intent_with_only_print_white_does_not_claim_identity():
+    from negative_lab.library.render import RenderIntent
+    assert RenderIntent(print_white=0.845).is_identity() is False
+    assert RenderIntent(print_white=0.845).copy().print_white == pytest.approx(0.845)
+
+
+def test_ecn2_stocks_declare_the_same_white_and_aim_cell():
+    """规矩 25：跨卷一致必须是**同一格**，不是"各自都变好一点"。"""
+    for key in ("ecn2-5207", "ecn2-5219"):
+        ft = FILM_TYPES[key]
+        assert float(ft.print_white) == pytest.approx(0.845)
+        assert float(ft.print_aim) == pytest.approx(0.07)

@@ -31,6 +31,7 @@ def asset_for(ft: FilmType) -> ModelAsset:
     payload = {"density_matrix": np.eye(3).tolist(), "channel_curves": [None, None, None],
                "red_ratio": float(ft.red_ratio), "blue_ratio": float(ft.blue_ratio),
                "print_aim": float(ft.print_aim),
+               "print_white": float(ft.print_white),
                "white_balance": float(ft.white_balance),
                "chroma_highlight_gain": float(ft.chroma_highlight_gain),
                "reference_exponent": None, "dmax": None,

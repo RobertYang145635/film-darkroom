@@ -170,6 +170,9 @@ def test_band_edges_come_from_existing_constants():
     lo = highlight_luma_start(PRINT_WHITE)
     assert 0.7 < lo < 0.85, f"带起点异常：{lo}"
     hi = float(encode_srgb(np.array([PRINT_WHITE], np.float64))[0])
+    #: ㊫ 之后纸白可以按片种给（`RenderIntent.print_white`），这两个带沿就是它唯一的落点，
+    #: 所以带次序必须钉住：起点在纸白的编码值之下，且整个带还在显示域量程内。
+    assert lo < hi < 1.0, f"权重带沿次序不对：{lo} / {hi}"
     x = _positive_with_blue_whites()
     w = highlight_weight(x, PRINT_WHITE)
     assert w.min() == 0.0 and w.max() > 0.9, "权重没有覆盖到纸白端"

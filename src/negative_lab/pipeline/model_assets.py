@@ -98,8 +98,8 @@ class ModelAsset:
         #: 只有 `asset_version` 的话，`print_aim` 这类**不改反相参数**的字段
         #: 在 sidecar 里完全隐形（㊶ 追加⑯ 建探针时实测 `film_type` 读出来是 None，
         #: 只能靠解析版本字符串反推）。
-        for key in ("film_type", "provenance", "frames", "print_aim", "white_balance",
-                "chroma_highlight_gain"):
+        for key in ("film_type", "provenance", "frames", "print_aim", "print_white",
+                    "white_balance", "chroma_highlight_gain"):
             if p.get(key) is not None:
                 info[key] = p[key]
         return info

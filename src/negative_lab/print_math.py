@@ -738,8 +738,9 @@ def remap_luma(y_old: np.ndarray, anchor: tuple[float, float, float],
 #: 等于拿高光的数去定中间调的口味，再反过来把高光放大一倍——两头都不对：
 #: 他的剖面是"中间调浓、高光淡"，我们是"中间调淡、高光浓"。
 #:
-#: **形式**：`k_eff(y) = k − (k − k_hi)·clip(y/PRINT_WHITE − t0n, 0, 1)/(1 − t0n)`，
-#: 其中 `y` 是**线性纸级亮度**（上限就是 `PRINT_WHITE`）。
+#: **形式**：`k_eff(y) = k − (k − k_hi)·clip(y/white − t0n, 0, 1)/(1 − t0n)`，
+#: 其中 `y` 是**线性纸级亮度**、`white` 是**这一帧真正打印到的纸白**
+#: （不传 = 模块默认 `PRINT_WHITE`；㊫ 之后它可以按片种给，斜坡的尺必须跟着走）。
 #: ⚠ `t0n` 归一在纸级刻度上是有原因的：第一版把 `t0` 当显示亮度扫到 0.88，
 #: 结果**一个像素都没进斜坡**（三档 `k_hi` 数字完全相同），
 #: 而 `t0=0.45` 其实已经咬到纸级 56% 处 = 中间调（`tmp_chroma_profile.py` 当场抓到）。
@@ -767,7 +768,8 @@ PRINT_CHROMA_HIGHLIGHT_START = 0.85
 
 
 def chroma_gain_at(paper_luma: np.ndarray, base_gain: float,
-                   highlight_gain: float | None = None) -> np.ndarray:
+                   highlight_gain: float | None = None,
+                   white: float | None = None) -> np.ndarray:
     """逐像素色度增益：纸级 `PRINT_CHROMA_HIGHLIGHT_START` 之前恒等于 `base_gain`，
     之后线性收到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（**亮度不参与运算**，权重和恒为 1）。
 
@@ -788,7 +790,11 @@ def chroma_gain_at(paper_luma: np.ndarray, base_gain: float,
     kh = np.float32(PRINT_CHROMA_HIGHLIGHT_GAIN if highlight_gain is None
                     else float(highlight_gain))
     t0 = np.float32(PRINT_CHROMA_HIGHLIGHT_START)
-    ramp = np.clip((y / np.float32(PRINT_WHITE) - t0) / np.float32(1.0 - t0), 0.0, 1.0)
+    #: 斜坡归一的**尺**必须与这一帧真正打印到的纸白一致（㊫）：纸白挪到 0.845 之后
+    #: 还把 `t0n` 钉在 0.80375 上，斜坡起点就跑到别人的刻度上去了，
+    #: 高光彩度收回会**少咬**一段（`y/0.80375 > 0.85` 提前成立 ⇒ 中间调被多收）。
+    w = np.float32(PRINT_WHITE if white is None else float(white))
+    ramp = np.clip((y / w - t0) / np.float32(1.0 - t0), 0.0, 1.0)
     return (k0 - (k0 - kh) * ramp).astype(np.float32, copy=False)
 
 
@@ -814,9 +820,18 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     """
     lum = rgb @ _LUM_W32
     top = rgb.max(axis=2)
+    #: 纸白在这一个函数里只解析**一次**（㊫）。它同时是三件事的尺：曲线的高光端点、
+    #: 整像素同除的天花板、彩度斜坡的归一点、以及"顶破纸白还剩多少空间"。
+    #: 只把 `white` 转发给曲线而让其余三处继续读模块全局，等于"打印到 0.845 的纸、
+    #: 却按 0.80375 的纸削顶"——㊧/㊩ 扫出来的那组数是四者一起挪的产物，
+    #: 分开发只上线一半会得到不同的像素。
+    #: ⚠ `w` 保持 **Python float**、各站点就地转 float32：先在 float32 里存一份再
+    #: `float()` 回读会把 0.80375 变成 0.803750011…，"不施加"那一臂就不再逐比特等于现产。
+    w = PRINT_WHITE if white is None else float(white)
+    wf = np.float32(w)
     new_lum = remap_luma(lum, anchor, dmax_old,
                          aim=PRINT_AIM if aim is None else float(aim),
-                         white=PRINT_WHITE if white is None else float(white)
+                         white=w
                          ).astype(np.float32)
     floor = np.float32(1e-5)
     bright = lum > floor
@@ -827,7 +842,7 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # 而封到 1.0 会让像素正好堆在 1.0 上，被门禁 `_clip`（按 ≥1−tol 计数）
     # 判成削顶——实测那样仍有 2.29% 的 B 通道高光越界，等于白封。
     cap = np.where(top > 1e-6,
-                   np.float32(PRINT_WHITE) / np.maximum(top, np.float32(1e-6)),
+                   wf / np.maximum(top, np.float32(1e-6)),
                    np.float32(1.0)).astype(np.float32)
     np.minimum(gain, cap, out=gain, where=gain > np.float32(1.0))
     if mask_band is not None:
@@ -840,7 +855,7 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # k 在**纸级末端**收回到 `PRINT_CHROMA_HIGHLIGHT_GAIN`（见那三条常量的依据）。
     y = out @ _LUM_W32
     db = chroma_gain_at(y, chroma_gain,
-                        highlight_gain=highlight_gain)[..., None] * (out - y[..., None])
+                        highlight_gain=highlight_gain, white=w)[..., None] * (out - y[..., None])
     # ---- 顶破纸白天花板时**只收色度、不收电平**（㉝）。
     # 旧写法是"整像素同除一个系数"：它保通道比例，但把**亮度一起拖下去**。
     # 分层量出来的代价（`tmp_layer_blame.py`，11 帧、验收同一把尺，
@@ -855,7 +870,7 @@ def _remap_band(rgb: np.ndarray, anchor: tuple[float, float, float],
     # ⚠ 边界：若曲线本身已让 `y ≥ 纸白`（只在 gain ≤ 1 且原图顶得过亮时出现），
     # `slack=0` ⇒ 这一像素被收成**等亮度灰**，旧写法是拖暗；两者都越界，
     # 新写法把"过曝"如实呈现成白而不是暗。
-    slack = np.maximum(np.float32(PRINT_WHITE) - y, np.float32(0.0))
+    slack = np.maximum(wf - y, np.float32(0.0))
     room = np.where(db > np.float32(1e-7),
                     slack[..., None] / np.maximum(db, np.float32(1e-7)),
                     np.float32(np.inf)).astype(np.float32)

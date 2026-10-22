@@ -541,6 +541,15 @@ def process_image(t_source: np.ndarray, *,
     #: 0 / 没有这个键 = 不施加 = 用全局 `PRINT_CHROMA_HIGHLIGHT_GAIN`。
     asset_chg = float((getattr(asset, "payload", None) or {})
                       .get("chroma_highlight_gain") or 0.0)
+    #: ㊧/㊩：片种也可以带**纸白输出目标**（`print_white`，全局默认 0.80375）。
+    #: 与 `print_aim` 成对：趾部/中灰/高光三段的**斜率分布**由这两个落点共同定，
+    #: 只动 `aim` 等于把白端钉死后再解形状，量到的是半个答案。
+    #: ⚠ 只转发给**渲染层**（`RenderIntent.print_white`），不回灌下面那条锚链的
+    #: `print_curve(white=)`：㊧/㊩ 的数就是这么产生的；而且 `white` 越大 `v_hi` 越大
+    #: ⇒ 高光段斜率越大 ⇒ 单调性检查只会**更宽松**，不存在"锚链判过、渲染不合法"。
+    #: 0 / 没有这个键 = 不施加 = 未声明的卷逐比特不变。
+    asset_white = float((getattr(asset, "payload", None) or {})
+                        .get("print_white") or 0.0)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
@@ -645,6 +654,7 @@ def process_image(t_source: np.ndarray, *,
                 merged["print_dmax"] = float(rep.params.dmax)
                 merged["print_chroma_gain"] = gain_off
                 merged["print_aim"] = asset_aim
+                merged["print_white"] = asset_white
                 merged["white_balance"] = asset_wb
                 merged["print_chroma_highlight_gain"] = asset_chg
                 cand.intent = merged
@@ -652,6 +662,7 @@ def process_image(t_source: np.ndarray, *,
                 {**intent.to_dict(), "print_anchor": a,
                  "print_dmax": float(rep.params.dmax),
                  "print_chroma_gain": gain_off, "print_aim": asset_aim,
+                 "print_white": asset_white,
                  "white_balance": asset_wb,
                  "print_chroma_highlight_gain": asset_chg})
             print_scale_info = (
@@ -662,6 +673,7 @@ def process_image(t_source: np.ndarray, *,
                 "dmax_old": float(rep.params.dmax),
                 "chroma_gain": (gain_off or LOOK_CHROMA_GAIN),
                 "print_aim": (asset_aim or None),
+                "print_white": (asset_white or None),
                 #: ⚠ 与解码元数据里的 `white_balance_policy`（LibRaw 相机白平衡）不是一回事：
                 #: 这一维是**交付侧**高光带白点蓝黄校正的强度，读的人别按相机白平衡理解。
                 "white_balance_strength": (asset_wb or None),
