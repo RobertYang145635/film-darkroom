@@ -60,6 +60,9 @@ def test_manifest_exists_and_summary_agrees_with_its_rows():
 
 def test_manifest_rois_equal_the_live_annotations():
     """三类 ROI + 两个确认位逐字段等于当前标注——**这条才是"派生数据过期"的探针**。"""
+    if not any((ROOT / f["file"]).exists()
+               for f in json.loads(MAN.read_text(encoding="utf-8"))["frames"]):
+        pytest.skip("私有语料不在库里（gitignore），这条锁只在有素材的机器上练")
     cases = _checked_frames()
     assert len(cases) >= 20, f"这条锁要有对象可练（现在只有 {len(cases)} 帧）"
     bad = []

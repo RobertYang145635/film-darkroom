@@ -69,6 +69,9 @@ def test_probe_matches_manifest_spotcheck(doc):
     if unsup:
         picks.append(unsup)
     assert picks, "manifest 无 NEF 样片可抽查"
+    missing = [e for e in picks if not (ROOT / e["file"]).exists()]
+    if missing:
+        pytest.skip(f"私有语料不在库里（gitignore），抽查无对象：缺 {len(missing)} 张")
     for e in picks:
         pr = probe_file(ROOT / e["file"])
         assert pr.status == e["decode_status"], \
