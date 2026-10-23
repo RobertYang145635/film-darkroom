@@ -241,6 +241,17 @@ def _auto_fill_rois(oriented: np.ndarray, geo: GeometryRegions,
 
 
 # ------------------------------------------------------------------ 单帧处理
+def effective_look_saturation(current, asset_sat: float) -> float:
+    """㊹ 片种带的**外观级饱和度**与用户控件的合并规则。
+
+    `saturation` 与 `print_aim`/`white_balance` 那些不同：它是用户能直接动的控件，
+    所以片种值只填"没被设过"的那一格（`0` 视为未设，与其他资产维同一口径），
+    候选/用户写了非零值就以它为准。未声明片种值的卷 ⇒ 原样返回，逐比特不受影响。
+    """
+    cur = float(current or 0.0)
+    return cur if abs(cur) > 1e-12 else float(asset_sat or 0.0)
+
+
 def _upright_rotation(geo_in: GeometryRegions, ann: Annotation | None,
                       rotation_degrees: int,
                       orientation_decided: bool | None) -> tuple[int, tuple | None, str]:
@@ -550,6 +561,13 @@ def process_image(t_source: np.ndarray, *,
     #: 0 / 没有这个键 = 不施加 = 未声明的卷逐比特不变。
     asset_white = float((getattr(asset, "payload", None) or {})
                         .get("print_white") or 0.0)
+    #: ㊹：片种也可以带**外观级饱和度偏移**（`look_saturation` → `RenderIntent.saturation`）。
+    #: 这一维与前几条不同：`saturation` 是**用户能动的控件**，所以片种值只在
+    #: 候选意图里这一维没被设过（0）时注入——用户设了值就听用户的（有锁）。
+    #: 值的来源是他的 XMP（本卷 35/35 帧对他都是 −10，5207 是 0/0 全同），
+    #: 不是在我方误差上选的，详见 `library/film_types.py` 本卷出处与 B-16 追加㊹。
+    asset_sat = float((getattr(asset, "payload", None) or {})
+                      .get("look_saturation") or 0.0)
     if force_params is not None:
         rep.params = force_params            # 用户显式技术参数最终裁决
     res = invert_chunked(t_out, rep.params, mask=valid_mask)
@@ -648,6 +666,7 @@ def process_image(t_source: np.ndarray, *,
             #: "已标定"的帧拟合出来的口味系数，乘到一片不知道错在哪的颜色上
             #: 只会把错误放大（实测 1299 两帧饱和 p95 0.537→0.910、0.341→0.769）。
             gain_off = (1.0 if base_source == "generic_prior" else 0.0)
+            eff_sat = effective_look_saturation(intent.saturation, asset_sat)
             for cand in (cset if cset is not None else []):
                 merged = dict(cand.intent or {})
                 merged["print_anchor"] = list(a)
@@ -657,6 +676,8 @@ def process_image(t_source: np.ndarray, *,
                 merged["print_white"] = asset_white
                 merged["white_balance"] = asset_wb
                 merged["print_chroma_highlight_gain"] = asset_chg
+                merged["saturation"] = effective_look_saturation(
+                    merged.get("saturation"), asset_sat)
                 cand.intent = merged
             intent = RenderIntent.from_dict(
                 {**intent.to_dict(), "print_anchor": a,
@@ -664,6 +685,7 @@ def process_image(t_source: np.ndarray, *,
                  "print_chroma_gain": gain_off, "print_aim": asset_aim,
                  "print_white": asset_white,
                  "white_balance": asset_wb,
+                 "saturation": eff_sat,
                  "print_chroma_highlight_gain": asset_chg})
             print_scale_info = (
                 {"d_lo": a[0], "d_hi": a[1], "points": 2}
@@ -678,6 +700,10 @@ def process_image(t_source: np.ndarray, *,
                 #: 这一维是**交付侧**高光带白点蓝黄校正的强度，读的人别按相机白平衡理解。
                 "white_balance_strength": (asset_wb or None),
                 "chroma_highlight_gain": (asset_chg or None),
+                #: ㊹ 片种带的外观级饱和度偏移，记的是**实际生效值**
+                #: （候选自己写了非零值时以它为准，此时这里就是候选的值）。
+                "look_saturation": (eff_sat or None),
+                "look_saturation_asset": (asset_sat or None),
                 "chroma_gain_reason": (
                     "片基未实测（generic_prior），色彩不做放大"
                     if gain_off else "片基已实测"),

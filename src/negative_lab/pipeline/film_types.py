@@ -34,6 +34,7 @@ def asset_for(ft: FilmType) -> ModelAsset:
                "print_white": float(ft.print_white),
                "white_balance": float(ft.white_balance),
                "chroma_highlight_gain": float(ft.chroma_highlight_gain),
+               "look_saturation": float(ft.look_saturation),
                "reference_exponent": None, "dmax": None,
                "film_type": ft.key, "provenance": ft.provenance, "frames": int(ft.frames)}
     return ModelAsset(asset_version=f"film-type-{ft.key}-v1", payload=payload,
