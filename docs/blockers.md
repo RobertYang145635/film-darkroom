@@ -8175,3 +8175,30 @@ T1 = 把 `resolve_base` 一律改成返回卷级 dmin）：
 新增比较侧脚本 `tmp_slope_base_probe.py`（相关）、`tmp_rollbase_causal.py`（因果，含四遍整卷生产，
 裁块落盘 `outputs/cache_rollbase/`）；门沿用 ㊹/㊺ 那套口径（非 Qt 单元 571、14 个 Qt 文件单进程 159、
 regression+synthetic 253、ruff 干净），本轮只加文档与脚本，未再触发 `src/tests` 变更。
+
+### B-16 追加㊾（2026-10-23）：**㊹⑥ 那条单进程段错误被"只改文件边界"治好了——两次连跑 728 passed，root cause 仍 unknown**
+
+㊹⑥ 登记的现象：`pytest tests/unit` 单进程稳定段错误（`ui/theme.py:189 apply` → `setPalette`），
+A/B 证到"往 `test_film_types.py` 里加 6 条锁"就是触发条件（src 全用 HEAD 也炸）。
+本轮把那 6 条锁 + `_ft_sat` 原样搬到**新文件** `tests/unit/test_look_saturation.py`
+（内容一字未改，只是换文件），单进程连跑两次：
+
+```
+第 1 次 tests/unit 全量：728 passed in 140.36s   exit=0
+第 2 次 tests/unit 全量：728 passed in 139.64s   exit=0
+```
+
+⇒ 三条要记的：
+1. **这不是把 GUI 测试 `--ignore` 掉**——交付规矩里明确禁止那种"全绿"；
+   本轮是 728 条**全部**在同一个进程里跑完，Qt 那 14 个文件也照常执行。
+2. 崩溃对**测试在哪个文件里、以什么顺序初始化 Qt** 敏感，而对条数/内容不敏感
+   （同一批测试换个文件就两次全绿）⇒ 与 B-11 追加⑦（2026-10-08 那次"带改动 4/4 段错误、
+   `git stash` 后 605 passed"）是同一族；那次查到的机理是**内存峰值压垮 Qt**（后来用分块解决）。
+   本轮**没有查明机理**，只是把门禁恢复了——所以 #43 不关闭，改成
+   "给这条老崩溃加锁"：`qapp` fixture 复用 session 级单例、或至少在 `conftest` 里
+   把"跑不起来≠跑不过"这件事变成显式失败信息，而不是让下一轮再靠换文件撞回去。
+3. ㊹⑥ 说的"临时口径（非 Qt 一进程 + 14 个 Qt 文件各自一进程）"**作废**，
+   自本提交起恢复单一口径：`PYTHONPATH=src .venv/Scripts/python.exe -m pytest -q`。
+
+**交付状态**：`tests/unit/test_film_types.py` 减 87 行、新增 `tests/unit/test_look_saturation.py`；
+`src/` 零改动（㊹ 上线的那三项不受影响）；门：`tests/unit` 728 passed ×2、`ruff check src tests scripts` 干净。
